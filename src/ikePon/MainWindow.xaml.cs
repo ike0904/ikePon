@@ -19,7 +19,9 @@ public partial class MainWindow : Window
     private readonly BankManager _bankManager;
     private readonly KeyboardMapper _keyMapper;
     private readonly PanicController _panic;
-    private readonly ProjectData _project;
+    private ProjectData _project;
+    private string? _projectFilePath;
+    private bool _projectDirty;
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -58,13 +60,16 @@ public partial class MainWindow : Window
 
         _playback.SetProject(_project);
         _engine.Start(_settings.WasapiLatencyMs);
+        _engine.PaSeparate = _settings.PaSeparateMode;
+        MenuPaSeparate.IsChecked = _settings.PaSeparateMode;
 
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
 
         UpdateBankHighlight();
-        SetInfo2("プロジェクト未読み込み。パッドに音声ファイルをドロップしてください。");
+        UpdateTitle();
+        SetInfo2("プロジェクト未読み込み。ファイルメニューから開くか、パッドを右クリックしてファイルを読み込んでください。");
     }
 
     // ------------------------------------------------------------------
@@ -285,6 +290,7 @@ public partial class MainWindow : Window
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.FilePath = dlg.FileName;
         _playback.LoadBank(_playback.ActiveBank);
+        MarkDirty();
         SetInfo2($"Pad {padIndex + 1}: {System.IO.Path.GetFileName(dlg.FileName)} を読み込み中...");
     }
 
@@ -300,6 +306,14 @@ public partial class MainWindow : Window
             case 2: _playback.SeVolume     = (float)value; break;
             case 3: _playback.MasterVolume = (float)value; break;
         }
+        MarkDirty();
+    }
+
+    private void MarkDirty()
+    {
+        if (_projectDirty) return;
+        _projectDirty = true;
+        UpdateTitle();
     }
 
     private void OnMemoryRecall(int faderIndex, int slot, bool quick)
@@ -335,11 +349,18 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     // インフォメーションエリア
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // バンク確認ボタン
+    // ------------------------------------------------------------------
+    private void BankYesBtn_Click(object sender, RoutedEventArgs e) => _bankManager.Confirm();
+    private void BankNoBtn_Click(object sender, RoutedEventArgs e)  => _bankManager.Cancel();
+
     private void SetInfo2(string text)
     {
         InfoLine2.Text = text;
         InfoLine2.Foreground = BrushInfoNormal;
         InfoLine2Border.Background = Brushes.Transparent;
+        BankConfirmPanel.Visibility = Visibility.Collapsed;
     }
 
     private void SetInfo2Warning(string text)
@@ -347,6 +368,134 @@ public partial class MainWindow : Window
         InfoLine2.Text = text;
         InfoLine2.Foreground = BrushInfoWarnText;
         InfoLine2Border.Background = BrushInfoWarnBg;
+        BankConfirmPanel.Visibility = Visibility.Visible;
+    }
+
+    // ------------------------------------------------------------------
+    // メニュー: ファイル
+    // ------------------------------------------------------------------
+    private void Menu_New(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscard()) return;
+        _project = new ProjectData();
+        _projectFilePath = null;
+        _projectDirty = false;
+        _playback.SetProject(_project);
+        SyncFadersFromProject();
+        UpdateTitle();
+        SetInfo2("新規プロジェクトを作成しました。");
+    }
+
+    private void Menu_Open(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscard()) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "プロジェクトを開く",
+            Filter = "ikePon プロジェクト (*.ikp)|*.ikp|すべてのファイル|*.*",
+            DefaultExt = ".ikp"
+        };
+        if (dlg.ShowDialog() != true) return;
+        var loaded = ProjectData.Load(dlg.FileName);
+        if (loaded == null) { MessageBox.Show("読み込みに失敗しました。", "ikePon", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        _project = loaded;
+        _projectFilePath = dlg.FileName;
+        _projectDirty = false;
+        _playback.SetProject(_project);
+        SyncFadersFromProject();
+        UpdateBankHighlight();
+        UpdateTitle();
+        SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(dlg.FileName)}");
+    }
+
+    private void Menu_Save(object sender, RoutedEventArgs e)
+    {
+        if (_projectFilePath == null) { Menu_SaveAs(sender, e); return; }
+        SaveProject(_projectFilePath);
+    }
+
+    private void Menu_SaveAs(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "名前を付けて保存",
+            Filter = "ikePon プロジェクト (*.ikp)|*.ikp",
+            DefaultExt = ".ikp",
+            FileName = _project.ProjectName
+        };
+        if (dlg.ShowDialog() != true) return;
+        _projectFilePath = dlg.FileName;
+        _project.ProjectName = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
+        SaveProject(dlg.FileName);
+    }
+
+    private void Menu_Exit(object sender, RoutedEventArgs e) => Close();
+
+    private void Menu_PaSeparate(object sender, RoutedEventArgs e)
+    {
+        _engine.PaSeparate = MenuPaSeparate.IsChecked;
+        _settings.PaSeparateMode = MenuPaSeparate.IsChecked;
+        SetInfo2(MenuPaSeparate.IsChecked ? "PAセパレートモード ON (L=MOVIE+BGM / R=SE)" : "PAセパレートモード OFF");
+    }
+
+    private void SaveProject(string path)
+    {
+        SyncFadersToProject();
+        try
+        {
+            _project.Save(path);
+            _projectDirty = false;
+            UpdateTitle();
+            SetInfo2($"保存しました: {System.IO.Path.GetFileName(path)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"保存に失敗しました:\n{ex.Message}", "ikePon", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private bool ConfirmDiscard()
+    {
+        if (!_projectDirty) return true;
+        var r = MessageBox.Show("変更が保存されていません。続けますか？", "ikePon",
+            MessageBoxButton.YesNo, MessageBoxImage.Question);
+        return r == MessageBoxResult.Yes;
+    }
+
+    private void SyncFadersFromProject()
+    {
+        for (int i = 0; i < 4; i++)
+            _faders[i].Value = _project.FaderPositions[i];
+
+        for (int f = 0; f < 4; f++)
+            for (int m = 0; m < 4; m++)
+                if (_project.FaderMemories[f][m].HasValue)
+                    _faders[f].StoreMemory(m, _project.FaderMemories[f][m]!.Value);
+
+        // フェーダー値をエンジンに反映
+        _playback.MovieVolume  = _project.FaderPositions[0];
+        _playback.BgmVolume    = _project.FaderPositions[1];
+        _playback.SeVolume     = _project.FaderPositions[2];
+        _playback.MasterVolume = _project.FaderPositions[3];
+    }
+
+    private void SyncFadersToProject()
+    {
+        for (int i = 0; i < 4; i++)
+            _project.FaderPositions[i] = (float)_faders[i].Value;
+
+        for (int f = 0; f < 4; f++)
+            for (int m = 0; m < 4; m++)
+                _project.FaderMemories[f][m] = _faders[f].GetMemory(m);
+    }
+
+    private void UpdateTitle()
+    {
+        string dirty = _projectDirty ? " *" : "";
+        string fname = _projectFilePath != null
+            ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
+            : " — 未保存";
+        Title = $"ikePon v1.0.0{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -354,6 +503,13 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (_projectDirty)
+        {
+            var r = MessageBox.Show("変更が保存されていません。保存しますか？", "ikePon",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
+            if (r == MessageBoxResult.Yes) Menu_Save(this, new RoutedEventArgs());
+        }
         _uiTimer.Stop();
         _engine.Dispose();
         _settings.Save();

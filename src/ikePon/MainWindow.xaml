@@ -11,15 +11,39 @@
         KeyUp="Window_KeyUp"
         Closing="Window_Closing">
 
-    <Grid Margin="6">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="70"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>  <!-- メニューバー -->
+            <RowDefinition Height="70"/>    <!-- インフォ+パニック -->
+            <RowDefinition Height="*"/>     <!-- メインエリア -->
         </Grid.RowDefinitions>
 
+        <!-- ====== メニューバー ====== -->
+        <Menu Grid.Row="0" Background="#1A1A1A" Foreground="#CCCCCC" FontSize="12">
+            <Menu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Background" Value="#1A1A1A"/>
+                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                </Style>
+            </Menu.Resources>
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="新規プロジェクト(_N)" InputGestureText="Ctrl+N" Click="Menu_New"/>
+                <MenuItem Header="開く(_O)..."         InputGestureText="Ctrl+O" Click="Menu_Open"/>
+                <Separator Background="#444"/>
+                <MenuItem Header="上書き保存(_S)"      InputGestureText="Ctrl+S" Click="Menu_Save"/>
+                <MenuItem Header="名前を付けて保存(_A)..."                        Click="Menu_SaveAs"/>
+                <Separator Background="#444"/>
+                <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
+            </MenuItem>
+            <MenuItem Header="表示(_V)">
+                <MenuItem Header="PAセパレートモード" x:Name="MenuPaSeparate"
+                          IsCheckable="True" Click="Menu_PaSeparate"/>
+            </MenuItem>
+        </Menu>
+
         <!-- ====== インフォメーション・パニックエリア ====== -->
-        <Border Grid.Row="0" Background="#1A1A1A" BorderBrush="#404040" BorderThickness="1"
-                CornerRadius="4" Margin="0,0,0,4">
+        <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#404040" BorderThickness="1"
+                CornerRadius="4" Margin="6,4,6,4">
             <Grid Margin="8,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -33,10 +57,84 @@
                                Foreground="#CCCCCC"/>
                     <Border x:Name="InfoLine2Border" Background="Transparent"
                             CornerRadius="3" Margin="0,2,0,0" Padding="4,2">
-                        <TextBlock x:Name="InfoLine2"
-                                   Text=""
-                                   FontSize="12"
-                                   Foreground="#888888"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="InfoLine2"
+                                       Grid.Column="0"
+                                       Text=""
+                                       FontSize="12"
+                                       Foreground="#888888"
+                                       VerticalAlignment="Center"/>
+                            <!-- バンク切り替え確認ボタン（確認中のみ表示） -->
+                            <StackPanel x:Name="BankConfirmPanel"
+                                        Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Visibility="Collapsed"
+                                        Margin="12,0,0,0">
+                                <Button x:Name="BankYesBtn"
+                                        Content="YES"
+                                        Width="60" Height="22"
+                                        Margin="0,0,6,0"
+                                        FontSize="11" FontWeight="Bold"
+                                        Foreground="White"
+                                        Click="BankYesBtn_Click">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="Bd" Background="#1A5C1A" BorderBrush="#33AA33"
+                                                                BorderThickness="1" CornerRadius="3">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#227722"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsPressed" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#33AA33"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button x:Name="BankNoBtn"
+                                        Content="NO"
+                                        Width="60" Height="22"
+                                        FontSize="11" FontWeight="Bold"
+                                        Foreground="White"
+                                        Click="BankNoBtn_Click">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="Bd" Background="#5C1A1A" BorderBrush="#AA3333"
+                                                                BorderThickness="1" CornerRadius="3">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#772222"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsPressed" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#AA3333"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </StackPanel>
 
@@ -75,7 +173,7 @@
         </Border>
 
         <!-- ====== メインエリア ====== -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2" Margin="6,0,6,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="540"/>
                 <ColumnDefinition Width="380" MinWidth="340"/>
