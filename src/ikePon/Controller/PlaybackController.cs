@@ -131,7 +131,7 @@ public sealed class PlaybackController
     {
         int bank = _engine.ActiveBank;
         for (int p = 0; p < BankData.PadCount; p++)
-            _engine.GetSource(bank, p).Stop(_settings.ShortFadeDuration);
+            _engine.GetSource(bank, p).StopImmediate();
         ResetActivePads();
     }
 
@@ -168,6 +168,9 @@ public sealed class PlaybackController
 
     public float GetPadPosition(int padIndex)
         => _engine.GetSource(_engine.ActiveBank, padIndex).PlaybackPosition;
+
+    public float GetPadFadeGain(int padIndex)
+        => _engine.GetSource(_engine.ActiveBank, padIndex).FadeGain;
 
     public PadSettings? GetPadSettings(int padIndex)
         => _project?.Banks[_engine.ActiveBank].Pads[padIndex];

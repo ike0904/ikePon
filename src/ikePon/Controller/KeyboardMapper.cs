@@ -17,11 +17,13 @@ public sealed class KeyboardMapper
         Key.Z,  Key.X,  Key.C,  Key.V
     ];
 
-    // バンクキー配置: 4×2 グリッド
+    // バンクキー配置: 2×4 グリッド
     private static readonly Key[] BankKeys =
     [
-        Key.D7, Key.D8, Key.D9, Key.D0,
-        Key.U,  Key.I,  Key.O,  Key.P
+        Key.D7, Key.D8,
+        Key.U,  Key.I,
+        Key.J,  Key.K,
+        Key.M,  Key.OemOpenBrackets
     ];
 
     // パッドキーの表示ラベル
@@ -36,8 +38,10 @@ public sealed class KeyboardMapper
     // バンクキーの表示ラベル
     public static readonly string[] BankLabels =
     [
-        "7","8","9","0",
-        "U","I","O","P"
+        "7","8",
+        "U","I",
+        "J","K",
+        "M","["
     ];
 
     public int? GetPadIndex(Key key)

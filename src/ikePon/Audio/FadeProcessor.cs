@@ -43,4 +43,11 @@ internal struct FadeProcessor
     }
 
     public void Reset() { IsActive = false; _currentSample = 0; }
+
+    /// <summary>
+    /// 現在のゲイン係数（1.0=フェード前, 0.0=無音）。UIスレッドから参照する。
+    /// </summary>
+    public float Gain => IsActive
+        ? Math.Max(0f, 1f - (float)_currentSample / Math.Max(1, _totalSamples))
+        : 0f;
 }

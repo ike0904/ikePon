@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly VFaderControl[] _faders = new VFaderControl[4];
 
     private PadSettings? _clipboardPad;
+    private BankData? _bankClipboard;
 
     private static readonly HashSet<string> AudioVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
@@ -117,15 +118,16 @@ public partial class MainWindow : Window
 
     private void BuildBankGrid()
     {
+        BankGrid.Children.Clear();
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
             int captured = i;
 
-            // バンクボタン内レイアウト: 中央にバンク名、右下にキーバッジ
+            string label = _project.Banks[i].BankLabel ?? $"Bank {BankNames[i]}";
             var content = new Grid { Margin = new Thickness(4) };
             content.Children.Add(new TextBlock
             {
-                Text = $"Bank {BankNames[i]}",
+                Text = label,
                 FontSize = 12, FontWeight = FontWeights.SemiBold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -143,7 +145,7 @@ public partial class MainWindow : Window
                 Child = new TextBlock
                 {
                     Text = KeyboardMapper.BankLabels[i],
-                    FontSize = 9, FontWeight = FontWeights.Bold,
+                    FontSize = 14, FontWeight = FontWeights.Bold,
                     Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77))
                 }
             };
@@ -153,6 +155,7 @@ public partial class MainWindow : Window
             {
                 Content = content,
                 Margin = new Thickness(2),
+                MinHeight = 44,
                 Cursor = Cursors.Hand,
                 Background = BrushBankNormal,
                 BorderBrush = BrushBankBorderN,
@@ -160,6 +163,7 @@ public partial class MainWindow : Window
             };
             btn.Style = CreateBankButtonStyle();
             btn.Click += (_, _) => _bankManager.RequestSwitch(captured);
+            btn.MouseRightButtonUp += (_, e) => BankRightClick(captured, e);
 
             _bankButtons[i] = btn;
             BankGrid.Children.Add(btn);
@@ -231,13 +235,13 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
-        var settings = _project.Banks[_playback.ActiveBank];
         for (int i = 0; i < BankData.PadCount; i++)
         {
-            var state = _playback.GetPadState(i);
-            var pos   = _playback.GetPadPosition(i);
-            var pad   = _playback.GetPadSettings(i);
-            _padButtons[i].UpdateState(state, pos, pad, _modifier);
+            var state    = _playback.GetPadState(i);
+            var pos      = _playback.GetPadPosition(i);
+            var pad      = _playback.GetPadSettings(i);
+            var fadeGain = _playback.GetPadFadeGain(i);
+            _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain);
         }
     }
 
@@ -543,6 +547,7 @@ public partial class MainWindow : Window
         _projectDirty = false;
         _playback.SetProject(_project);
         SyncFadersFromProject();
+        RefreshAllBankLabels();
         UpdateBankHighlight();
         UpdateTitle();
         SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(dlg.FileName)}");
@@ -570,6 +575,104 @@ public partial class MainWindow : Window
     }
 
     private void Menu_Exit(object sender, RoutedEventArgs e) => Close();
+
+    // ------------------------------------------------------------------
+    // バンク右クリック
+    // ------------------------------------------------------------------
+    private void BankRightClick(int bankIdx, MouseButtonEventArgs e)
+    {
+        var cm = new ContextMenu();
+
+        var rename = new MenuItem { Header = "名前を変更..." };
+        rename.Click += (_, _) =>
+        {
+            string current = _project.Banks[bankIdx].BankLabel ?? $"Bank {BankNames[bankIdx]}";
+            string? newName = ShowInputDialog($"Bank {BankNames[bankIdx]} の名前を変更", current);
+            if (newName != null)
+            {
+                _project.Banks[bankIdx].BankLabel = string.IsNullOrWhiteSpace(newName) ? null : newName.Trim();
+                RefreshBankLabel(bankIdx);
+                MarkDirty();
+            }
+        };
+        cm.Items.Add(rename);
+        cm.Items.Add(new Separator());
+
+        var copy = new MenuItem { Header = "設定をコピー（全16パッド）" };
+        copy.Click += (_, _) => { _bankClipboard = _project.Banks[bankIdx].Clone(); };
+        cm.Items.Add(copy);
+
+        var paste = new MenuItem { Header = "設定をペースト（全16パッド）", IsEnabled = _bankClipboard != null };
+        paste.Click += (_, _) => PasteBankSettings(bankIdx);
+        cm.Items.Add(paste);
+
+        cm.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void RefreshBankLabel(int bankIdx)
+    {
+        if (_bankButtons[bankIdx].Content is Grid g && g.Children[0] is TextBlock tb)
+            tb.Text = _project.Banks[bankIdx].BankLabel ?? $"Bank {BankNames[bankIdx]}";
+    }
+
+    private void RefreshAllBankLabels()
+    {
+        for (int i = 0; i < ProjectData.BankCount; i++)
+            RefreshBankLabel(i);
+    }
+
+    private void PasteBankSettings(int bankIdx)
+    {
+        if (_bankClipboard == null) return;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            _project.Banks[bankIdx].Pads[p] = _bankClipboard.Pads[p].Clone();
+            _engine.SetPadCategory(bankIdx, p, _project.Banks[bankIdx].Pads[p].Category);
+        }
+        _playback.LoadBank(bankIdx);
+        MarkDirty();
+        SetInfo2($"Bank {BankNames[bankIdx]} に設定をペーストしました。");
+    }
+
+    private string? ShowInputDialog(string title, string current)
+    {
+        var dlg = new Window
+        {
+            Title = title, Width = 300, SizeToContent = SizeToContent.Height,
+            WindowStyle = WindowStyle.ToolWindow, ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E))
+        };
+        var sp = new StackPanel { Margin = new Thickness(12) };
+        var tb = new TextBox
+        {
+            Text = current, Margin = new Thickness(0, 0, 0, 10),
+            Background = new SolidColorBrush(Color.FromRgb(0x2E, 0x2E, 0x2E)),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xEE, 0xEE, 0xEE)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
+            Padding = new Thickness(4, 3, 4, 3), FontSize = 13
+        };
+        var btns = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var ok     = new Button { Content = "OK", Width = 64, Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x44, 0x6E)),
+            Foreground = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x9F, 0xFF)) };
+        var cancel = new Button { Content = "キャンセル", Width = 80,
+            Background = new SolidColorBrush(Color.FromRgb(0x3C, 0x3C, 0x3C)),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)) };
+        btns.Children.Add(ok); btns.Children.Add(cancel);
+        sp.Children.Add(tb); sp.Children.Add(btns);
+        dlg.Content = sp;
+
+        string? result = null;
+        ok.Click     += (_, _) => { result = tb.Text; dlg.DialogResult = true; };
+        cancel.Click += (_, _) => { dlg.DialogResult = false; };
+        tb.KeyDown   += (_, ke) => { if (ke.Key == Key.Return) { result = tb.Text; dlg.DialogResult = true; } };
+        dlg.Loaded   += (_, _) => { tb.Focus(); tb.SelectAll(); };
+        dlg.ShowDialog();
+        return result;
+    }
 
     private void Menu_Settings(object sender, RoutedEventArgs e)
     {

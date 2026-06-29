@@ -213,7 +213,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="BANK" FontSize="9" Foreground="#555"
                                    FontWeight="Bold" Margin="2,0,0,4"/>
-                        <UniformGrid x:Name="BankGrid" Grid.Row="1" Rows="2" Columns="4" Height="100"/>
+                        <UniformGrid x:Name="BankGrid" Grid.Row="1" Rows="4" Columns="2"/>
                     </Grid>
                 </Border>
 

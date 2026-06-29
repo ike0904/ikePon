@@ -36,6 +36,12 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     public float PlaybackPosition { get; private set; }
     public string? FilePath { get; private set; }
 
+    /// <summary>
+    /// フェードアウト中の現在ゲイン係数（1.0=開始, 0.0=無音）。再生中は 1.0 を返す。
+    /// </summary>
+    public float FadeGain =>
+        (PadPlayState)_stateInt == PadPlayState.FadingOut ? _fade.Gain : 1f;
+
     public PadAudioSource(WaveFormat format)
     {
         _format = format;
@@ -97,6 +103,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             _reader?.Dispose();
             _reader = null;
             _preloaded = null;
+            _readPos = 0;
             FilePath = null;
             PlaybackPosition = 0f;
         }
@@ -171,29 +178,38 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             return count;
         }
 
-        int read = ReadSource(buffer, offset, count, st);
-
-        // ゲイン適用
-        float gain = _fileGain * _padGain;
-        if (Math.Abs(gain - 1f) > 0.001f)
+        try
         {
-            for (int i = 0; i < count; i++)
-                buffer[offset + i] *= gain;
-        }
+            ReadSource(buffer, offset, count, st);
 
-        // フェード適用
-        if (st == PadPlayState.FadingOut)
-        {
-            bool done;
-            lock (_lock) done = _fade.Apply(buffer, offset, count);
-            if (done)
+            // ゲイン適用
+            float gain = _fileGain * _padGain;
+            if (Math.Abs(gain - 1f) > 0.001f)
             {
-                lock (_lock)
+                for (int i = 0; i < count; i++)
+                    buffer[offset + i] *= gain;
+            }
+
+            // フェード適用
+            if (st == PadPlayState.FadingOut)
+            {
+                bool done;
+                lock (_lock) done = _fade.Apply(buffer, offset, count);
+                if (done)
                 {
-                    if ((PadPlayState)_stateInt == PadPlayState.FadingOut)
-                        _stateInt = (int)PadPlayState.Idle;
+                    lock (_lock)
+                    {
+                        if ((PadPlayState)_stateInt == PadPlayState.FadingOut)
+                            _stateInt = (int)PadPlayState.Idle;
+                    }
                 }
             }
+        }
+        catch
+        {
+            // 予期しないエラー時は即座に停止してバッファをクリア
+            lock (_lock) { _stateInt = (int)PadPlayState.Idle; _fade.Reset(); }
+            Array.Clear(buffer, offset, count);
         }
 
         return count;
@@ -259,16 +275,17 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private static float[] ConvertToFormat(AudioFileReader reader, WaveFormat targetFormat)
     {
         ISampleProvider provider = reader;
-        if (reader.WaveFormat.SampleRate != targetFormat.SampleRate ||
-            reader.WaveFormat.Channels != targetFormat.Channels)
-        {
-            provider = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(
-                reader.ToSampleProvider(), targetFormat.SampleRate);
 
-            if (reader.WaveFormat.Channels != targetFormat.Channels)
-                provider = targetFormat.Channels == 2
-                    ? new NAudio.Wave.SampleProviders.MonoToStereoSampleProvider(provider)
-                    : (ISampleProvider)new NAudio.Wave.SampleProviders.StereoToMonoSampleProvider(provider);
+        // サンプルレート変換
+        if (provider.WaveFormat.SampleRate != targetFormat.SampleRate)
+            provider = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(provider, targetFormat.SampleRate);
+
+        // チャンネル変換
+        if (provider.WaveFormat.Channels != targetFormat.Channels)
+        {
+            provider = targetFormat.Channels == 2
+                ? (ISampleProvider)new NAudio.Wave.SampleProviders.MonoToStereoSampleProvider(provider)
+                : new NAudio.Wave.SampleProviders.StereoToMonoSampleProvider(provider);
         }
 
         var list = new List<float>(44100 * targetFormat.Channels * 10);

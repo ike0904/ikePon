@@ -33,7 +33,11 @@ public partial class PadButton : UserControl
     private AudioCategory _category = AudioCategory.BGM;
     private ModifierState _modifier = ModifierState.None;
     private float _progress;
+    private float _fadeGain = 1f;
     private double _padWidth;
+
+    private static byte Lerp(byte a, byte b, float t)
+        => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
 
     public PadButton()
     {
@@ -43,15 +47,17 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier, float fadeGain = 1f)
     {
         bool changed = _state != state || _modifier != modifier ||
                        (settings != null && _category != settings.Category) ||
-                       Math.Abs(_progress - progress) > 0.005f;
+                       Math.Abs(_progress - progress) > 0.005f ||
+                       (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
 
         _state = state;
         _progress = progress;
         _modifier = modifier;
+        _fadeGain = fadeGain;
 
         if (settings != null)
         {
@@ -94,14 +100,30 @@ public partial class PadButton : UserControl
             }
         };
 
-        // ボーダー色・テキスト色
-        BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
-        BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
-        FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
-        KeyLabel.Foreground = playing ? BrushKeyPlay : BrushKeyNormal;
-        KeyBadge.BorderBrush = playing
-            ? new SolidColorBrush(Color.FromRgb(0xAA, 0x88, 0x00))
-            : new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
+        // ボーダー色・テキスト色（フェードアウト中は黄色→通常色に補間）
+        if (state == PadPlayState.FadingOut)
+        {
+            float g = Math.Clamp(fadeGain, 0f, 1f);
+            byte br = Lerp(0x55, 0xFF, g); byte bg2 = Lerp(0x55, 0xD7, g); byte bb = Lerp(0x55, 0x00, g);
+            byte tr = Lerp(0xCC, 0xFF, g); byte tg = Lerp(0xCC, 0xD7, g); byte tb2 = Lerp(0xCC, 0x00, g);
+            byte kr = Lerp(0x66, 0xAA, g); byte kg = Lerp(0x66, 0x88, g); byte kb = Lerp(0x66, 0x00, g);
+            BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
+            BorderRoot.BorderThickness = new Thickness(2.5);
+            FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg, tb2));
+            KeyLabel.Foreground = new SolidColorBrush(Color.FromRgb(kr, kg, kb));
+            KeyBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(
+                Lerp(0x4A, 0xAA, g), Lerp(0x4A, 0x88, g), Lerp(0x4A, 0x00, g)));
+        }
+        else
+        {
+            BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
+            BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
+            FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
+            KeyLabel.Foreground = playing ? BrushKeyPlay : BrushKeyNormal;
+            KeyBadge.BorderBrush = playing
+                ? new SolidColorBrush(Color.FromRgb(0xAA, 0x88, 0x00))
+                : new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
+        }
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 
         UpdateProgress();

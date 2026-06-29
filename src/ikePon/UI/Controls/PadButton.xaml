@@ -62,7 +62,7 @@
                         Margin="0,1,2,0">
                     <TextBlock x:Name="KeyLabel"
                                Text="1"
-                               FontSize="9"
+                               FontSize="14"
                                FontWeight="Bold"
                                Foreground="#777"/>
                 </Border>
