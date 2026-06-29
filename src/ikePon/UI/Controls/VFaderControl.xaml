@@ -111,13 +111,13 @@
                        HorizontalAlignment="Center"
                        Margin="0,6,0,4"/>
 
-            <!-- ====== メモリボタン（横並び） ====== -->
-            <UniformGrid Grid.Row="2" Rows="1" Columns="4" Margin="0,0,0,0">
+            <!-- ====== メモリボタン（2×2） ====== -->
+            <UniformGrid Grid.Row="2" Rows="2" Columns="2" Margin="0,0,0,0">
                 <UniformGrid.Resources>
                     <Style TargetType="Button">
-                        <Setter Property="Height" Value="16"/>
-                        <Setter Property="Margin" Value="1,0"/>
-                        <Setter Property="FontSize" Value="8"/>
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="Margin" Value="1,1"/>
+                        <Setter Property="FontSize" Value="11"/>
                         <Setter Property="Background" Value="#2E2E2E"/>
                         <Setter Property="Foreground" Value="#666"/>
                         <Setter Property="BorderBrush" Value="#444"/>

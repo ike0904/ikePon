@@ -23,7 +23,7 @@ public sealed class KeyboardMapper
         Key.D7, Key.D8,
         Key.U,  Key.I,
         Key.J,  Key.K,
-        Key.M,  Key.OemOpenBrackets
+        Key.M,  Key.OemComma
     ];
 
     // パッドキーの表示ラベル
@@ -41,7 +41,7 @@ public sealed class KeyboardMapper
         "7","8",
         "U","I",
         "J","K",
-        "M","["
+        "M",","
     ];
 
     public int? GetPadIndex(Key key)
