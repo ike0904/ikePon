@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -26,6 +28,11 @@ public partial class MainWindow : Window
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
     private readonly VFaderControl[] _faders = new VFaderControl[4];
+
+    private PadSettings? _clipboardPad;
+
+    private static readonly HashSet<string> AudioVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
 
     private readonly DispatcherTimer _uiTimer;
     private ModifierState _modifier = ModifierState.None;
@@ -92,6 +99,14 @@ public partial class MainWindow : Window
                 e.Handled = true;
             };
             pad.MouseRightButtonUp += (_, e) => PadRightClick(captured, e);
+            pad.AllowDrop = true;
+            pad.DragOver  += (_, e) =>
+            {
+                e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+                    ? DragDropEffects.Copy : DragDropEffects.None;
+                e.Handled = true;
+            };
+            pad.Drop += (_, e) => HandlePadDrop(captured, e);
 
             _padButtons[i] = pad;
             PadGrid.Children.Add(pad);
@@ -302,13 +317,76 @@ public partial class MainWindow : Window
         }
         else
         {
+            var pad = _playback.GetPadSettings(padIndex);
+
             var load = new MenuItem { Header = "ファイルを読み込み..." };
             load.Click += (_, _) => OpenFileForPad(padIndex);
             cm.Items.Add(load);
+
+            if (pad != null)
+            {
+                // カテゴリ変更サブメニュー
+                var catMenu = new MenuItem { Header = "カテゴリ変更" };
+                foreach (var cat in new[] { AudioCategory.BGM, AudioCategory.SE, AudioCategory.Movie })
+                {
+                    string catName = cat switch { AudioCategory.BGM => "BGM", AudioCategory.SE => "SE", _ => "MOVIE" };
+                    var catItem = new MenuItem { Header = catName, IsChecked = pad.Category == cat };
+                    AudioCategory capturedCat = cat;
+                    catItem.Click += (_, _) =>
+                    {
+                        pad.Category = capturedCat;
+                        _engine.SetPadCategory(_playback.ActiveBank, padIndex, capturedCat);
+                        MarkDirty();
+                    };
+                    catMenu.Items.Add(catItem);
+                }
+                cm.Items.Add(catMenu);
+                cm.Items.Add(new Separator());
+
+                var copyItem = new MenuItem { Header = "設定をコピー", IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
+                copyItem.Click += (_, _) => { _clipboardPad = pad.Clone(); };
+                cm.Items.Add(copyItem);
+
+                var pasteItem = new MenuItem { Header = "設定をペースト", IsEnabled = _clipboardPad != null };
+                pasteItem.Click += (_, _) => PastePadSettings(padIndex);
+                cm.Items.Add(pasteItem);
+
+                if (!string.IsNullOrEmpty(pad.FilePath))
+                {
+                    cm.Items.Add(new Separator());
+                    var clear = new MenuItem { Header = "ファイルの割り当てをクリア" };
+                    clear.Click += (_, _) => ClearPad(padIndex);
+                    cm.Items.Add(clear);
+                }
+            }
         }
 
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void PastePadSettings(int padIndex)
+    {
+        if (_clipboardPad == null) return;
+        if (_project == null) return;
+        var dest = _project.Banks[_playback.ActiveBank].Pads[padIndex];
+        dest.FilePath    = _clipboardPad.FilePath;
+        dest.Category    = _clipboardPad.Category;
+        dest.PadGain     = _clipboardPad.PadGain;
+        dest.CustomLabel = _clipboardPad.CustomLabel;
+        _engine.SetPadCategory(_playback.ActiveBank, padIndex, dest.Category);
+        _playback.LoadBank(_playback.ActiveBank);
+        MarkDirty();
+        SetInfo2($"Pad {padIndex + 1} に設定をペーストしました。");
+    }
+
+    private void ClearPad(int padIndex)
+    {
+        if (_project == null) return;
+        var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
+        _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
+        pad.FilePath = null;
+        MarkDirty();
     }
 
     private void OpenFileForPad(int padIndex)
@@ -316,15 +394,30 @@ public partial class MainWindow : Window
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = $"パッド {padIndex + 1} のファイルを選択",
-            Filter = "音声・動画ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.mp4;*.mov;*.mkv|すべてのファイル|*.*"
+            Filter = "音声・動画ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv|すべてのファイル|*.*"
         };
         if (dlg.ShowDialog() != true) return;
+        AssignFileToPad(padIndex, dlg.FileName);
+    }
 
+    private void HandlePadDrop(int padIndex, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
+        string? file = files.FirstOrDefault(f => AudioVideoExtensions.Contains(System.IO.Path.GetExtension(f)));
+        if (file == null) return;
+        AssignFileToPad(padIndex, file);
+        e.Handled = true;
+    }
+
+    private void AssignFileToPad(int padIndex, string filePath)
+    {
+        if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
-        pad.FilePath = dlg.FileName;
+        pad.FilePath = filePath;
         _playback.LoadBank(_playback.ActiveBank);
         MarkDirty();
-        SetInfo2($"Pad {padIndex + 1}: {System.IO.Path.GetFileName(dlg.FileName)} を読み込み中...");
+        SetInfo2($"Pad {padIndex + 1}: {System.IO.Path.GetFileName(filePath)} を読み込み中...");
     }
 
     // ------------------------------------------------------------------
@@ -543,7 +636,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.0{fname}{dirty}";
+        Title = $"ikePon v1.0.3{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
