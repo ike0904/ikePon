@@ -39,6 +39,9 @@
                 <MenuItem Header="PAセパレートモード" x:Name="MenuPaSeparate"
                           IsCheckable="True" Click="Menu_PaSeparate"/>
             </MenuItem>
+            <MenuItem Header="設定(_S)">
+                <MenuItem Header="設定..." Click="Menu_Settings"/>
+            </MenuItem>
         </Menu>
 
         <!-- ====== インフォメーション・パニックエリア ====== -->

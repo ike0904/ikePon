@@ -879,3 +879,5 @@ E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\i
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.genruntimeconfig.cache
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ref\ikePon.dll
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.sourcelink.json
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\SettingsDialog.baml
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\SettingsDialog.g.cs

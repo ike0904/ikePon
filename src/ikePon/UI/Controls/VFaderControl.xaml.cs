@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace ikePon.UI.Controls;
 
@@ -24,6 +25,13 @@ public partial class VFaderControl : UserControl
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
+
+    // アニメーション
+    private readonly DispatcherTimer _animTimer;
+    private double _animFrom;
+    private double _animTarget;
+    private double _animDuration;  // seconds
+    private DateTime _animStartTime;
 
     private static readonly SolidColorBrush BrushMemStored  = new(Color.FromRgb(0xFF, 0xAA, 0x00));
     private static readonly SolidColorBrush BrushMemEmpty   = new(Color.FromRgb(0x2E, 0x2E, 0x2E));
@@ -54,6 +62,45 @@ public partial class VFaderControl : UserControl
     {
         InitializeComponent();
         Loaded += (_, _) => DrawScale();
+
+        _animTimer = new DispatcherTimer(DispatcherPriority.Render)
+            { Interval = TimeSpan.FromMilliseconds(16) }; // ~60fps
+        _animTimer.Tick += AnimTimer_Tick;
+    }
+
+    /// <summary>
+    /// 指定した値へ durationSecs 秒かけて線形移動する。
+    /// durationSecs ≤ 0 の場合は即時移動。
+    /// </summary>
+    public void SmoothMoveTo(double target, double durationSecs)
+    {
+        _animTimer.Stop();
+        if (durationSecs <= 0)
+        {
+            Value = target;
+            VolumeChanged?.Invoke(this, target);
+            return;
+        }
+        _animFrom = FaderSlider.Value;
+        _animTarget = Math.Clamp(target, 0, FaderMax);
+        _animDuration = durationSecs;
+        _animStartTime = DateTime.UtcNow;
+        _animTimer.Start();
+    }
+
+    private void AnimTimer_Tick(object? sender, EventArgs e)
+    {
+        double elapsed = (DateTime.UtcNow - _animStartTime).TotalSeconds;
+        double t = Math.Clamp(elapsed / _animDuration, 0.0, 1.0);
+        double current = _animFrom + (_animTarget - _animFrom) * t;
+
+        _suppressEvent = true;
+        FaderSlider.Value = current;
+        _suppressEvent = false;
+        VolumeChanged?.Invoke(this, current);
+
+        if (t >= 1.0)
+            _animTimer.Stop();
     }
 
     private void FaderSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

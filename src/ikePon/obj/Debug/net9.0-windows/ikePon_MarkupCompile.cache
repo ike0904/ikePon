@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\App.xaml
-3-914462989
+4205142682
 844698182261
-20-479534669
+21211126368
 218-582011824
-MainWindow.xaml;UI\Controls\PadButton.xaml;UI\Controls\VFaderControl.xaml;
+MainWindow.xaml;UI\Controls\PadButton.xaml;UI\Controls\VFaderControl.xaml;UI\Dialogs\SettingsDialog.xaml;
 
 False
 

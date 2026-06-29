@@ -446,9 +446,8 @@ public partial class MainWindow : Window
     {
         var mem = _faders[faderIndex].GetMemory(slot);
         if (!mem.HasValue) return;
-        // TODO: フェードアニメーション実装（現在は即時移動）
-        _faders[faderIndex].Value = mem.Value;
-        OnFaderChanged(faderIndex, mem.Value);
+        double duration = quick ? _settings.ShortFadeDuration : _settings.LongFadeDuration;
+        _faders[faderIndex].SmoothMoveTo(mem.Value, duration);
     }
 
     // ------------------------------------------------------------------
@@ -571,6 +570,16 @@ public partial class MainWindow : Window
     }
 
     private void Menu_Exit(object sender, RoutedEventArgs e) => Close();
+
+    private void Menu_Settings(object sender, RoutedEventArgs e)
+    {
+        var dlg = new ikePon.UI.Dialogs.SettingsDialog(_settings) { Owner = this };
+        if (dlg.ShowDialog() == true)
+        {
+            _settings.Save();
+            SetInfo2("設定を保存しました。");
+        }
+    }
 
     private void Menu_PaSeparate(object sender, RoutedEventArgs e)
     {
