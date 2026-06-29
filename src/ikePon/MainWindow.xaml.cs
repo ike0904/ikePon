@@ -98,17 +98,50 @@ public partial class MainWindow : Window
         }
     }
 
+    private static readonly string[] BankNames = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
     private void BuildBankGrid()
     {
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
             int captured = i;
+
+            // バンクボタン内レイアウト: 中央にバンク名、右下にキーバッジ
+            var content = new Grid { Margin = new Thickness(4) };
+            content.Children.Add(new TextBlock
+            {
+                Text = $"Bank {BankNames[i]}",
+                FontSize = 12, FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+            });
+            var badge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(2),
+                Padding = new Thickness(4, 1, 4, 1),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Child = new TextBlock
+                {
+                    Text = KeyboardMapper.BankLabels[i],
+                    FontSize = 9, FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77))
+                }
+            };
+            content.Children.Add(badge);
+
             var btn = new Button
             {
-                Content = $"Bank {i + 1}\n[{KeyboardMapper.BankLabels[i]}]",
+                Content = content,
                 Margin = new Thickness(2),
-                FontSize = 11,
                 Cursor = Cursors.Hand,
+                Background = BrushBankNormal,
+                BorderBrush = BrushBankBorderN,
+                Tag = new object?[] { content.Children[0] as TextBlock, badge }
             };
             btn.Style = CreateBankButtonStyle();
             btn.Click += (_, _) => _bankManager.RequestSwitch(captured);
@@ -131,8 +164,8 @@ public partial class MainWindow : Window
         bd.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
         bd.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
         var cp = new FrameworkElementFactory(typeof(ContentPresenter));
-        cp.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        cp.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+        cp.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
+        cp.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Stretch);
         bd.AppendChild(cp);
         tpl.VisualTree = bd;
         style.Setters.Add(new Setter(Control.BackgroundProperty, BrushBankNormal));
@@ -163,13 +196,13 @@ public partial class MainWindow : Window
         _bankManager.BankSwitchRequested += idx =>
         {
             _pendingBankConfirm = true;
-            SetInfo2Warning($"Bank {idx + 1} [{KeyboardMapper.BankLabels[idx]}] に切り替えますか？  [Y] 確定  /  [N] キャンセル");
+            SetInfo2Warning($"Bank {BankNames[idx]} [{KeyboardMapper.BankLabels[idx]}] に切り替えますか？  [Y] 確定  /  [N] キャンセル");
         };
         _bankManager.BankSwitched += idx =>
         {
             _pendingBankConfirm = false;
             UpdateBankHighlight();
-            SetInfo2($"Bank {idx + 1} に切り替えました");
+            SetInfo2($"Bank {BankNames[idx]} に切り替えました");
         };
         _bankManager.BankSwitchCancelled += () =>
         {
@@ -338,11 +371,26 @@ public partial class MainWindow : Window
         int active = _playback.ActiveBank;
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
-            _bankButtons[i].Background  = i == active ? BrushBankSelected : BrushBankNormal;
-            _bankButtons[i].BorderBrush = i == active ? BrushBankBorderS  : BrushBankBorderN;
-            _bankButtons[i].Foreground  = i == active
-                ? new SolidColorBrush(Colors.White)
-                : new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+            bool sel = i == active;
+            _bankButtons[i].Background  = sel ? BrushBankSelected : BrushBankNormal;
+            _bankButtons[i].BorderBrush = sel ? BrushBankBorderS  : BrushBankBorderN;
+
+            // ボタン内 TextBlock と badge の色更新
+            if (_bankButtons[i].Content is Grid g)
+            {
+                if (g.Children[0] is TextBlock tb)
+                    tb.Foreground = new SolidColorBrush(sel ? Colors.White : Color.FromRgb(0xAA, 0xAA, 0xAA));
+                if (g.Children[1] is Border badge)
+                {
+                    badge.BorderBrush = new SolidColorBrush(sel
+                        ? Color.FromRgb(0x3A, 0x9F, 0xFF)
+                        : Color.FromRgb(0x4A, 0x4A, 0x4A));
+                    if (badge.Child is TextBlock badgeTb)
+                        badgeTb.Foreground = new SolidColorBrush(sel
+                            ? Color.FromRgb(0xAA, 0xCC, 0xFF)
+                            : Color.FromRgb(0x77, 0x77, 0x77));
+                }
+            }
         }
     }
 

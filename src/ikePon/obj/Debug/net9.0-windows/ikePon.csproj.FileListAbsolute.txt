@@ -878,3 +878,4 @@ E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\r
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.pdb
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.genruntimeconfig.cache
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ref\ikePon.dll
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.sourcelink.json

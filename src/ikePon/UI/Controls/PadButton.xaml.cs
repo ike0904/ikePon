@@ -99,6 +99,9 @@ public partial class PadButton : UserControl
         BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
         FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
         KeyLabel.Foreground = playing ? BrushKeyPlay : BrushKeyNormal;
+        KeyBadge.BorderBrush = playing
+            ? new SolidColorBrush(Color.FromRgb(0xAA, 0x88, 0x00))
+            : new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 
         UpdateProgress();

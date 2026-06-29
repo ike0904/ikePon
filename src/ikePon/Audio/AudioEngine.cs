@@ -80,13 +80,13 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     }
 
     // ボリューム（volatile write でスレッドセーフ）
-    public float MasterVolume { get => _masterVol; set => _masterVol = Clamp01(value); }
-    public float BgmVolume    { get => _bgmVol;    set => _bgmVol    = Clamp01(value); }
-    public float SeVolume     { get => _seVol;     set => _seVol     = Clamp01(value); }
-    public float MovieVolume  { get => _movieVol;  set => _movieVol  = Clamp01(value); }
+    public float MasterVolume { get => _masterVol; set => _masterVol = ClampVol(value); }
+    public float BgmVolume    { get => _bgmVol;    set => _bgmVol    = ClampVol(value); }
+    public float SeVolume     { get => _seVol;     set => _seVol     = ClampVol(value); }
+    public float MovieVolume  { get => _movieVol;  set => _movieVol  = ClampVol(value); }
     public bool  PaSeparate   { get => _paSeparate; set => _paSeparate = value; }
 
-    private static float Clamp01(float v) => v < 0f ? 0f : v > 1f ? 1f : v;
+    private static float ClampVol(float v) => v < 0f ? 0f : v > 1.5f ? 1.5f : v;
 
     // ------------------------------------------------------------------
     // ISampleProvider.Read — オーディオスレッドから呼ばれる（GC負荷ゼロ）

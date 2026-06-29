@@ -2,18 +2,37 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 
 namespace ikePon.UI.Controls;
 
 public partial class VFaderControl : UserControl
 {
+    // 目盛り定義: (ラベル, スライダー値)
+    // Maximum=1.26 (+2dB 相当のヘッドルーム), 0dB=1.0, -6dB=0.5, -12dB=0.25
+    private static readonly (string label, double val)[] ScaleMarks =
+    [
+        ("+2", 1.26),
+        ("0",  1.00),
+        ("-6", 0.50),
+        ("-12",0.25),
+        ("-∞", 0.0)
+    ];
+
+    private const double ThumbHalf = 10.0; // サムの高さ20 / 2
+    private const double FaderMax  = 1.26;
+
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
 
-    private static readonly SolidColorBrush BrushMemStored = new(Color.FromRgb(0xFF, 0xAA, 0x00));
-    private static readonly SolidColorBrush BrushMemEmpty  = new(Color.FromRgb(0x33, 0x33, 0x33));
-    private static readonly SolidColorBrush BrushMemText   = new(Color.FromRgb(0x88, 0x88, 0x88));
-    private static readonly SolidColorBrush BrushMemTextS  = new(Color.FromRgb(0xFF, 0xDD, 0x44));
+    private static readonly SolidColorBrush BrushMemStored  = new(Color.FromRgb(0xFF, 0xAA, 0x00));
+    private static readonly SolidColorBrush BrushMemEmpty   = new(Color.FromRgb(0x2E, 0x2E, 0x2E));
+    private static readonly SolidColorBrush BrushMemText    = new(Color.FromRgb(0x66, 0x66, 0x66));
+    private static readonly SolidColorBrush BrushMemTextS   = new(Color.FromRgb(0xFF, 0xDD, 0x44));
+    private static readonly SolidColorBrush BrushScaleLine  = new(Color.FromRgb(0x55, 0x55, 0x55));
+    private static readonly SolidColorBrush BrushScaleText  = new(Color.FromRgb(0x77, 0x77, 0x77));
+    private static readonly SolidColorBrush BrushZeroLine   = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
+    private static readonly SolidColorBrush BrushZeroText   = new(Color.FromRgb(0x5A, 0x9F, 0xE1));
 
     public event EventHandler<double>? VolumeChanged;
     public event EventHandler<(int slot, bool quick)>? MemoryRecall;
@@ -26,7 +45,7 @@ public partial class VFaderControl : UserControl
         set
         {
             _suppressEvent = true;
-            FaderSlider.Value = Math.Clamp(value, 0, 1);
+            FaderSlider.Value = Math.Clamp(value, 0, FaderMax);
             _suppressEvent = false;
         }
     }
@@ -34,6 +53,7 @@ public partial class VFaderControl : UserControl
     public VFaderControl()
     {
         InitializeComponent();
+        Loaded += (_, _) => DrawScale();
     }
 
     private void FaderSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -42,6 +62,56 @@ public partial class VFaderControl : UserControl
             VolumeChanged?.Invoke(this, e.NewValue);
     }
 
+    private void FaderSlider_SizeChanged(object sender, SizeChangedEventArgs e) => DrawScale();
+
+    // ------------------------------------------------------------------
+    // 目盛り描画
+    // ------------------------------------------------------------------
+    private void DrawScale()
+    {
+        ScaleCanvas.Children.Clear();
+
+        double h = FaderSlider.ActualHeight;
+        if (h < 20) return;
+
+        double trackH = h - ThumbHalf * 2;
+        double trackTop = ThumbHalf;
+        double cw = ScaleCanvas.ActualWidth > 0 ? ScaleCanvas.ActualWidth : 24;
+
+        foreach (var (label, val) in ScaleMarks)
+        {
+            double pct = (FaderMax - val) / FaderMax;
+            double y = trackTop + pct * trackH;
+
+            bool isZero = label == "0";
+
+            // 目盛り線
+            var line = new Line
+            {
+                X1 = cw - 10, X2 = cw - 1,
+                Y1 = y, Y2 = y,
+                Stroke = isZero ? BrushZeroLine : BrushScaleLine,
+                StrokeThickness = isZero ? 1.5 : 1
+            };
+            ScaleCanvas.Children.Add(line);
+
+            // ラベルテキスト
+            var tb = new TextBlock
+            {
+                Text = label,
+                FontSize = 8,
+                Foreground = isZero ? BrushZeroText : BrushScaleText
+            };
+            tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(tb, 0);
+            Canvas.SetTop(tb, y - tb.DesiredSize.Height / 2);
+            ScaleCanvas.Children.Add(tb);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // メモリ操作
+    // ------------------------------------------------------------------
     public void StoreMemory(int slot, double value)
     {
         if (slot < 0 || slot >= 4) return;
@@ -67,7 +137,6 @@ public partial class VFaderControl : UserControl
         if (_memories[slot].HasValue)
             MemoryRecall?.Invoke(this, (slot, !isShift));
         else
-            // 未記憶時はクリックで現在値を記憶
             StoreMemory(slot, FaderSlider.Value);
     }
 
