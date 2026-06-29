@@ -1,0 +1,53 @@
+using System.IO;
+using System.Text.Json;
+
+namespace ikePon.Model;
+
+public class AppSettings
+{
+    private static readonly string SettingsPath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ikePon", "settings.json");
+
+    public float ShortFadeDuration { get; set; } = 0.5f;
+    public float LongFadeDuration { get; set; } = 3.0f;
+    public float FaderQuickMoveDuration { get; set; } = 0.5f;
+    public float FaderSlowMoveDuration { get; set; } = 3.0f;
+    public int WasapiLatencyMs { get; set; } = 30;
+    public int PreloadThresholdSeconds { get; set; } = 10;
+    public bool PaSeparateMode { get; set; } = false;
+    public MovieDisplayMode MovieMode { get; set; } = MovieDisplayMode.Window;
+    public int MovieMonitorIndex { get; set; } = 1;
+    public double InterLockMs { get; set; } = 500;
+
+    public static AppSettings Load()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath))
+            {
+                var json = File.ReadAllText(SettingsPath);
+                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+            }
+        }
+        catch { }
+        return new AppSettings();
+    }
+
+    public void Save()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { }
+    }
+}
+
+public enum MovieDisplayMode
+{
+    AudioOnly,
+    Window,
+    FullScreen
+}

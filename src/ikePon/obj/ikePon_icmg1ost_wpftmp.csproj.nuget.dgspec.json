@@ -1,0 +1,84 @@
+{
+  "format": 1,
+  "restore": {
+    "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj": {}
+  },
+  "projects": {
+    "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj",
+        "projectName": "ikePon",
+        "projectPath": "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj",
+        "packagesPath": "C:\\Users\\ike09\\.nuget\\packages\\",
+        "outputPath": "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\ike09\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0-windows"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0-windows7.0": {
+            "targetAlias": "net9.0-windows",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0-windows7.0": {
+          "targetAlias": "net9.0-windows",
+          "dependencies": {
+            "LibVLCSharp.WPF": {
+              "target": "Package",
+              "version": "[3.9.0, )"
+            },
+            "NAudio": {
+              "target": "Package",
+              "version": "[2.2.1, )"
+            },
+            "VideoLAN.LibVLC.Windows": {
+              "target": "Package",
+              "version": "[3.0.21, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.315/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

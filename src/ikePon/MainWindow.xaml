@@ -1,0 +1,135 @@
+<Window x:Class="ikePon.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:ikePon.UI.Controls"
+        Title="ikePon v1.0.0"
+        Background="#272727"
+        MinWidth="1200" MinHeight="720"
+        Width="1280" Height="760"
+        WindowStyle="SingleBorderWindow"
+        KeyDown="Window_KeyDown"
+        KeyUp="Window_KeyUp"
+        Closing="Window_Closing">
+
+    <Grid Margin="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ====== インフォメーション・パニックエリア ====== -->
+        <Border Grid.Row="0" Background="#1A1A1A" BorderBrush="#404040" BorderThickness="1"
+                CornerRadius="4" Margin="0,0,0,4">
+            <Grid Margin="8,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="130"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock x:Name="InfoLine1"
+                               Text="ikePon v1.0.0 — 準備完了"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="#CCCCCC"/>
+                    <Border x:Name="InfoLine2Border" Background="Transparent"
+                            CornerRadius="3" Margin="0,2,0,0" Padding="4,2">
+                        <TextBlock x:Name="InfoLine2"
+                                   Text=""
+                                   FontSize="12"
+                                   Foreground="#888888"/>
+                    </Border>
+                </StackPanel>
+
+                <Button x:Name="PanicButton"
+                        Grid.Column="1"
+                        Content="PANIC"
+                        Height="52"
+                        Margin="6,0,0,0"
+                        FontSize="18" FontWeight="Bold"
+                        Foreground="White"
+                        Click="PanicButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="#BB1111"
+                                                BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#DD1111"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#FF2222"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ====== メインエリア ====== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="540"/>
+                <ColumnDefinition Width="380" MinWidth="340"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左: 4×4 キーパッド -->
+            <Border Grid.Column="0" Background="#212121" BorderBrush="#3A3A3A"
+                    BorderThickness="1" CornerRadius="4" Margin="0,0,4,0" Padding="6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="KEYPAD" FontSize="9" Foreground="#555"
+                               FontWeight="Bold" Margin="2,0,0,4"/>
+                    <UniformGrid x:Name="PadGrid" Grid.Row="1" Rows="4" Columns="4"/>
+                </Grid>
+            </Border>
+
+            <!-- 右: バンク + ミキサー -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- バンク切り替え -->
+                <Border Grid.Row="0" Background="#212121" BorderBrush="#3A3A3A"
+                        BorderThickness="1" CornerRadius="4" Margin="0,0,0,4" Padding="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="BANK" FontSize="9" Foreground="#555"
+                                   FontWeight="Bold" Margin="2,0,0,4"/>
+                        <UniformGrid x:Name="BankGrid" Grid.Row="1" Rows="2" Columns="4" Height="100"/>
+                    </Grid>
+                </Border>
+
+                <!-- ミキサー -->
+                <Border Grid.Row="1" Background="#212121" BorderBrush="#3A3A3A"
+                        BorderThickness="1" CornerRadius="4" Padding="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="MIXER" FontSize="9" Foreground="#555"
+                                   FontWeight="Bold" Margin="2,0,0,4"/>
+                        <UniformGrid x:Name="MixerGrid" Grid.Row="1" Rows="1" Columns="4"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
