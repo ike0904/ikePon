@@ -4,11 +4,11 @@
         Title="パッド詳細設定" Width="440" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="#1E1E1E" Foreground="#CCCCCC">
+        Background="#212121" Foreground="White">
 
     <Window.Resources>
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style TargetType="TextBox">
@@ -16,17 +16,24 @@
             <Setter Property="Foreground" Value="#EEEEEE"/>
             <Setter Property="BorderBrush" Value="#555"/>
             <Setter Property="Padding" Value="4,2"/>
-        </Style>
-        <Style TargetType="ComboBox">
-            <Setter Property="Background" Value="#2E2E2E"/>
-            <Setter Property="Foreground" Value="#EEEEEE"/>
-            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="CaretBrush" Value="White"/>
         </Style>
         <Style TargetType="Label">
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2E2E2E"/>
+            <Setter Property="Foreground" Value="#EEEEEE"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3A5080"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -39,20 +46,28 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="カテゴリ" Grid.Column="0"/>
-            <ComboBox x:Name="CbCategory" Grid.Column="1">
+            <ComboBox x:Name="CbCategory" Grid.Column="1"
+                      Background="#2E2E2E" Foreground="#EEEEEE" BorderBrush="#555"
+                      ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                <ComboBox.Resources>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2E2E2E"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#EEEEEE"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A5080"/>
+                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                </ComboBox.Resources>
                 <ComboBoxItem Content="MOVIE"/>
                 <ComboBoxItem Content="BGM"/>
                 <ComboBoxItem Content="SE"/>
             </ComboBox>
         </Grid>
 
-        <!-- 示名 -->
+        <!-- 表示名 -->
         <Grid Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="130"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="示名" Grid.Column="0"/>
+            <TextBlock Text="表示名" Grid.Column="0"/>
             <TextBox x:Name="TbDisplayName" Grid.Column="1"/>
         </Grid>
 
@@ -71,7 +86,7 @@
                  Foreground="#AAAAAA"
                  MinHeight="32"/>
         <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
-                   FontSize="10" Foreground="#555" Margin="0,0,0,10"/>
+                   FontSize="10" Foreground="#888" Margin="0,0,0,10"/>
 
         <Separator Background="#383838" Margin="0,0,0,10"/>
 
@@ -83,8 +98,14 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="ファイル・ゲイン" Grid.Column="0"/>
-            <TextBox x:Name="TbFileGain" Grid.Column="1"/>
-            <Label Content="（全プロジェクト共通, 1.0=標準）" Grid.Column="2" Margin="8,0,0,0"/>
+            <TextBox x:Name="TbFileGain" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown"
+                     LostFocus="GainBox_LostFocus"
+                     PreviewMouseDown="NumericBox_MouseDown"
+                     PreviewMouseMove="NumericBox_MouseMove"
+                     PreviewMouseUp="NumericBox_MouseUp"
+                     PreviewMouseWheel="GainBox_MouseWheel"/>
+            <Label Content="（全プロジェクト共通, 100=標準）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
         <!-- パッドゲイン -->
@@ -95,8 +116,14 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="パッド・ゲイン" Grid.Column="0"/>
-            <TextBox x:Name="TbPadGain" Grid.Column="1"/>
-            <Label Content="（このパッドのみ, 1.0=標準）" Grid.Column="2" Margin="8,0,0,0"/>
+            <TextBox x:Name="TbPadGain" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown"
+                     LostFocus="GainBox_LostFocus"
+                     PreviewMouseDown="NumericBox_MouseDown"
+                     PreviewMouseMove="NumericBox_MouseMove"
+                     PreviewMouseUp="NumericBox_MouseUp"
+                     PreviewMouseWheel="GainBox_MouseWheel"/>
+            <Label Content="（このパッドのみ, 100=標準）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
         <Separator Background="#383838" Margin="0,4,0,10"/>
@@ -109,8 +136,14 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="再生開始位置" Grid.Column="0"/>
-            <TextBox x:Name="TbStartPos" Grid.Column="1"/>
-            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#777"/>
+            <TextBox x:Name="TbStartPos" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown"
+                     LostFocus="PosBox_LostFocus"
+                     PreviewMouseDown="NumericBox_MouseDown"
+                     PreviewMouseMove="NumericBox_MouseMove"
+                     PreviewMouseUp="NumericBox_MouseUp"
+                     PreviewMouseWheel="PosBox_MouseWheel"/>
+            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#888"/>
         </Grid>
 
         <!-- 再生終了位置 -->
@@ -121,12 +154,18 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="再生終了位置" Grid.Column="0"/>
-            <TextBox x:Name="TbEndPos" Grid.Column="1"/>
-            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#777"/>
+            <TextBox x:Name="TbEndPos" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown"
+                     LostFocus="PosBox_LostFocus"
+                     PreviewMouseDown="NumericBox_MouseDown"
+                     PreviewMouseMove="NumericBox_MouseMove"
+                     PreviewMouseUp="NumericBox_MouseUp"
+                     PreviewMouseWheel="PosBox_MouseWheel"/>
+            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#888"/>
         </Grid>
 
-        <TextBlock Text="形式: 分:秒.1秒  例: 0:00.0  /  1:23.5"
-                   FontSize="10" Foreground="#555" Margin="0,0,0,12"/>
+        <TextBlock Text="形式: 分:秒.1秒  例: 0:00.0  /  1:23.5  /  12（→ 0:12.0）"
+                   FontSize="10" Foreground="#888" Margin="0,0,0,12"/>
 
         <Separator Background="#383838" Margin="0,0,0,12"/>
 

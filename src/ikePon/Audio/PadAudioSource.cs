@@ -260,15 +260,17 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         // ストリーミング: フォーマット変換済みプロバイダで読み取る
         // リサンプラー等が要求より少ないサンプルを返すことがあるためループで埋める
+        // n==0 が返っても即 EOF 扱いせず数回リトライ（MF デコーダ初回シーク後の warmup 対策）
         var provider = _streamProvider ?? (ISampleProvider?)_reader;
         if (provider != null)
         {
             int totalRead = 0;
-            while (totalRead < count)
+            int zeros = 0;
+            while (totalRead < count && zeros < 8)
             {
                 int n = provider.Read(buffer, offset + totalRead, count - totalRead);
-                if (n == 0) break; // EOF
-                totalRead += n;
+                if (n > 0) { totalRead += n; zeros = 0; }
+                else zeros++;
             }
 
             if (totalRead < count)
@@ -361,9 +363,14 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         var list = new List<float>(target.SampleRate * target.Channels * 10);
         var buf  = new float[4096];
-        int n;
-        while ((n = p.Read(buf, 0, buf.Length)) > 0)
-            for (int i = 0; i < n; i++) list.Add(buf[i]);
+        // n==0 が連続しても即終了せずリトライ（WDL resampler warmup / MF デコーダ初期化対策）
+        int zeros = 0;
+        while (zeros < 10)
+        {
+            int n = p.Read(buf, 0, buf.Length);
+            if (n > 0) { zeros = 0; for (int i = 0; i < n; i++) list.Add(buf[i]); }
+            else zeros++;
+        }
         return list.ToArray();
     }
 

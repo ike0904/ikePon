@@ -56,10 +56,19 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         }
         catch
         {
-            // WaveOut フォールバック
-            _waveOutFallback = new NAudio.Wave.WaveOut { DesiredLatency = 100 };
-            _waveOutFallback.Init(new NAudio.Wave.SampleProviders.SampleToWaveProvider(this));
-            _waveOutFallback.Play();
+            // WASAPI 失敗 → 確実に停止・解放してから WaveOutEvent フォールバック
+            try { _wasapiOut?.Stop(); } catch { }
+            try { _wasapiOut?.Dispose(); } catch { }
+            _wasapiOut = null;
+
+            try
+            {
+                var provider = new NAudio.Wave.SampleProviders.SampleToWaveProvider(this);
+                _waveOutFallback = new NAudio.Wave.WaveOut { DesiredLatency = 150 };
+                _waveOutFallback.Init(provider);
+                _waveOutFallback.Play();
+            }
+            catch { /* 両方失敗した場合は無音で動作継続 */ }
         }
     }
 

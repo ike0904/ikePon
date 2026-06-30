@@ -49,17 +49,53 @@
                 CornerRadius="4" Margin="6,4,6,4">
             <Grid Margin="8,4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock x:Name="InfoLine1"
-                               Text="ikePon v1.0.0 — 準備完了"
-                               FontSize="13" FontWeight="SemiBold"
-                               Foreground="#CCCCCC"/>
+                <!-- PANIC ボタン（左側） -->
+                <Grid Grid.Column="0">
+                    <Button x:Name="PanicButton"
+                            Height="52"
+                            Margin="0,0,6,0"
+                            FontSize="18" FontWeight="Bold"
+                            Foreground="White"
+                            Click="PanicButton_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Bd" Background="#BB1111"
+                                                    BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
+                                                <Grid>
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="ESC" FontSize="9" FontWeight="Normal"
+                                                               Foreground="#FF9999" Opacity="0.85"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                               Margin="0,0,5,3"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#DD1111"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#FF2222"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- インフォメーションエリア（右側） -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <Border x:Name="InfoLine2Border" Background="Transparent"
-                            CornerRadius="3" Margin="0,2,0,0" Padding="4,2">
+                            CornerRadius="3" Padding="4,2">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -67,7 +103,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="InfoLine2"
                                        Grid.Column="0"
-                                       Text=""
+                                       Text="準備完了"
                                        FontSize="12"
                                        Foreground="#888888"
                                        VerticalAlignment="Center"/>
@@ -140,38 +176,6 @@
                         </Grid>
                     </Border>
                 </StackPanel>
-
-                <Button x:Name="PanicButton"
-                        Grid.Column="1"
-                        Content="PANIC"
-                        Height="52"
-                        Margin="6,0,0,0"
-                        FontSize="18" FontWeight="Bold"
-                        Foreground="White"
-                        Click="PanicButton_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" Background="#BB1111"
-                                                BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#DD1111"/>
-                                            </Trigger>
-                                            <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#FF2222"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
             </Grid>
         </Border>
 

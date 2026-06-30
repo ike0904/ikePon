@@ -62,6 +62,7 @@ public partial class MainWindow : Window
         _project = new ProjectData();
 
         InitializeComponent();
+        App.SetLightTitleBar(this);
         BuildPadGrid();
         BuildBankGrid();
         BuildMixerGrid();
@@ -78,7 +79,7 @@ public partial class MainWindow : Window
 
         UpdateBankHighlight();
         UpdateTitle();
-        SetInfo2("プロジェクト未読み込み。ファイルメニューから開くか、パッドを右クリックしてファイルを読み込んでください。");
+        SetInfo2("準備完了");
     }
 
     // ------------------------------------------------------------------
@@ -770,7 +771,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.7{fname}{dirty}";
+        Title = $"ikePon v1.0.8{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

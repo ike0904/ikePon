@@ -178,7 +178,7 @@ public partial class VFaderControl : UserControl
     private void Memory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
-        int slot = (int)btn.Tag;
+        int slot = Convert.ToInt32(btn.Tag); // XAML の Tag は string なので Convert を使用
         bool isShift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
 
         if (_memories[slot].HasValue)
@@ -190,7 +190,7 @@ public partial class VFaderControl : UserControl
     private void Memory_RightClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Button btn) return;
-        int slot = (int)btn.Tag;
+        int slot = Convert.ToInt32(btn.Tag);
         if (!_memories[slot].HasValue) return;
 
         var cm = new ContextMenu();
