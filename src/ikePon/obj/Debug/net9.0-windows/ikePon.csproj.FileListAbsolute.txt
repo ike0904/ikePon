@@ -881,3 +881,5 @@ E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\r
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\ikePon.sourcelink.json
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\SettingsDialog.baml
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\SettingsDialog.g.cs
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\PadDetailDialog.baml
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\PadDetailDialog.g.cs

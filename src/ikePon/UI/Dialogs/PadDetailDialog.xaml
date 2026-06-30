@@ -21,7 +21,7 @@
         </Style>
         <Style TargetType="Label">
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -157,7 +157,7 @@
                  Foreground="#AAAAAA"
                  MinHeight="32"/>
         <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
-                   FontSize="10" Foreground="White" Margin="0,0,0,10"/>
+                   FontSize="12" Foreground="White" Margin="0,0,0,10"/>
 
         <Separator Background="#383838" Margin="0,0,0,10"/>
 
@@ -214,7 +214,7 @@
                      PreviewMouseMove="NumericBox_MouseMove"
                      PreviewMouseUp="NumericBox_MouseUp"
                      PreviewMouseWheel="PosBox_MouseWheel"/>
-            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0" FontSize="10"/>
+            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
         <!-- 再生終了位置 -->
@@ -232,11 +232,11 @@
                      PreviewMouseMove="NumericBox_MouseMove"
                      PreviewMouseUp="NumericBox_MouseUp"
                      PreviewMouseWheel="PosBox_MouseWheel"/>
-            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0" FontSize="10"/>
+            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
         <TextBlock Text="形式: 分:秒.1秒  例: 0:00.0  /  1:23.5  /  12（→ 0:12.0）"
-                   FontSize="10" Foreground="White" Margin="0,0,0,12"/>
+                   FontSize="12" Foreground="White" Margin="0,0,0,12"/>
 
         <Separator Background="#383838" Margin="0,0,0,12"/>
 

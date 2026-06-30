@@ -38,7 +38,7 @@ public sealed class PlaybackController
     // ------------------------------------------------------------------
     // バンク読み込み（バックグラウンドで非同期実行）
     // ------------------------------------------------------------------
-    public void LoadBank(int bankIndex)
+    public void LoadBank(int bankIndex, Action? onComplete = null)
     {
         if (_project == null) return;
         var bank = _project.Banks[bankIndex];
@@ -64,6 +64,8 @@ public sealed class PlaybackController
                     src.Load(pad.FilePath, _settings.PreloadThresholdSeconds,
                         _gainDb.GetGain(pad.FilePath), pad.PadGain);
             }
+            if (onComplete != null)
+                System.Windows.Application.Current.Dispatcher.Invoke(onComplete);
         });
     }
 

@@ -70,16 +70,17 @@
                                                     <TextBlock Text="PANIC"
                                                                FontSize="18" FontWeight="Bold"
                                                                Foreground="White"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    <Border Background="#1C1C1C" BorderBrush="#4A4A4A"
+                                                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                               Margin="10,0,0,0"/>
+                                                    <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
                                                             BorderThickness="1" CornerRadius="2"
                                                             Padding="4,1"
                                                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                                             Margin="0,0,4,3">
                                                         <TextBlock Text="ESC"
-                                                                   FontSize="11" FontWeight="Bold"
+                                                                   FontSize="16" FontWeight="Bold"
                                                                    FontFamily="Consolas"
-                                                                   Foreground="#777"/>
+                                                                   Foreground="#AAAAAA"/>
                                                     </Border>
                                                 </Grid>
                                             </Border>
@@ -112,7 +113,7 @@
                                        Grid.Column="0"
                                        Text="準備完了"
                                        FontSize="12"
-                                       Foreground="#888888"
+                                       Foreground="White"
                                        VerticalAlignment="Center"/>
                             <!-- バンク切り替え確認ボタン（確認中のみ表示） -->
                             <StackPanel x:Name="BankConfirmPanel"
@@ -201,7 +202,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="KEYPAD" FontSize="9" Foreground="#555"
+                    <TextBlock Grid.Row="0" Text="KEYPAD" FontSize="12" Foreground="#AAAAAA"
                                FontWeight="Bold" Margin="2,0,0,4"/>
                     <UniformGrid x:Name="PadGrid" Grid.Row="1" Rows="4" Columns="4"/>
                 </Grid>
@@ -222,7 +223,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="BANK" FontSize="9" Foreground="#555"
+                        <TextBlock Grid.Row="0" Text="BANK" FontSize="12" Foreground="#AAAAAA"
                                    FontWeight="Bold" Margin="2,0,0,4"/>
                         <UniformGrid x:Name="BankGrid" Grid.Row="1" Rows="4" Columns="2"/>
                     </Grid>
@@ -236,7 +237,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="MIXER" FontSize="9" Foreground="#555"
+                        <TextBlock Grid.Row="0" Text="MIXER" FontSize="12" Foreground="#AAAAAA"
                                    FontWeight="Bold" Margin="2,0,0,4"/>
                         <UniformGrid x:Name="MixerGrid" Grid.Row="1" Rows="1" Columns="4"/>
                     </Grid>

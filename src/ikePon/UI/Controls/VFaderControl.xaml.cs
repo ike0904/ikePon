@@ -10,18 +10,19 @@ namespace ikePon.UI.Controls;
 public partial class VFaderControl : UserControl
 {
     // 目盛り定義: (ラベル, スライダー値)
-    // Maximum=1.26 (+2dB 相当のヘッドルーム), 0dB=1.0, -6dB=0.5, -12dB=0.25
+    // Maximum=3.162 (+10dB), 0dB=1.0, -6dB≈0.5, -12dB≈0.25
     private static readonly (string label, double val)[] ScaleMarks =
     [
-        ("+2", 1.26),
-        ("0",  1.00),
-        ("-6", 0.50),
-        ("-12",0.25),
-        ("-∞", 0.0)
+        ("+10", 3.162),
+        ("+6",  1.995),
+        ("0",   1.000),
+        ("-6",  0.501),
+        ("-12", 0.251),
+        ("-∞",  0.0)
     ];
 
     private const double ThumbHalf = 10.0; // サムの高さ20 / 2
-    private const double FaderMax  = 1.26;
+    public  const double FaderMax  = 3.162;
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
@@ -36,15 +37,12 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushMemStored      = new(Color.FromRgb(0xFF, 0xAA, 0x00));
     private static readonly SolidColorBrush BrushMemEmpty       = new(Color.FromRgb(0x2E, 0x2E, 0x2E));
     private static readonly SolidColorBrush BrushMemText        = new(Color.FromRgb(0x66, 0x66, 0x66));
-    private static readonly SolidColorBrush BrushMemTextS       = new(Color.FromRgb(0xFF, 0xDD, 0x44));
+    private static readonly SolidColorBrush BrushMemTextMatch   = new(Colors.White);
+    private static readonly SolidColorBrush BrushMemTextReg     = new(Color.FromRgb(0xFF, 0xDD, 0x44));
     private static readonly SolidColorBrush BrushMemRegistered  = new(Color.FromRgb(0x0E, 0x22, 0x3A));
-    private static readonly SolidColorBrush BrushMemBorderMatch = new(Color.FromRgb(0xFF, 0xD7, 0x00));
-    private static readonly SolidColorBrush BrushMemBorderReg   = new(Color.FromRgb(0x3A, 0x9F, 0xFF));
+    private static readonly SolidColorBrush BrushMemBorderYellow= new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushMemBorderEmpty = new(Color.FromRgb(0x44, 0x44, 0x44));
-    private static readonly SolidColorBrush BrushScaleLine  = new(Color.FromRgb(0x55, 0x55, 0x55));
-    private static readonly SolidColorBrush BrushScaleText  = new(Color.FromRgb(0x77, 0x77, 0x77));
-    private static readonly SolidColorBrush BrushZeroLine   = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
-    private static readonly SolidColorBrush BrushZeroText   = new(Color.FromRgb(0x5A, 0x9F, 0xE1));
+    private static readonly SolidColorBrush BrushScaleGray  = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
 
     public event EventHandler<double>? VolumeChanged;
     public event EventHandler<(int slot, bool quick)>? MemoryRecall;
@@ -137,12 +135,12 @@ public partial class VFaderControl : UserControl
 
             bool isZero = label == "0";
 
-            // 目盛り線
+            // 目盛り線（すべて同じグレー）
             var line = new Line
             {
                 X1 = cw - 10, X2 = cw - 1,
                 Y1 = y, Y2 = y,
-                Stroke = isZero ? BrushZeroLine : BrushScaleLine,
+                Stroke = BrushScaleGray,
                 StrokeThickness = isZero ? 1.5 : 1
             };
             ScaleCanvas.Children.Add(line);
@@ -152,7 +150,7 @@ public partial class VFaderControl : UserControl
             {
                 Text = label,
                 FontSize = 8,
-                Foreground = isZero ? BrushZeroText : BrushScaleText
+                Foreground = BrushScaleGray
             };
             tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             Canvas.SetLeft(tb, 0);
@@ -189,14 +187,14 @@ public partial class VFaderControl : UserControl
             if (matches)
             {
                 btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextS;
-                btn.BorderBrush = BrushMemBorderMatch;
+                btn.Foreground  = BrushMemTextMatch; // 白
+                btn.BorderBrush = BrushMemBorderYellow;
             }
             else
             {
                 btn.Background  = BrushMemRegistered;
-                btn.Foreground  = BrushMemTextS;
-                btn.BorderBrush = BrushMemBorderReg;
+                btn.Foreground  = BrushMemTextReg;   // 金
+                btn.BorderBrush = BrushMemBorderYellow;
             }
         }
     }
@@ -210,6 +208,7 @@ public partial class VFaderControl : UserControl
 
     public void UpdateShiftState(bool isShift)
     {
+        if (Mem1 == null) return;
         for (int i = 0; i < 4; i++)
         {
             if (!_memories[i].HasValue) continue;
@@ -217,8 +216,8 @@ public partial class VFaderControl : UserControl
             if (isShift)
             {
                 btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextS;
-                btn.BorderBrush = BrushMemBorderMatch;
+                btn.Foreground  = BrushMemTextMatch;
+                btn.BorderBrush = BrushMemBorderYellow;
             }
             else
             {

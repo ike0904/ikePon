@@ -32,7 +32,7 @@
                         HorizontalAlignment="Left">
                     <TextBlock x:Name="CategoryLabel"
                                Text="BGM"
-                               FontSize="9"
+                               FontSize="12"
                                FontWeight="Bold"
                                Foreground="#999"
                                />
@@ -42,8 +42,8 @@
                 <TextBlock x:Name="FileNameLabel"
                            Grid.Row="1"
                            Text="---"
-                           FontSize="11"
-                           Foreground="#CCCCCC"
+                           FontSize="18"
+                           Foreground="White"
                            TextAlignment="Center"
                            VerticalAlignment="Center"
                            TextWrapping="Wrap"
@@ -62,10 +62,10 @@
                         Margin="0,1,2,0">
                     <TextBlock x:Name="KeyLabel"
                                Text="1"
-                               FontSize="11"
+                               FontSize="16"
                                FontWeight="Bold"
                                FontFamily="Consolas"
-                               Foreground="#777"/>
+                               Foreground="#AAAAAA"/>
                 </Border>
             </Grid>
 

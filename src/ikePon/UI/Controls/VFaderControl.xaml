@@ -26,7 +26,7 @@
                         x:Name="FaderSlider"
                         Orientation="Vertical"
                         Minimum="0"
-                        Maximum="1.26"
+                        Maximum="3.162"
                         Value="1.0"
                         SmallChange="0.01"
                         LargeChange="0.1"
@@ -69,26 +69,24 @@
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Border x:Name="ThumbBd"
                                                             Background="#5A5A5A"
-                                                            BorderBrush="#808080"
+                                                            BorderBrush="White"
                                                             BorderThickness="1"
                                                             CornerRadius="3"
                                                             Width="36" Height="20"
                                                             Cursor="SizeNS">
                                                         <!-- グリップ線 3本 -->
                                                         <StackPanel VerticalAlignment="Center" Margin="6,0">
-                                                            <Rectangle Height="1" Fill="#888" Margin="0,1"/>
-                                                            <Rectangle Height="1" Fill="#888" Margin="0,2"/>
-                                                            <Rectangle Height="1" Fill="#888" Margin="0,2"/>
+                                                            <Rectangle Height="1" Fill="White" Margin="0,1"/>
+                                                            <Rectangle Height="1" Fill="White" Margin="0,2"/>
+                                                            <Rectangle Height="1" Fill="White" Margin="0,2"/>
                                                         </StackPanel>
                                                     </Border>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="Background" Value="#6A6A6A"/>
-                                                            <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#AAAAAA"/>
                                                         </Trigger>
                                                         <Trigger Property="IsDragging" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="Background" Value="#787878"/>
-                                                            <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#CCCCCC"/>
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -106,7 +104,7 @@
             <TextBlock x:Name="FaderLabel"
                        Grid.Row="1"
                        Text="MASTER"
-                       FontSize="10" FontWeight="Bold"
+                       FontSize="12" FontWeight="Bold"
                        Foreground="#AAAAAA"
                        HorizontalAlignment="Center"
                        Margin="0,6,0,4"/>

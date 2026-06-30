@@ -45,10 +45,10 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankSelected = new(Color.FromRgb(0x1C, 0x44, 0x6E));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
-    private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0x3A, 0x9F, 0xFF));
+    private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0xFF, 0xD7, 0x00)); // 黄色
     private static readonly SolidColorBrush BrushInfoWarnBg   = new(Color.FromRgb(0x44, 0x22, 0x00));
     private static readonly SolidColorBrush BrushInfoWarnText = new(Color.FromRgb(0xFF, 0xDD, 0x00));
-    private static readonly SolidColorBrush BrushInfoNormal   = new(Color.FromRgb(0x88, 0x88, 0x88));
+    private static readonly SolidColorBrush BrushInfoNormal   = new(Colors.White);
 
     public MainWindow()
     {
@@ -147,9 +147,9 @@ public partial class MainWindow : Window
                 Child = new TextBlock
                 {
                     Text = KeyboardMapper.BankLabels[i],
-                    FontSize = 11, FontWeight = FontWeights.Bold,
+                    FontSize = 16, FontWeight = FontWeights.Bold,
                     FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77))
+                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
                 }
             };
             content.Children.Add(badge);
@@ -446,9 +446,11 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.FilePath = filePath;
-        _playback.LoadBank(_playback.ActiveBank);
+        string fname = System.IO.Path.GetFileName(filePath);
+        SetInfo2($"Pad {padIndex + 1}: {fname} を読み込み中...");
+        _playback.LoadBank(_playback.ActiveBank,
+            () => SetInfo2($"Pad {padIndex + 1}: {fname} を読み込みました"));
         MarkDirty();
-        SetInfo2($"Pad {padIndex + 1}: {System.IO.Path.GetFileName(filePath)} を読み込み中...");
     }
 
     // ------------------------------------------------------------------
@@ -505,13 +507,9 @@ public partial class MainWindow : Window
                     tb.Foreground = new SolidColorBrush(sel ? Colors.White : Color.FromRgb(0xAA, 0xAA, 0xAA));
                 if (g.Children[1] is Border badge)
                 {
-                    badge.BorderBrush = new SolidColorBrush(sel
-                        ? Color.FromRgb(0x3A, 0x9F, 0xFF)
-                        : Color.FromRgb(0x4A, 0x4A, 0x4A));
+                    badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                     if (badge.Child is TextBlock badgeTb)
-                        badgeTb.Foreground = new SolidColorBrush(sel
-                            ? Color.FromRgb(0xAA, 0xCC, 0xFF)
-                            : Color.FromRgb(0x77, 0x77, 0x77));
+                        badgeTb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                 }
             }
         }
@@ -775,7 +773,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.9{fname}{dirty}";
+        Title = $"ikePon v1.0.11{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

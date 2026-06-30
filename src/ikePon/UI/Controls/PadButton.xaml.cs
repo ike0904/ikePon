@@ -19,10 +19,9 @@ public partial class PadButton : UserControl
     private static readonly SolidColorBrush BrushCtrl        = new(Color.FromRgb(0x3A, 0x0E, 0x0E));
     private static readonly SolidColorBrush BrushBorderNormal = new(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly SolidColorBrush BrushBorderPlay  = new(Color.FromRgb(0xFF, 0xD7, 0x00));
-    private static readonly SolidColorBrush BrushTextNormal  = new(Color.FromRgb(0xCC, 0xCC, 0xCC));
-    private static readonly SolidColorBrush BrushTextPlay    = new(Color.FromRgb(0xFF, 0xD7, 0x00));
-    private static readonly SolidColorBrush BrushKeyNormal   = new(Color.FromRgb(0x66, 0x66, 0x66));
-    private static readonly SolidColorBrush BrushKeyPlay     = new(Color.FromRgb(0xAA, 0x88, 0x00));
+    private static readonly SolidColorBrush BrushTextNormal  = new(Colors.White);
+    private static readonly SolidColorBrush BrushTextPlay    = new(Colors.White);
+    private static readonly SolidColorBrush BrushKeyGray     = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
     private static readonly SolidColorBrush BrushProgress    = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
     private static readonly SolidColorBrush BrushProgressPlay= new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushCatBgm      = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
@@ -88,7 +87,7 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // 背景色 — SHIFT: 再生中のパッドのみ色変更
+        // 背景色 — SHIFT/CTRL: 再生中のパッドのみ色変更
         SolidColorBrush catBrush = _category switch
         {
             AudioCategory.BGM   => BrushPadBgm,
@@ -98,33 +97,29 @@ public partial class PadButton : UserControl
         BorderRoot.Background = modifier switch
         {
             ModifierState.Shift => playing ? BrushShift : catBrush,
-            ModifierState.Ctrl  => BrushCtrl,
+            ModifierState.Ctrl  => playing ? BrushCtrl  : catBrush,
             _ => playing ? BrushPadDefault : catBrush
         };
 
-        // ボーダー色・テキスト色（フェードアウト中は黄色→通常色に補間）
+        // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
         if (state == PadPlayState.FadingOut)
         {
             float g = Math.Clamp(fadeGain, 0f, 1f);
             byte br = Lerp(0x55, 0xFF, g); byte bg2 = Lerp(0x55, 0xD7, g); byte bb = Lerp(0x55, 0x00, g);
-            byte tr = Lerp(0xCC, 0xFF, g); byte tg = Lerp(0xCC, 0xD7, g); byte tb2 = Lerp(0xCC, 0x00, g);
-            byte kr = Lerp(0x66, 0xAA, g); byte kg = Lerp(0x66, 0x88, g); byte kb = Lerp(0x66, 0x00, g);
+            byte tr = Lerp(0xFF, 0xFF, g); byte tg2 = Lerp(0xFF, 0xD7, g); byte tb2 = Lerp(0xFF, 0x00, g);
             BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
             BorderRoot.BorderThickness = new Thickness(2.5);
-            FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg, tb2));
-            KeyLabel.Foreground = new SolidColorBrush(Color.FromRgb(kr, kg, kb));
-            KeyBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(
-                Lerp(0x4A, 0xAA, g), Lerp(0x4A, 0x88, g), Lerp(0x4A, 0x00, g)));
+            FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg2, tb2));
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
         }
         else
         {
             BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
             BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
             FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
-            KeyLabel.Foreground = playing ? BrushKeyPlay : BrushKeyNormal;
-            KeyBadge.BorderBrush = playing
-                ? new SolidColorBrush(Color.FromRgb(0xAA, 0x88, 0x00))
-                : new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
         }
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 
@@ -146,6 +141,8 @@ public partial class PadButton : UserControl
         BorderRoot.BorderThickness = new Thickness(1.5);
         FileNameLabel.Text = "---";
         FileNameLabel.Foreground = BrushTextNormal;
+        KeyLabel.Foreground  = BrushKeyGray;
+        KeyBadge.BorderBrush = BrushKeyGray;
         ProgressBar.Width = 0;
     }
 }

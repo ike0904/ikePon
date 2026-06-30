@@ -95,7 +95,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     public float MovieVolume  { get => _movieVol;  set => _movieVol  = ClampVol(value); }
     public bool  PaSeparate   { get => _paSeparate; set => _paSeparate = value; }
 
-    private static float ClampVol(float v) => v < 0f ? 0f : v > 1.5f ? 1.5f : v;
+    private static float ClampVol(float v) => v < 0f ? 0f : v > 4f ? 4f : v;
 
     // ------------------------------------------------------------------
     // ISampleProvider.Read — オーディオスレッドから呼ばれる（GC負荷ゼロ）
@@ -124,6 +124,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
                 _                   => _movieVol
             };
 
+            Array.Clear(_tempBuf, 0, count);
             src.Read(_tempBuf, 0, count);
             float gain = catVol * mstr;
 
