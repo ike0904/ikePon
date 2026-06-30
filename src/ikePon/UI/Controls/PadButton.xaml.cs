@@ -88,17 +88,18 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // 背景色
+        // 背景色 — SHIFT: 再生中のパッドのみ色変更
+        SolidColorBrush catBrush = _category switch
+        {
+            AudioCategory.BGM   => BrushPadBgm,
+            AudioCategory.SE    => BrushPadSe,
+            _                   => BrushPadMovie
+        };
         BorderRoot.Background = modifier switch
         {
-            ModifierState.Shift => BrushShift,
+            ModifierState.Shift => playing ? BrushShift : catBrush,
             ModifierState.Ctrl  => BrushCtrl,
-            _ => playing ? BrushPadDefault : _category switch
-            {
-                AudioCategory.BGM   => BrushPadBgm,
-                AudioCategory.SE    => BrushPadSe,
-                _                   => BrushPadMovie
-            }
+            _ => playing ? BrushPadDefault : catBrush
         };
 
         // ボーダー色・テキスト色（フェードアウト中は黄色→通常色に補間）

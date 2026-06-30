@@ -147,7 +147,8 @@ public partial class MainWindow : Window
                 Child = new TextBlock
                 {
                     Text = KeyboardMapper.BankLabels[i],
-                    FontSize = 14, FontWeight = FontWeights.Bold,
+                    FontSize = 11, FontWeight = FontWeights.Bold,
+                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
                     Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77))
                 }
             };
@@ -237,6 +238,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
+        bool isShift = _modifier == ModifierState.Shift;
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -245,6 +247,8 @@ public partial class MainWindow : Window
             var fadeGain = _playback.GetPadFadeGain(i);
             _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain);
         }
+        for (int i = 0; i < _faders.Length; i++)
+            _faders[i].UpdateShiftState(isShift);
     }
 
     // ------------------------------------------------------------------
@@ -771,7 +775,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.8{fname}{dirty}";
+        Title = $"ikePon v1.0.9{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

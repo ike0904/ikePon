@@ -186,42 +186,43 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     // ------------------------------------------------------------------
     public int Read(float[] buffer, int offset, int count)
     {
-        PadPlayState st;
-        lock (_lock) st = (PadPlayState)_stateInt;
-
-        if (st == PadPlayState.Idle)
+        lock (_lock)
         {
-            Array.Clear(buffer, offset, count);
-            return count;
-        }
+            PadPlayState st = (PadPlayState)_stateInt;
 
-        try
-        {
-            ReadSource(buffer, offset, count, st);
-
-            float gain = _fileGain * _padGain;
-            if (Math.Abs(gain - 1f) > 0.001f)
-                for (int i = 0; i < count; i++) buffer[offset + i] *= gain;
-
-            if (st == PadPlayState.FadingOut)
+            if (st == PadPlayState.Idle)
             {
-                bool done;
-                lock (_lock) done = _fade.Apply(buffer, offset, count);
-                if (done)
-                    lock (_lock)
+                Array.Clear(buffer, offset, count);
+                return count;
+            }
+
+            try
+            {
+                ReadSource(buffer, offset, count, st);
+
+                float gain = _fileGain * _padGain;
+                if (Math.Abs(gain - 1f) > 0.001f)
+                    for (int i = 0; i < count; i++) buffer[offset + i] *= gain;
+
+                if (st == PadPlayState.FadingOut)
+                {
+                    bool done = _fade.Apply(buffer, offset, count);
+                    if (done)
                     {
                         if ((PadPlayState)_stateInt == PadPlayState.FadingOut)
                             _stateInt = (int)PadPlayState.Idle;
                     }
+                }
             }
-        }
-        catch
-        {
-            lock (_lock) { _stateInt = (int)PadPlayState.Idle; _fade.Reset(); }
-            Array.Clear(buffer, offset, count);
-        }
+            catch
+            {
+                _stateInt = (int)PadPlayState.Idle;
+                _fade.Reset();
+                Array.Clear(buffer, offset, count);
+            }
 
-        return count;
+            return count;
+        }
     }
 
     private void ReadSource(float[] buffer, int offset, int count, PadPlayState st)
@@ -250,9 +251,8 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             if (_readPos >= _preloadTotal && st == PadPlayState.Playing)
             {
-                lock (_lock)
-                    if ((PadPlayState)_stateInt == PadPlayState.Playing)
-                        _stateInt = (int)PadPlayState.Idle;
+                if ((PadPlayState)_stateInt == PadPlayState.Playing)
+                    _stateInt = (int)PadPlayState.Idle;
                 PlaybackPosition = 0f;
             }
             return;
@@ -293,9 +293,8 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             if (totalRead < count && st == PadPlayState.Playing)
             {
-                lock (_lock)
-                    if ((PadPlayState)_stateInt == PadPlayState.Playing)
-                        _stateInt = (int)PadPlayState.Idle;
+                if ((PadPlayState)_stateInt == PadPlayState.Playing)
+                    _stateInt = (int)PadPlayState.Idle;
                 PlaybackPosition = 0f;
             }
             return;

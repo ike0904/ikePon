@@ -111,6 +111,12 @@ public partial class PadDetailDialog : Window
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
+    private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not TextBox)
+            FocusManager.SetFocusedElement(this, null);
+    }
+
     // ------------------------------------------------------------------
     // テキストボックス確定・自動補正
     // ------------------------------------------------------------------

@@ -4,7 +4,8 @@
         Title="パッド詳細設定" Width="440" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="#212121" Foreground="White">
+        Background="#212121" Foreground="White"
+        MouseDown="Window_MouseDown">
 
     <Window.Resources>
         <Style TargetType="TextBlock">
@@ -34,6 +35,76 @@
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+        <!-- ComboBoxのカスタムテンプレート（背景色をダーク化） -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#2E2E2E"/>
+            <Setter Property="Foreground" Value="#EEEEEE"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="2">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0"
+                                                      IsHitTestVisible="False"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalAlignment="Center"/>
+                                    <Path Grid.Column="1" x:Name="Arrow"
+                                          Fill="#AAAAAA"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton Grid.ColumnSpan="2"
+                                          Focusable="false"
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent" BorderThickness="0"
+                                          ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid Name="DropDown"
+                                      SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Background="#2E2E2E" BorderBrush="#555" BorderThickness="1"/>
+                                    <ScrollViewer Margin="0" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3A9FFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -86,7 +157,7 @@
                  Foreground="#AAAAAA"
                  MinHeight="32"/>
         <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
-                   FontSize="10" Foreground="#888" Margin="0,0,0,10"/>
+                   FontSize="10" Foreground="White" Margin="0,0,0,10"/>
 
         <Separator Background="#383838" Margin="0,0,0,10"/>
 
@@ -143,7 +214,7 @@
                      PreviewMouseMove="NumericBox_MouseMove"
                      PreviewMouseUp="NumericBox_MouseUp"
                      PreviewMouseWheel="PosBox_MouseWheel"/>
-            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#888"/>
+            <Label x:Name="LblTotalTime" Content="" Grid.Column="2" Margin="8,0,0,0" FontSize="10"/>
         </Grid>
 
         <!-- 再生終了位置 -->
@@ -161,11 +232,11 @@
                      PreviewMouseMove="NumericBox_MouseMove"
                      PreviewMouseUp="NumericBox_MouseUp"
                      PreviewMouseWheel="PosBox_MouseWheel"/>
-            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0" FontSize="10" Foreground="#888"/>
+            <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0" FontSize="10"/>
         </Grid>
 
         <TextBlock Text="形式: 分:秒.1秒  例: 0:00.0  /  1:23.5  /  12（→ 0:12.0）"
-                   FontSize="10" Foreground="#888" Margin="0,0,0,12"/>
+                   FontSize="10" Foreground="White" Margin="0,0,0,12"/>
 
         <Separator Background="#383838" Margin="0,0,0,12"/>
 

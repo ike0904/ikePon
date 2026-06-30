@@ -62,8 +62,9 @@
                         Margin="0,1,2,0">
                     <TextBlock x:Name="KeyLabel"
                                Text="1"
-                               FontSize="14"
+                               FontSize="11"
                                FontWeight="Bold"
+                               FontFamily="Consolas"
                                Foreground="#777"/>
                 </Border>
             </Grid>

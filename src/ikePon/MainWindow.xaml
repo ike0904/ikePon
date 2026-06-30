@@ -58,8 +58,6 @@
                     <Button x:Name="PanicButton"
                             Height="52"
                             Margin="0,0,6,0"
-                            FontSize="18" FontWeight="Bold"
-                            Foreground="White"
                             Click="PanicButton_Click">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -69,11 +67,20 @@
                                             <Border x:Name="Bd" Background="#BB1111"
                                                     BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
                                                 <Grid>
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="ESC" FontSize="9" FontWeight="Normal"
-                                                               Foreground="#FF9999" Opacity="0.85"
-                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                               Margin="0,0,5,3"/>
+                                                    <TextBlock Text="PANIC"
+                                                               FontSize="18" FontWeight="Bold"
+                                                               Foreground="White"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <Border Background="#1C1C1C" BorderBrush="#4A4A4A"
+                                                            BorderThickness="1" CornerRadius="2"
+                                                            Padding="4,1"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Margin="0,0,4,3">
+                                                        <TextBlock Text="ESC"
+                                                                   FontSize="11" FontWeight="Bold"
+                                                                   FontFamily="Consolas"
+                                                                   Foreground="#777"/>
+                                                    </Border>
                                                 </Grid>
                                             </Border>
                                             <ControlTemplate.Triggers>

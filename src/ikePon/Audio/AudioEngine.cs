@@ -28,7 +28,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     private volatile float _movieVol = 1f;
     private volatile bool _paSeparate;
 
-    private float[] _tempBuf = new float[16384];
+    private readonly float[] _tempBuf = new float[65536];
 
     public WaveFormat WaveFormat => _format;
 
@@ -105,7 +105,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         Array.Clear(buffer, offset, count);
 
         if (count > _tempBuf.Length)
-            _tempBuf = new float[count + 512];
+            count = _tempBuf.Length;
 
         int bank = _activeBank;
         float mstr = _masterVol;

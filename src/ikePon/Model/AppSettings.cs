@@ -9,7 +9,7 @@ public class AppSettings
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ikePon", "settings.json");
 
-    public float ShortFadeDuration { get; set; } = 0.5f;
+    public float ShortFadeDuration { get; set; } = 0.2f;
     public float LongFadeDuration { get; set; } = 3.0f;
     public float FaderQuickMoveDuration { get; set; } = 0.5f;
     public float FaderSlowMoveDuration { get; set; } = 3.0f;
