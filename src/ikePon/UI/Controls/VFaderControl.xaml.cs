@@ -203,6 +203,7 @@ public partial class VFaderControl : UserControl
 
     private void UpdateAllMemoryButtons()
     {
+        if (Mem1 == null) return; // XAML 初期化前は無視
         for (int i = 0; i < 4; i++)
             UpdateMemoryButton(i, _memories[i].HasValue);
     }
