@@ -9,6 +9,7 @@ using ikePon.Audio;
 using ikePon.Controller;
 using ikePon.Model;
 using ikePon.UI.Controls;
+using ikePon.UI.Dialogs;
 
 namespace ikePon;
 
@@ -329,22 +330,6 @@ public partial class MainWindow : Window
 
             if (pad != null)
             {
-                // カテゴリ変更サブメニュー
-                var catMenu = new MenuItem { Header = "カテゴリ変更" };
-                foreach (var cat in new[] { AudioCategory.BGM, AudioCategory.SE, AudioCategory.Movie })
-                {
-                    string catName = cat switch { AudioCategory.BGM => "BGM", AudioCategory.SE => "SE", _ => "MOVIE" };
-                    var catItem = new MenuItem { Header = catName, IsChecked = pad.Category == cat };
-                    AudioCategory capturedCat = cat;
-                    catItem.Click += (_, _) =>
-                    {
-                        pad.Category = capturedCat;
-                        _engine.SetPadCategory(_playback.ActiveBank, padIndex, capturedCat);
-                        MarkDirty();
-                    };
-                    catMenu.Items.Add(catItem);
-                }
-                cm.Items.Add(catMenu);
                 cm.Items.Add(new Separator());
 
                 var copyItem = new MenuItem { Header = "設定をコピー", IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
@@ -362,6 +347,11 @@ public partial class MainWindow : Window
                     clear.Click += (_, _) => ClearPad(padIndex);
                     cm.Items.Add(clear);
                 }
+
+                cm.Items.Add(new Separator());
+                var detail = new MenuItem { Header = "詳細設定..." };
+                detail.Click += (_, _) => OpenPadDetail(padIndex);
+                cm.Items.Add(detail);
             }
         }
 
@@ -391,6 +381,38 @@ public partial class MainWindow : Window
         _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
         pad.FilePath = null;
         MarkDirty();
+    }
+
+    private void OpenPadDetail(int padIndex)
+    {
+        var pad = _playback.GetPadSettings(padIndex);
+        if (pad == null) return;
+
+        float totalSec = _playback.GetPadTotalTime(padIndex);
+        var dlg = new PadDetailDialog(pad, _gainDb, totalSec) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        bool fileChanged = dlg.ResultFilePath != pad.FilePath;
+
+        pad.Category        = dlg.ResultCategory;
+        pad.CustomLabel     = dlg.ResultLabel;
+        pad.FilePath        = dlg.ResultFilePath;
+        pad.PadGain         = dlg.ResultPadGain;
+        pad.StartPositionSec = dlg.ResultStartSec;
+        pad.EndPositionSec  = dlg.ResultEndSec;
+
+        _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
+
+        if (!string.IsNullOrEmpty(pad.FilePath))
+            _gainDb.SetGain(pad.FilePath, dlg.ResultFileGain);
+
+        if (fileChanged)
+            _playback.LoadBank(_playback.ActiveBank);
+        else
+            _playback.UpdatePadGain(padIndex, dlg.ResultFileGain, pad.PadGain);
+
+        MarkDirty();
+        SetInfo2($"Pad {padIndex + 1}: 詳細設定を更新しました。");
     }
 
     private void OpenFileForPad(int padIndex)
@@ -748,7 +770,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.6{fname}{dirty}";
+        Title = $"ikePon v1.0.7{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

@@ -62,8 +62,9 @@ public partial class PadButton : UserControl
         if (settings != null)
         {
             _category = settings.Category;
-            string fname = System.IO.Path.GetFileName(settings.FilePath ?? "");
-            FileNameLabel.Text = string.IsNullOrEmpty(fname) ? "---" : fname;
+            string label = settings.CustomLabel
+                ?? System.IO.Path.GetFileNameWithoutExtension(settings.FilePath ?? "");
+            FileNameLabel.Text = string.IsNullOrEmpty(label) ? "---" : label;
 
             CategoryLabel.Text = settings.Category switch
             {

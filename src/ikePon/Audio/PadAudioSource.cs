@@ -31,10 +31,16 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private float _fileGain = 1f;
     private float _padGain  = 1f;
 
+    // Playback range
+    private float _startSec = 0f;
+    private float _endSec   = -1f; // -1 = end of file
+    private float _shortFadeSec = 0.5f;
+
     public WaveFormat WaveFormat => _format;
     public PadPlayState State    => (PadPlayState)_stateInt;
     public float PlaybackPosition { get; private set; }
     public string? FilePath { get; private set; }
+    public float FileTotalSec { get; private set; }
 
     /// <summary>フェードアウト中の現在ゲイン係数（1.0=開始, 0.0=無音）。再生中は 1.0。</summary>
     public float FadeGain =>
@@ -62,11 +68,12 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 var resampled = ConvertToFormat(probe, _format);
                 lock (_lock)
                 {
-                    _preloaded    = resampled;
-                    _preloadTotal = resampled.Length;
-                    _reader       = null;
+                    _preloaded      = resampled;
+                    _preloadTotal   = resampled.Length;
+                    _reader         = null;
                     _streamProvider = null;
-                    FilePath      = filePath;
+                    FilePath        = filePath;
+                    FileTotalSec    = (float)duration;
                 }
             }
             else
@@ -80,6 +87,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     _streamProvider = provider;
                     _preloaded      = null;
                     FilePath        = filePath;
+                    FileTotalSec    = (float)duration;
                 }
             }
             return true;
@@ -88,6 +96,12 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         {
             return false;
         }
+    }
+
+    public void UpdateGain(float fileGain, float padGain)
+    {
+        _fileGain = fileGain;
+        _padGain  = padGain;
     }
 
     public void Unload()
@@ -102,6 +116,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             _preloaded      = null;
             _readPos        = 0;
             FilePath        = null;
+            FileTotalSec    = 0f;
             PlaybackPosition = 0f;
         }
     }
@@ -109,31 +124,37 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     // ------------------------------------------------------------------
     // Trigger / Stop
     // ------------------------------------------------------------------
-    public void Trigger(AppSettings settings)
+
+    /// <summary>
+    /// パッドをトリガー。再生中・フェード中問わず即座に startSec から再生開始。
+    /// </summary>
+    public void Trigger(float startSec, float endSec, float shortFadeSec)
     {
         lock (_lock)
         {
-            if (_preloaded == null && _reader == null) return; // データなし
+            if (_preloaded == null && _reader == null) return;
 
-            var st = (PadPlayState)_stateInt;
-            if (st == PadPlayState.Playing || st == PadPlayState.FadingOut)
+            _startSec     = Math.Max(0f, startSec);
+            _endSec       = endSec;
+            _shortFadeSec = shortFadeSec;
+
+            if (_preloaded != null)
             {
-                _fade.StartFadeOut(settings.LongFadeDuration, _format.SampleRate);
-                _stateInt = (int)PadPlayState.FadingOut;
+                // プリロード: サンプル位置を計算
+                _readPos = Math.Clamp(
+                    (int)(_startSec * _format.SampleRate * _format.Channels),
+                    0, _preloadTotal);
             }
-            else
+            else if (_reader != null)
             {
-                _readPos = 0;
-                if (_reader != null)
-                {
-                    _reader.Seek(0, SeekOrigin.Begin);
-                    // ストリーミングは seek 後にプロバイダを再生成（リサンプラー内部状態リセット）
-                    _streamProvider = BuildStreamProvider(_reader);
-                }
-                _fade.Reset();
-                _stateInt = (int)PadPlayState.Playing;
-                PlaybackPosition = 0f;
+                // ストリーミング: 開始位置にシーク
+                SeekReaderToSec(_startSec);
+                _streamProvider = BuildStreamProvider(_reader);
             }
+
+            _fade.Reset();
+            _stateInt = (int)PadPlayState.Playing;
+            PlaybackPosition = 0f;
         }
     }
 
@@ -217,6 +238,16 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
 
+            // 終了位置チェック
+            if (_endSec > 0 && st == PadPlayState.Playing)
+            {
+                float currentSec = _format.SampleRate > 0 && _format.Channels > 0
+                    ? (float)_readPos / (_format.SampleRate * _format.Channels)
+                    : 0f;
+                if (currentSec >= _endSec)
+                    TriggerEndFade();
+            }
+
             if (_readPos >= _preloadTotal && st == PadPlayState.Playing)
             {
                 lock (_lock)
@@ -228,16 +259,37 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         }
 
         // ストリーミング: フォーマット変換済みプロバイダで読み取る
+        // リサンプラー等が要求より少ないサンプルを返すことがあるためループで埋める
         var provider = _streamProvider ?? (ISampleProvider?)_reader;
         if (provider != null)
         {
-            int read = provider.Read(buffer, offset, count);
-            if (read < count) Array.Clear(buffer, offset + read, count - read);
+            int totalRead = 0;
+            while (totalRead < count)
+            {
+                int n = provider.Read(buffer, offset + totalRead, count - totalRead);
+                if (n == 0) break; // EOF
+                totalRead += n;
+            }
+
+            if (totalRead < count)
+                Array.Clear(buffer, offset + totalRead, count - totalRead);
 
             if (_reader != null && _reader.Length > 0)
                 PlaybackPosition = (float)_reader.Position / _reader.Length;
 
-            if (read < count && st == PadPlayState.Playing)
+            // 終了位置チェック
+            if (_endSec > 0 && st == PadPlayState.Playing && _reader != null)
+            {
+                double totalSecs = _reader.TotalTime.TotalSeconds;
+                if (totalSecs > 0 && _reader.Length > 0)
+                {
+                    float currentSec = (float)(_reader.Position / (double)_reader.Length * totalSecs);
+                    if (currentSec >= _endSec)
+                        TriggerEndFade();
+                }
+            }
+
+            if (totalRead < count && st == PadPlayState.Playing)
             {
                 lock (_lock)
                     if ((PadPlayState)_stateInt == PadPlayState.Playing)
@@ -250,9 +302,35 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         Array.Clear(buffer, offset, count);
     }
 
+    private void TriggerEndFade()
+    {
+        lock (_lock)
+        {
+            if ((PadPlayState)_stateInt == PadPlayState.Playing)
+            {
+                _fade.StartFadeOut(_shortFadeSec, _format.SampleRate);
+                _stateInt = (int)PadPlayState.FadingOut;
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // ヘルパー
     // ------------------------------------------------------------------
+
+    private void SeekReaderToSec(float sec)
+    {
+        if (_reader == null) return;
+        long byteOffset = 0;
+        if (sec > 0 && _reader.TotalTime.TotalSeconds > 0 && _reader.Length > 0)
+        {
+            byteOffset = (long)(sec / _reader.TotalTime.TotalSeconds * _reader.Length);
+            byteOffset = Math.Clamp(byteOffset, 0, _reader.Length);
+            if (_reader.BlockAlign > 0)
+                byteOffset -= byteOffset % _reader.BlockAlign;
+        }
+        _reader.Seek(byteOffset, SeekOrigin.Begin);
+    }
 
     /// <summary>
     /// AudioFileReader をエンジンフォーマット（44100Hz ステレオ）に変換する ISampleProvider を構築。

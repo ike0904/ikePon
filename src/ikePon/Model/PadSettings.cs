@@ -6,6 +6,8 @@ public class PadSettings
     public AudioCategory Category { get; set; } = AudioCategory.BGM;
     public float PadGain { get; set; } = 1.0f;
     public string? CustomLabel { get; set; }
+    public float StartPositionSec { get; set; } = 0f;
+    public float EndPositionSec { get; set; } = -1f; // -1 = end of file
 
     public PadSettings Clone() => new()
     {
@@ -13,5 +15,7 @@ public class PadSettings
         Category = Category,
         PadGain = PadGain,
         CustomLabel = CustomLabel,
+        StartPositionSec = StartPositionSec,
+        EndPositionSec = EndPositionSec,
     };
 }

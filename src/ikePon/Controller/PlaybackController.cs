@@ -113,7 +113,7 @@ public sealed class PlaybackController
         }
 
         _activePad[catIdx] = padIndex;
-        src.Trigger(_settings);
+        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration);
     }
 
     // ------------------------------------------------------------------
@@ -174,6 +174,12 @@ public sealed class PlaybackController
 
     public PadSettings? GetPadSettings(int padIndex)
         => _project?.Banks[_engine.ActiveBank].Pads[padIndex];
+
+    public float GetPadTotalTime(int padIndex)
+        => _engine.GetSource(_engine.ActiveBank, padIndex).FileTotalSec;
+
+    public void UpdatePadGain(int padIndex, float fileGain, float padGain)
+        => _engine.GetSource(_engine.ActiveBank, padIndex).UpdateGain(fileGain, padGain);
 
     public int ActiveBank => _engine.ActiveBank;
 
