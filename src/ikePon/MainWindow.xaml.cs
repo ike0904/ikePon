@@ -322,9 +322,9 @@ public partial class MainWindow : Window
 
         if (state != PadPlayState.Idle)
         {
-            var fadeOut = new MenuItem { Header = $"フェードアウト ({_settings.LongFadeDuration:F1}秒)" };
+            var fadeOut = new MenuItem { Header = "フェードアウト" };
             fadeOut.Click += (_, _) => _playback.TriggerPad(padIndex, fadeOut: true);
-            var stopNow = new MenuItem { Header = $"即座に停止 ({_settings.ShortFadeDuration:F1}秒)" };
+            var stopNow = new MenuItem { Header = "即座に停止" };
             stopNow.Click += (_, _) => _playback.TriggerPad(padIndex, stopImmediate: true);
             cm.Items.Add(fadeOut);
             cm.Items.Add(stopNow);
@@ -777,7 +777,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.11{fname}{dirty}";
+        Title = $"ikePon v1.0.13{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

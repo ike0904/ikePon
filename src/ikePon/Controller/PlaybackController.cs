@@ -115,6 +115,17 @@ public sealed class PlaybackController
         }
 
         _activePad[catIdx] = padIndex;
+
+        // MOVIE/BGM: 同パッドを再押しした場合は長いフェードアウト（再起動しない）
+        bool isSamePad = prev == padIndex;
+        bool isMovieBgm = pad.Category == AudioCategory.Movie || pad.Category == AudioCategory.BGM;
+        if (isSamePad && isMovieBgm && src.State != PadPlayState.Idle)
+        {
+            src.Stop(_settings.LongFadeDuration);
+            _activePad[catIdx] = -1;
+            return;
+        }
+
         src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration);
     }
 

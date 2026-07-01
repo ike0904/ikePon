@@ -9,9 +9,8 @@ namespace ikePon.UI.Controls;
 
 public partial class VFaderControl : UserControl
 {
-    // 目盛り定義: (ラベル, スライダー値)
-    // Maximum=1.995 (+6dB), 0dB=1.0, -6dB≈0.501
-    private static readonly (string label, double val)[] ScaleMarks =
+    // 目盛り定義: (ラベル, ゲイン値)
+    private static readonly (string label, double gain)[] ScaleMarks =
     [
         ("+6",  1.995),
         ("0",   1.000),
@@ -23,8 +22,13 @@ public partial class VFaderControl : UserControl
         ("-∞",  0.0)
     ];
 
-    private const double ThumbHalf = 10.0; // サムの高さ20 / 2
-    public  const double FaderMax  = 1.995;
+    // 非線形スケール: 0dB(ゲイン=1.0)はスライダー下端から75%の位置
+    private const double UnityPos  = 0.75;   // スライダー位置空間で0dBの位置
+    private const double UnityGain = 1.0;    // 0dBのゲイン値
+    private const double MaxGain   = 1.995;  // +6dBのゲイン値
+
+    private const double ThumbHalf = 10.0;
+    public  const double FaderMax  = MaxGain;
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
@@ -52,13 +56,14 @@ public partial class VFaderControl : UserControl
 
     public string Label { get => FaderLabel.Text; set => FaderLabel.Text = value; }
 
+    // Value は外部向けゲイン値（0..MaxGain）。スライダーは内部で位置空間(0..1)を使用。
     public double Value
     {
-        get => FaderSlider.Value;
+        get => PositionToGain(FaderSlider.Value);
         set
         {
             _suppressEvent = true;
-            FaderSlider.Value = Math.Clamp(value, 0, FaderMax);
+            FaderSlider.Value = Math.Clamp(GainToPosition(value), 0, 1.0);
             _suppressEvent = false;
         }
     }
@@ -73,21 +78,47 @@ public partial class VFaderControl : UserControl
         _animTimer.Tick += AnimTimer_Tick;
     }
 
+    // ------------------------------------------------------------------
+    // 非線形変換（2区間線形）
+    // 区間1: 位置 0..UnityPos → ゲイン 0..UnityGain（線形）
+    // 区間2: 位置 UnityPos..1 → ゲイン UnityGain..MaxGain（線形）
+    // ------------------------------------------------------------------
+    private static double PositionToGain(double pos)
+    {
+        pos = Math.Clamp(pos, 0, 1.0);
+        if (pos <= UnityPos)
+            return pos * (UnityGain / UnityPos);
+        else
+            return UnityGain + (pos - UnityPos) * (MaxGain - UnityGain) / (1.0 - UnityPos);
+    }
+
+    private static double GainToPosition(double gain)
+    {
+        gain = Math.Clamp(gain, 0, MaxGain);
+        if (gain <= UnityGain)
+            return gain * (UnityPos / UnityGain);
+        else
+            return UnityPos + (gain - UnityGain) * (1.0 - UnityPos) / (MaxGain - UnityGain);
+    }
+
     /// <summary>
-    /// 指定した値へ durationSecs 秒かけて線形移動する。
+    /// 指定ゲイン値へ durationSecs 秒かけて移動する。
     /// durationSecs ≤ 0 の場合は即時移動。
     /// </summary>
-    public void SmoothMoveTo(double target, double durationSecs)
+    public void SmoothMoveTo(double gain, double durationSecs)
     {
         _animTimer.Stop();
+        double posTarget = Math.Clamp(GainToPosition(gain), 0, 1.0);
         if (durationSecs <= 0)
         {
-            Value = target;
-            VolumeChanged?.Invoke(this, target);
+            _suppressEvent = true;
+            FaderSlider.Value = posTarget;
+            _suppressEvent = false;
+            VolumeChanged?.Invoke(this, PositionToGain(posTarget));
             return;
         }
         _animFrom = FaderSlider.Value;
-        _animTarget = Math.Clamp(target, 0, FaderMax);
+        _animTarget = posTarget;
         _animDuration = durationSecs;
         _animStartTime = DateTime.UtcNow;
         _animTimer.Start();
@@ -102,7 +133,7 @@ public partial class VFaderControl : UserControl
         _suppressEvent = true;
         FaderSlider.Value = current;
         _suppressEvent = false;
-        VolumeChanged?.Invoke(this, current);
+        VolumeChanged?.Invoke(this, PositionToGain(current));
 
         if (t >= 1.0)
             _animTimer.Stop();
@@ -112,7 +143,7 @@ public partial class VFaderControl : UserControl
     {
         UpdateAllMemoryButtons();
         if (!_suppressEvent)
-            VolumeChanged?.Invoke(this, e.NewValue);
+            VolumeChanged?.Invoke(this, PositionToGain(e.NewValue));
     }
 
     private void FaderSlider_SizeChanged(object sender, SizeChangedEventArgs e) => DrawScale();
@@ -131,14 +162,14 @@ public partial class VFaderControl : UserControl
         double trackTop = ThumbHalf;
         double cw = ScaleCanvas.ActualWidth > 0 ? ScaleCanvas.ActualWidth : 24;
 
-        foreach (var (label, val) in ScaleMarks)
+        foreach (var (label, gain) in ScaleMarks)
         {
-            double pct = (FaderMax - val) / FaderMax;
+            double pct = 1.0 - GainToPosition(gain);
             double y = trackTop + pct * trackH;
 
             bool isZero = label == "0";
 
-            // 目盛り線（すべて同じグレー）
+            // 目盛り線
             var line = new Line
             {
                 X1 = cw - 10, X2 = cw - 1,
@@ -163,12 +194,12 @@ public partial class VFaderControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // メモリ操作
+    // メモリ操作（ゲイン値で保存）
     // ------------------------------------------------------------------
-    public void StoreMemory(int slot, double value)
+    public void StoreMemory(int slot, double gain)
     {
         if (slot < 0 || slot >= 4) return;
-        _memories[slot] = (float)value;
+        _memories[slot] = (float)gain;
         UpdateMemoryButton(slot, true);
     }
 
@@ -185,7 +216,7 @@ public partial class VFaderControl : UserControl
         }
         else
         {
-            float cur = (float)FaderSlider.Value;
+            float cur = (float)PositionToGain(FaderSlider.Value);
             bool matches = _memories[slot].HasValue && Math.Abs(_memories[slot]!.Value - cur) < 0.01f;
             if (matches)
             {
@@ -240,14 +271,14 @@ public partial class VFaderControl : UserControl
         var cm = new ContextMenu();
 
         var store = new MenuItem { Header = "登録" };
-        store.Click += (_, _) => StoreMemory(slot, FaderSlider.Value);
+        store.Click += (_, _) => StoreMemory(slot, Value);
         cm.Items.Add(store);
 
         if (_memories[slot].HasValue)
         {
             cm.Items.Add(new Separator());
-            var quick = new MenuItem { Header = "即座に移動（0.2秒）" };
-            var slow  = new MenuItem { Header = "ゆっくり移動（3.0秒）" };
+            var quick = new MenuItem { Header = "即座に移動" };
+            var slow  = new MenuItem { Header = "ゆっくり移動" };
             quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
             slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
             cm.Items.Add(quick);

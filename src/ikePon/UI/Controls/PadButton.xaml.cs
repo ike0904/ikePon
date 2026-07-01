@@ -87,12 +87,14 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // 背景色 — 常時グレー。SHIFT=再生中のみ青、CTRL=再生中のみ赤
+        // 背景色 — SHIFT=再生中のみ青、CTRL=再生中のみ赤
+        // 修飾キーなし: 再生中かつMOVIE/BGMのみ青系（SEと未設定は常にグレー）
+        bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
         BorderRoot.Background = modifier switch
         {
             ModifierState.Shift => playing ? BrushShift    : BrushPadDefault,
             ModifierState.Ctrl  => playing ? BrushCtrl     : BrushPadDefault,
-            _                   =>                           BrushPadDefault
+            _                   => (playing && isMovieBgm) ? BrushShift : BrushPadDefault
         };
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）

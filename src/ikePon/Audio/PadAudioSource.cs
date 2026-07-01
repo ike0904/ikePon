@@ -165,7 +165,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             var st = (PadPlayState)_stateInt;
             if (st == PadPlayState.Playing || st == PadPlayState.FadingOut)
             {
-                _fade.StartFadeOut(fadeDuration, _format.SampleRate);
+                _fade.StartFadeOut(fadeDuration, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
             }
         }
@@ -249,11 +249,15 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     TriggerEndFade();
             }
 
-            if (_readPos >= _preloadTotal && st == PadPlayState.Playing)
+            if (_readPos >= _preloadTotal)
             {
-                if ((PadPlayState)_stateInt == PadPlayState.Playing)
+                var curState = (PadPlayState)_stateInt;
+                if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
+                {
                     _stateInt = (int)PadPlayState.Idle;
-                PlaybackPosition = 0f;
+                    _fade.Reset();
+                    PlaybackPosition = 0f;
+                }
             }
             return toRead;
         }
@@ -282,11 +286,17 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 }
             }
 
-            if (totalRead == 0 && st == PadPlayState.Playing)
+            bool streamEof = (totalRead == 0) ||
+                             (_reader != null && _reader.Length > 0 && _reader.Position >= _reader.Length);
+            if (streamEof)
             {
-                if ((PadPlayState)_stateInt == PadPlayState.Playing)
+                var curState = (PadPlayState)_stateInt;
+                if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
+                {
                     _stateInt = (int)PadPlayState.Idle;
-                PlaybackPosition = 0f;
+                    _fade.Reset();
+                    PlaybackPosition = 0f;
+                }
             }
 
             return totalRead;
@@ -302,7 +312,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         {
             if ((PadPlayState)_stateInt == PadPlayState.Playing)
             {
-                _fade.StartFadeOut(_shortFadeSec, _format.SampleRate);
+                _fade.StartFadeOut(_shortFadeSec, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
             }
         }
