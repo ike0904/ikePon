@@ -315,19 +315,27 @@ public partial class VFaderControl : UserControl
         int slot = Convert.ToInt32(btn.Tag);
 
         var cm = new ContextMenu();
-        var store = new MenuItem { Header = "登録" };
-        store.Click += (_, _) => StoreMemory(slot, Value);
-        cm.Items.Add(store);
 
         if (_memories[slot].HasValue)
         {
-            cm.Items.Add(new Separator());
             var quick = new MenuItem { Header = "即座に移動" };
             var slow  = new MenuItem { Header = "ゆっくり移動" };
+            var reReg = new MenuItem { Header = "再登録" };
+            var del   = new MenuItem { Header = "削除" };
             quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
             slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
+            reReg.Click += (_, _) => StoreMemory(slot, Value);
+            del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot, false); };
             cm.Items.Add(quick);
             cm.Items.Add(slow);
+            cm.Items.Add(reReg);
+            cm.Items.Add(del);
+        }
+        else
+        {
+            var store = new MenuItem { Header = "登録" };
+            store.Click += (_, _) => StoreMemory(slot, Value);
+            cm.Items.Add(store);
         }
 
         cm.IsOpen = true;

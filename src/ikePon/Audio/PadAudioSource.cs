@@ -375,9 +375,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         var list = new List<float>(target.SampleRate * target.Channels * 10);
         var buf  = new float[4096];
+        int maxSamples = target.SampleRate * target.Channels * 600; // 10分上限（コーデックが無限ループする場合の安全策）
         // n==0 が連続しても即終了せずリトライ（WDL resampler warmup / MF デコーダ初期化対策）
         int zeros = 0;
-        while (zeros < 10)
+        while (zeros < 10 && list.Count < maxSamples)
         {
             int n = p.Read(buf, 0, buf.Length);
             if (n > 0) { zeros = 0; for (int i = 0; i < n; i++) list.Add(buf[i]); }

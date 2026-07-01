@@ -169,34 +169,23 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     }
 
     // ------------------------------------------------------------------
-    // WASAPI/WaveOut バッファフラッシュ（PANIC時にハードウェアループを強制解除）
+    // WASAPI/WaveOut 完全再初期化（PANIC時にセッションを閉じてループを解除）
+    // Stop()+Play() はセッションを使い回すためドライバ側のループが残る場合がある。
+    // Dispose()+Start() で IAudioClient を完全に閉じ、新規セッションを開く。
     // ------------------------------------------------------------------
     public void FlushOutput()
     {
-        try
-        {
-            if (_wasapiOut != null)
-            {
-                _wasapiOut.Stop();
-                _wasapiOut.Play();
-                return;
-            }
-            if (_waveOutFallback != null)
-            {
-                _waveOutFallback.Stop();
-                _waveOutFallback.Play();
-                return;
-            }
-        }
-        catch
-        {
-            // Stop/Play 失敗時は完全再初期化
-            try { _wasapiOut?.Stop(); _wasapiOut?.Dispose(); } catch { }
-            _wasapiOut = null;
-            try { _waveOutFallback?.Stop(); _waveOutFallback?.Dispose(); } catch { }
-            _waveOutFallback = null;
-            Start(_latencyMs);
-        }
+        var oldWasapi  = _wasapiOut;
+        var oldWaveOut = _waveOutFallback;
+        _wasapiOut      = null;
+        _waveOutFallback = null;
+
+        try { oldWasapi?.Stop();    } catch { }
+        try { oldWasapi?.Dispose(); } catch { }
+        try { oldWaveOut?.Stop();    } catch { }
+        try { oldWaveOut?.Dispose(); } catch { }
+
+        Start(_latencyMs);
     }
 
     public void Dispose()

@@ -8,8 +8,6 @@ namespace ikePon.Controller;
 public sealed class PanicController
 {
     private readonly PlaybackController _playback;
-    private long _lastPanicTick = 0;
-    private const long DoubleTapMs = 300;
 
     public PanicController(PlaybackController playback)
     {
@@ -18,24 +16,11 @@ public sealed class PanicController
 
     public void Trigger()
     {
-        long now = Environment.TickCount64;
-        long elapsed = now - _lastPanicTick;
+        // フェードアウトでは止まらないケースがあるため、常に即座停止に統一。
+        // 個別フェードは SHIFT+パッドで行う。
+        _playback.PanicStopAll();
 
-        if (elapsed <= DoubleTapMs)
-        {
-            // 2回連打 → 即座に全停止
-            _playback.PanicStopAll();
-            _lastPanicTick = 0;
-        }
-        else
-        {
-            // 1回目 → フェードアウト開始
-            _playback.PanicFadeAll();
-            _lastPanicTick = now;
-        }
-
-        // WASAPIハードウェアバッファを強制フラッシュ
-        // （レンダースレッドが停止してバッファがループ再生されている場合でも確実に止める）
+        // IAudioClient を完全に閉じ新規セッションを開くことでドライバループを解除
         _playback.FlushOutput();
     }
 }
