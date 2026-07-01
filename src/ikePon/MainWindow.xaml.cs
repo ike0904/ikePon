@@ -42,6 +42,9 @@ public partial class MainWindow : Window
     // バンク確認中フラグ
     private bool _pendingBankConfirm;
 
+    // 診断ログ出力先（デスクトップに ikePon_audio_debug.txt）
+    private System.IO.StreamWriter? _diagLogWriter;
+
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankSelected = new(Color.FromRgb(0x1C, 0x44, 0x6E));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
@@ -81,6 +84,18 @@ public partial class MainWindow : Window
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
+
+        // 診断ログ初期化（デスクトップへ）
+        try
+        {
+            string logPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                "ikePon_audio_debug.txt");
+            _diagLogWriter = new System.IO.StreamWriter(logPath, append: false, encoding: System.Text.Encoding.UTF8)
+                { AutoFlush = true };
+            _diagLogWriter.WriteLine($"=== ikePon audio diagnostic log start {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+        }
+        catch { /* ログが書けなくても動作継続 */ }
 
         UpdateBankHighlight();
         UpdateTitle();
@@ -253,6 +268,13 @@ public partial class MainWindow : Window
         }
         for (int i = 0; i < _faders.Length; i++)
             _faders[i].UpdateModifierState(_modifier);
+
+        // 診断ログを flush
+        if (_diagLogWriter != null)
+        {
+            while (Audio.PadAudioSource.DiagLog.TryDequeue(out var logMsg))
+                _diagLogWriter.WriteLine(logMsg);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -264,7 +286,7 @@ public partial class MainWindow : Window
 
         // 修飾キー状態更新
         if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
-        { _modifier = ModifierState.Shift; return; }
+        { _modifier = _modifier == ModifierState.Shift ? ModifierState.None : ModifierState.Shift; return; }
         if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
         { _modifier = ModifierState.Ctrl; return; }
 
@@ -305,11 +327,9 @@ public partial class MainWindow : Window
 
     private void Window_KeyUp(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.LeftShift || e.Key == Key.RightShift ||
-            e.Key == Key.LeftCtrl  || e.Key == Key.RightCtrl)
-        {
+        // Shift はトグルなので KeyUp では戻さない。Ctrl のみ解除。
+        if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
             _modifier = ModifierState.None;
-        }
     }
 
     // ------------------------------------------------------------------
@@ -508,7 +528,7 @@ public partial class MainWindow : Window
             if (_bankButtons[i].Content is Grid g)
             {
                 if (g.Children[0] is TextBlock tb)
-                    tb.Foreground = new SolidColorBrush(sel ? Colors.White : Color.FromRgb(0xAA, 0xAA, 0xAA));
+                    tb.Foreground = new SolidColorBrush(sel ? Color.FromRgb(0xFF, 0xD7, 0x00) : Color.FromRgb(0xAA, 0xAA, 0xAA));
                 if (g.Children[1] is Border badge)
                 {
                     badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
@@ -777,7 +797,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.13{fname}{dirty}";
+        Title = $"ikePon v1.0.14{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -794,6 +814,7 @@ public partial class MainWindow : Window
         }
         _uiTimer.Stop();
         _engine.Dispose();
+        _diagLogWriter?.Dispose();
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
         _settings.Save();

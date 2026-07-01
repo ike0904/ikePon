@@ -71,7 +71,8 @@
                                                                FontSize="18" FontWeight="Bold"
                                                                Foreground="White"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                               Margin="0,0,30,0"/>
+                                                               Margin="0"
+                                                               Panel.ZIndex="1"/>
                                                     <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
                                                             BorderThickness="1" CornerRadius="2"
                                                             Padding="4,1"

@@ -20,7 +20,7 @@ public partial class PadButton : UserControl
     private static readonly SolidColorBrush BrushBorderNormal = new(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly SolidColorBrush BrushBorderPlay  = new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushTextNormal  = new(Colors.White);
-    private static readonly SolidColorBrush BrushTextPlay    = new(Colors.White);
+    private static readonly SolidColorBrush BrushTextPlay    = new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushKeyGray     = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
     private static readonly SolidColorBrush BrushProgress    = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
     private static readonly SolidColorBrush BrushProgressPlay= new(Color.FromRgb(0xFF, 0xD7, 0x00));
@@ -106,16 +106,18 @@ public partial class PadButton : UserControl
             BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
             BorderRoot.BorderThickness = new Thickness(2.5);
             FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg2, tb2));
-            KeyLabel.Foreground  = BrushKeyGray;
-            KeyBadge.BorderBrush = BrushKeyGray;
+            bool shiftFade = modifier == ModifierState.Shift;
+            KeyLabel.Foreground  = shiftFade ? BrushBorderPlay : BrushKeyGray;
+            KeyBadge.BorderBrush = shiftFade ? BrushBorderPlay : BrushKeyGray;
         }
         else
         {
             BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
             BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
             FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
-            KeyLabel.Foreground  = BrushKeyGray;
-            KeyBadge.BorderBrush = BrushKeyGray;
+            bool shiftOn = modifier == ModifierState.Shift;
+            KeyLabel.Foreground  = shiftOn ? BrushBorderPlay : BrushKeyGray;
+            KeyBadge.BorderBrush = shiftOn ? BrushBorderPlay : BrushKeyGray;
         }
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 

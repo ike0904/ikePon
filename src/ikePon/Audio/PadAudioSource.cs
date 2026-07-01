@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -11,6 +12,11 @@ namespace ikePon.Audio;
 /// </summary>
 public sealed class PadAudioSource : ISampleProvider, IDisposable
 {
+    // UI スレッドが drain してファイルに書き出す診断ログ（オーディオスレッドは Enqueue のみ）
+    internal static readonly ConcurrentQueue<string> DiagLog = new();
+    private static void Log(string msg) =>
+        DiagLog.Enqueue($"{DateTime.Now:HH:mm:ss.fff} {msg}");
+
     private readonly WaveFormat _format;
     private readonly object _lock = new();
 
@@ -140,16 +146,16 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             if (_preloaded != null)
             {
-                // プリロード: サンプル位置を計算
                 _readPos = Math.Clamp(
                     (int)(_startSec * _format.SampleRate * _format.Channels),
                     0, _preloadTotal);
+                Log($"TRIGGER preload file={Path.GetFileName(FilePath)} readPos={_readPos}/{_preloadTotal} prevState={(PadPlayState)_stateInt}");
             }
             else if (_reader != null)
             {
-                // ストリーミング: 開始位置にシーク
                 SeekReaderToSec(_startSec);
                 _streamProvider = BuildStreamProvider(_reader);
+                Log($"TRIGGER stream file={Path.GetFileName(FilePath)} startSec={startSec} prevState={(PadPlayState)_stateInt}");
             }
 
             _fade.Reset();
@@ -167,6 +173,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             {
                 _fade.StartFadeOut(fadeDuration, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
+                Log($"STOP file={Path.GetFileName(FilePath)} fadeSec={fadeDuration} from={st}");
             }
         }
     }
@@ -175,6 +182,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     {
         lock (_lock)
         {
+            Log($"STOP_IMMEDIATE file={Path.GetFileName(FilePath)} prevState={(PadPlayState)_stateInt}");
             _stateInt = (int)PadPlayState.Idle;
             _fade.Reset();
             PlaybackPosition = 0f;
@@ -254,6 +262,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 var curState = (PadPlayState)_stateInt;
                 if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
                 {
+                    Log($"EOF_PRELOAD file={Path.GetFileName(FilePath)} readPos={_readPos}/{_preloadTotal} state={curState}");
                     _stateInt = (int)PadPlayState.Idle;
                     _fade.Reset();
                     PlaybackPosition = 0f;
@@ -293,6 +302,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 var curState = (PadPlayState)_stateInt;
                 if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
                 {
+                    Log($"EOF_STREAM file={Path.GetFileName(FilePath)} totalRead={totalRead} pos={_reader?.Position}/{_reader?.Length} state={curState}");
                     _stateInt = (int)PadPlayState.Idle;
                     _fade.Reset();
                     PlaybackPosition = 0f;
