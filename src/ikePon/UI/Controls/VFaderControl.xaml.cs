@@ -9,37 +9,52 @@ namespace ikePon.UI.Controls;
 
 public partial class VFaderControl : UserControl
 {
-    // 目盛り定義: (ラベル, ゲイン値) ※ -12/-18/-30 は文字重なりのため省略
+    // 目盛り定義 — Logic Pro と同じ表記・間隔
+    // 符号なし数字（0より上は+、下は−を省略）
     private static readonly (string label, double gain)[] ScaleMarks =
     [
-        ("+6",  GAIN_MAX),
-        ("0",   GAIN_ZERO),
-        ("-6",  GAIN_M6),
-        ("-24", GAIN_M24),
-        ("-∞",  0.0)
+        ("6",  GAIN_P6),
+        ("3",  GAIN_P3),
+        ("0",  GAIN_ZERO),
+        ("3",  GAIN_M3),
+        ("6",  GAIN_M6),
+        ("10", GAIN_M10),
+        ("20", GAIN_M20),
+        ("30", GAIN_M30),
+        ("∞",  0.0)
     ];
 
     // ────────────────────────────────────────────────────────────
-    // 非線形スケール定数（スライダー位置=0..1、ゲイン=0..GAIN_MAX）
-    // 参考画像に倣い dB-linear ベースの自然な配置:
+    // Logic Pro 準拠 スケール定数
     //   pos=1.00 → +6dB  (上端)
+    //   pos=0.87 → +3dB
     //   pos=0.75 → 0dB   (下から75%)
-    //   pos=0.65 → -6dB
-    //   pos=0.35 → -24dB
+    //   pos=0.65 → -3dB
+    //   pos=0.57 → -6dB
+    //   pos=0.47 → -10dB
+    //   pos=0.30 → -20dB
+    //   pos=0.20 → -30dB
     //   pos=0.00 → -∞    (下端)
     // ────────────────────────────────────────────────────────────
-    private const double POS_TOP  = 1.00;
+    private const double POS_P6   = 1.00;
+    private const double POS_P3   = 0.87;
     private const double POS_ZERO = 0.75;
-    private const double POS_M6   = 0.65;
-    private const double POS_M24  = 0.35;
-    private const double POS_BOT  = 0.00;
+    private const double POS_M3   = 0.65;
+    private const double POS_M6   = 0.57;
+    private const double POS_M10  = 0.47;
+    private const double POS_M20  = 0.30;
+    private const double POS_M30  = 0.20;
 
-    private const double GAIN_MAX  = 1.995;  // +6dB
-    private const double GAIN_ZERO = 1.000;  // 0dB
-    private const double GAIN_M6   = 0.501;  // -6dB
-    private const double GAIN_M24  = 0.063;  // -24dB
+    private const double GAIN_P6   = 1.9953;  // +6dB
+    private const double GAIN_P3   = 1.4125;  // +3dB
+    private const double GAIN_ZERO = 1.0000;  // 0dB
+    private const double GAIN_M3   = 0.7079;  // -3dB
+    private const double GAIN_M6   = 0.5012;  // -6dB
+    private const double GAIN_M10  = 0.3162;  // -10dB
+    private const double GAIN_M20  = 0.1000;  // -20dB
+    private const double GAIN_M30  = 0.0316;  // -30dB
 
-    public const double FaderMax = GAIN_MAX;
+    public const double FaderMax = GAIN_P6;
 
     private const double ThumbHalf = 10.0;
 
@@ -69,7 +84,6 @@ public partial class VFaderControl : UserControl
 
     public string Label { get => FaderLabel.Text; set => FaderLabel.Text = value; }
 
-    // 外部向けは常にゲイン値（0..GAIN_MAX）で受け渡し
     public double Value
     {
         get => PositionToGain(FaderSlider.Value);
@@ -92,60 +106,56 @@ public partial class VFaderControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // ゲイン↔位置変換（4区間 dB-linear）
+    // ゲイン↔位置変換（Logic Pro 準拠 多区間 dB-linear）
     // ------------------------------------------------------------------
+
+    // dB 線形補間ヘルパー
+    private static double DbLerp(double pos, double posLo, double posHi, double dbLo, double dbHi)
+    {
+        double t = (pos - posLo) / (posHi - posLo);
+        return Math.Pow(10.0, (dbLo + t * (dbHi - dbLo)) / 20.0);
+    }
+
     private static double PositionToGain(double pos)
     {
-        pos = Math.Clamp(pos, 0, 1.0);
-        if (pos <= POS_BOT) return 0.0;
-        if (pos <= POS_M24)
-        {
-            // -∞ 〜 -24dB: ゲイン線形
-            return pos / POS_M24 * GAIN_M24;
-        }
-        if (pos <= POS_M6)
-        {
-            // -24 〜 -6dB: dB線形
-            double t = (pos - POS_M24) / (POS_M6 - POS_M24);
-            double db = -24.0 + t * 18.0;
-            return Math.Pow(10.0, db / 20.0);
-        }
-        if (pos <= POS_ZERO)
-        {
-            // -6 〜 0dB: dB線形
-            double t = (pos - POS_M6) / (POS_ZERO - POS_M6);
-            double db = -6.0 + t * 6.0;
-            return Math.Pow(10.0, db / 20.0);
-        }
-        // 0 〜 +6dB: ゲイン線形
-        return GAIN_ZERO + (pos - POS_ZERO) / (POS_TOP - POS_ZERO) * (GAIN_MAX - GAIN_ZERO);
+        pos = Math.Clamp(pos, 0.0, 1.0);
+        if (pos >= POS_P3)   return DbLerp(pos, POS_P3,   POS_P6,   3.0,   6.0);
+        if (pos >= POS_ZERO) return DbLerp(pos, POS_ZERO, POS_P3,   0.0,   3.0);
+        if (pos >= POS_M3)   return DbLerp(pos, POS_M3,   POS_ZERO,-3.0,   0.0);
+        if (pos >= POS_M6)   return DbLerp(pos, POS_M6,   POS_M3,  -6.0,  -3.0);
+        if (pos >= POS_M10)  return DbLerp(pos, POS_M10,  POS_M6,  -10.0, -6.0);
+        if (pos >= POS_M20)  return DbLerp(pos, POS_M20,  POS_M10, -20.0,-10.0);
+        if (pos >= POS_M30)  return DbLerp(pos, POS_M30,  POS_M20, -30.0,-20.0);
+        // -∞ 〜 -30dB: ゲイン線形
+        return pos / POS_M30 * GAIN_M30;
+    }
+
+    // dB → 位置変換ヘルパー
+    private static double GainToPos(double gain, double gainLo, double gainHi, double posLo, double posHi)
+    {
+        double db    = 20.0 * Math.Log10(gain);
+        double dbLo  = 20.0 * Math.Log10(gainLo);
+        double dbHi  = 20.0 * Math.Log10(gainHi);
+        double t     = (db - dbLo) / (dbHi - dbLo);
+        return posLo + t * (posHi - posLo);
     }
 
     private static double GainToPosition(double gain)
     {
-        gain = Math.Clamp(gain, 0, GAIN_MAX);
-        if (gain <= 0) return 0.0;
-        if (gain <= GAIN_M24)
-        {
-            return gain / GAIN_M24 * POS_M24;
-        }
-        if (gain <= GAIN_M6)
-        {
-            double db = 20.0 * Math.Log10(gain);
-            double t = (db - (-24.0)) / 18.0;
-            return POS_M24 + t * (POS_M6 - POS_M24);
-        }
-        if (gain <= GAIN_ZERO)
-        {
-            double db = 20.0 * Math.Log10(gain);
-            double t = (db - (-6.0)) / 6.0;
-            return POS_M6 + t * (POS_ZERO - POS_M6);
-        }
-        return POS_ZERO + (gain - GAIN_ZERO) / (GAIN_MAX - GAIN_ZERO) * (POS_TOP - POS_ZERO);
+        gain = Math.Clamp(gain, 0.0, GAIN_P6);
+        if (gain <= 0)        return 0.0;
+        if (gain <= GAIN_M30) return gain / GAIN_M30 * POS_M30;
+        if (gain <= GAIN_M20) return GainToPos(gain, GAIN_M30, GAIN_M20, POS_M30, POS_M20);
+        if (gain <= GAIN_M10) return GainToPos(gain, GAIN_M20, GAIN_M10, POS_M20, POS_M10);
+        if (gain <= GAIN_M6)  return GainToPos(gain, GAIN_M10, GAIN_M6,  POS_M10, POS_M6);
+        if (gain <= GAIN_M3)  return GainToPos(gain, GAIN_M6,  GAIN_M3,  POS_M6,  POS_M3);
+        if (gain <= GAIN_ZERO)return GainToPos(gain, GAIN_M3,  GAIN_ZERO,POS_M3,  POS_ZERO);
+        if (gain <= GAIN_P3)  return GainToPos(gain, GAIN_ZERO,GAIN_P3,  POS_ZERO,POS_P3);
+        return GainToPos(gain, GAIN_P3, GAIN_P6, POS_P3, POS_P6);
     }
 
     // ------------------------------------------------------------------
-    // アニメーション（内部は位置空間、外部はゲイン値）
+    // アニメーション
     // ------------------------------------------------------------------
     public void SmoothMoveTo(double gain, double durationSecs)
     {
@@ -159,8 +169,8 @@ public partial class VFaderControl : UserControl
             VolumeChanged?.Invoke(this, PositionToGain(posTarget));
             return;
         }
-        _animFrom    = FaderSlider.Value;
-        _animTarget  = posTarget;
+        _animFrom     = FaderSlider.Value;
+        _animTarget   = posTarget;
         _animDuration = durationSecs;
         _animStartTime = DateTime.UtcNow;
         _animTimer.Start();
@@ -169,7 +179,7 @@ public partial class VFaderControl : UserControl
     private void AnimTimer_Tick(object? sender, EventArgs e)
     {
         double elapsed = (DateTime.UtcNow - _animStartTime).TotalSeconds;
-        double t = Math.Clamp(elapsed / _animDuration, 0.0, 1.0);
+        double t       = Math.Clamp(elapsed / _animDuration, 0.0, 1.0);
         double current = _animFrom + (_animTarget - _animFrom) * t;
 
         _suppressEvent = true;
@@ -190,7 +200,7 @@ public partial class VFaderControl : UserControl
     private void FaderSlider_SizeChanged(object sender, SizeChangedEventArgs e) => DrawScale();
 
     // ------------------------------------------------------------------
-    // 目盛り描画（非線形位置に基づく）
+    // 目盛り描画
     // ------------------------------------------------------------------
     private void DrawScale()
     {
@@ -200,14 +210,13 @@ public partial class VFaderControl : UserControl
 
         double trackH   = h - ThumbHalf * 2;
         double trackTop = ThumbHalf;
-        double cw = ScaleCanvas.ActualWidth > 0 ? ScaleCanvas.ActualWidth : 24;
+        double cw       = ScaleCanvas.ActualWidth > 0 ? ScaleCanvas.ActualWidth : 24;
 
         foreach (var (label, gain) in ScaleMarks)
         {
             double pct = 1.0 - GainToPosition(gain);
             double y   = trackTop + pct * trackH;
-
-            bool isZero = label == "0";
+            bool   isZero = label == "0";
 
             var line = new Line
             {
@@ -232,7 +241,7 @@ public partial class VFaderControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // メモリ操作（ゲイン値で保存・比較）
+    // メモリ操作
     // ------------------------------------------------------------------
     public void StoreMemory(int slot, double gain)
     {

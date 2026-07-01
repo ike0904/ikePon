@@ -70,7 +70,6 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             if (duration <= thresholdSecs)
             {
-                // 全データをRAMにデコード（フォーマット変換込み）
                 var resampled = ConvertToFormat(probe, _format);
                 lock (_lock)
                 {
@@ -81,10 +80,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     FilePath        = filePath;
                     FileTotalSec    = (float)duration;
                 }
+                Log($"LOAD preload file={Path.GetFileName(filePath)} dur={duration:F2}s samples={resampled.Length} (={resampled.Length / (float)(_format.SampleRate * _format.Channels):F2}s decoded)");
             }
             else
             {
-                // ストリーミング（フォーマット変換ラッパー付き）
                 var reader   = new AudioFileReader(filePath);
                 var provider = BuildStreamProvider(reader);
                 lock (_lock)
@@ -95,6 +94,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     FilePath        = filePath;
                     FileTotalSec    = (float)duration;
                 }
+                Log($"LOAD stream file={Path.GetFileName(filePath)} dur={duration:F2}s");
             }
             return true;
         }

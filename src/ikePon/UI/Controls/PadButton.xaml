@@ -55,7 +55,7 @@
                 <Border Grid.Row="2"
                         x:Name="KeyBadge"
                         Background="#1C1C1C"
-                        BorderBrush="#4A4A4A"
+                        BorderBrush="#AAAAAA"
                         BorderThickness="1"
                         CornerRadius="2"
                         Padding="4,1"

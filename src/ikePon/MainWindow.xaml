@@ -77,7 +77,11 @@
                                                             BorderThickness="1" CornerRadius="2"
                                                             Padding="4,1"
                                                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                            Margin="0,0,4,3">
+                                                            Margin="0,0,4,3"
+                                                            RenderTransformOrigin="1,0.5">
+                                                        <Border.RenderTransform>
+                                                            <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
+                                                        </Border.RenderTransform>
                                                         <TextBlock Text="ESC"
                                                                    FontSize="16" FontWeight="Bold"
                                                                    FontFamily="Consolas"

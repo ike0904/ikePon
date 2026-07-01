@@ -44,6 +44,7 @@ public partial class MainWindow : Window
 
     // 診断ログ出力先（デスクトップに ikePon_audio_debug.txt）
     private System.IO.StreamWriter? _diagLogWriter;
+    private int _diagHeartbeat;
 
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankSelected = new(Color.FromRgb(0x1C, 0x44, 0x6E));
@@ -274,6 +275,21 @@ public partial class MainWindow : Window
         {
             while (Audio.PadAudioSource.DiagLog.TryDequeue(out var logMsg))
                 _diagLogWriter.WriteLine(logMsg);
+
+            // 1秒ごとに再生中のパッド状態をハートビートとして出力
+            if (++_diagHeartbeat % 30 == 0)
+            {
+                for (int i = 0; i < BankData.PadCount; i++)
+                {
+                    var st = _playback.GetPadState(i);
+                    if (st != Audio.PadPlayState.Idle)
+                    {
+                        var padCfg = _playback.GetPadSettings(i);
+                        _diagLogWriter.WriteLine(
+                            $"{DateTime.Now:HH:mm:ss.fff} HEARTBEAT pad={i} state={st} pos={_playback.GetPadPosition(i):F3} gain={_playback.GetPadFadeGain(i):F3} file={System.IO.Path.GetFileName(padCfg?.FilePath ?? "(none)")}");
+                    }
+                }
+            }
         }
     }
 
@@ -286,7 +302,7 @@ public partial class MainWindow : Window
 
         // 修飾キー状態更新
         if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
-        { _modifier = _modifier == ModifierState.Shift ? ModifierState.None : ModifierState.Shift; return; }
+        { _modifier = ModifierState.Shift; return; }
         if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
         { _modifier = ModifierState.Ctrl; return; }
 
@@ -327,9 +343,11 @@ public partial class MainWindow : Window
 
     private void Window_KeyUp(object sender, KeyEventArgs e)
     {
-        // Shift はトグルなので KeyUp では戻さない。Ctrl のみ解除。
-        if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
+        if (e.Key == Key.LeftShift || e.Key == Key.RightShift ||
+            e.Key == Key.LeftCtrl  || e.Key == Key.RightCtrl)
+        {
             _modifier = ModifierState.None;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -797,7 +815,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.14{fname}{dirty}";
+        Title = $"ikePon v1.0.15{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
