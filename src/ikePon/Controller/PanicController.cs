@@ -33,5 +33,9 @@ public sealed class PanicController
             _playback.PanicFadeAll();
             _lastPanicTick = now;
         }
+
+        // WASAPIハードウェアバッファを強制フラッシュ
+        // （レンダースレッドが停止してバッファがループ再生されている場合でも確実に止める）
+        _playback.FlushOutput();
     }
 }

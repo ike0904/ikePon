@@ -20,6 +20,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     private WasapiOut? _wasapiOut;
     private NAudio.Wave.WaveOut? _waveOutFallback;
+    private int _latencyMs = 30;
 
     private volatile int _activeBank;
     private volatile float _masterVol = 1f;
@@ -48,6 +49,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     public void Start(int latencyMs = 30)
     {
+        _latencyMs = latencyMs;
         try
         {
             _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, latencyMs);
@@ -102,60 +104,99 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     // ------------------------------------------------------------------
     public int Read(float[] buffer, int offset, int count)
     {
-        Array.Clear(buffer, offset, count);
-
-        if (count > _tempBuf.Length)
-            count = _tempBuf.Length;
-
-        int bank = _activeBank;
-        float mstr = _masterVol;
-        bool separate = _paSeparate;
-
-        for (int pad = 0; pad < PadCount; pad++)
+        try
         {
-            var src = _sources[bank, pad];
-            if (src.State == PadPlayState.Idle) continue;
+            Array.Clear(buffer, offset, count);
 
-            var cat = _padCategories[bank, pad];
-            float catVol = cat switch
-            {
-                AudioCategory.BGM   => _bgmVol,
-                AudioCategory.SE    => _seVol,
-                _                   => _movieVol
-            };
+            if (count > _tempBuf.Length)
+                count = _tempBuf.Length;
 
-            Array.Clear(_tempBuf, 0, count);
-            src.Read(_tempBuf, 0, count);
-            float gain = catVol * mstr;
+            int bank = _activeBank;
+            float mstr = _masterVol;
+            bool separate = _paSeparate;
 
-            if (!separate)
+            for (int pad = 0; pad < PadCount; pad++)
             {
-                for (int i = 0; i < count; i++)
-                    buffer[offset + i] += _tempBuf[i] * gain;
-            }
-            else
-            {
-                // PAセパレート: L=BGM+MOVIE, R=SE
-                if (cat == AudioCategory.SE)
+                var src = _sources[bank, pad];
+                if (src.State == PadPlayState.Idle) continue;
+
+                var cat = _padCategories[bank, pad];
+                float catVol = cat switch
                 {
-                    for (int i = 0; i < count - 1; i += 2)
-                    {
-                        float mono = (_tempBuf[i] + _tempBuf[i + 1]) * 0.5f * gain;
-                        buffer[offset + i + 1] += mono;  // R のみ
-                    }
+                    AudioCategory.BGM   => _bgmVol,
+                    AudioCategory.SE    => _seVol,
+                    _                   => _movieVol
+                };
+
+                Array.Clear(_tempBuf, 0, count);
+                src.Read(_tempBuf, 0, count);
+                float gain = catVol * mstr;
+
+                if (!separate)
+                {
+                    for (int i = 0; i < count; i++)
+                        buffer[offset + i] += _tempBuf[i] * gain;
                 }
                 else
                 {
-                    for (int i = 0; i < count - 1; i += 2)
+                    // PAセパレート: L=BGM+MOVIE, R=SE
+                    if (cat == AudioCategory.SE)
                     {
-                        float mono = (_tempBuf[i] + _tempBuf[i + 1]) * 0.5f * gain;
-                        buffer[offset + i] += mono;       // L のみ
+                        for (int i = 0; i < count - 1; i += 2)
+                        {
+                            float mono = (_tempBuf[i] + _tempBuf[i + 1]) * 0.5f * gain;
+                            buffer[offset + i + 1] += mono;  // R のみ
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < count - 1; i += 2)
+                        {
+                            float mono = (_tempBuf[i] + _tempBuf[i + 1]) * 0.5f * gain;
+                            buffer[offset + i] += mono;       // L のみ
+                        }
                     }
                 }
             }
         }
+        catch
+        {
+            // レンダースレッドをクラッシュさせないため例外を飲み込んで無音を返す
+            Array.Clear(buffer, offset, count);
+        }
 
         return count;
+    }
+
+    // ------------------------------------------------------------------
+    // WASAPI/WaveOut バッファフラッシュ（PANIC時にハードウェアループを強制解除）
+    // ------------------------------------------------------------------
+    public void FlushOutput()
+    {
+        try
+        {
+            if (_wasapiOut != null)
+            {
+                _wasapiOut.Stop();
+                _wasapiOut.Play();
+                return;
+            }
+            if (_waveOutFallback != null)
+            {
+                _waveOutFallback.Stop();
+                _waveOutFallback.Play();
+                return;
+            }
+        }
+        catch
+        {
+            // Stop/Play 失敗時は完全再初期化
+            try { _wasapiOut?.Stop(); _wasapiOut?.Dispose(); } catch { }
+            _wasapiOut = null;
+            try { _waveOutFallback?.Stop(); _waveOutFallback?.Dispose(); } catch { }
+            _waveOutFallback = null;
+            Start(_latencyMs);
+        }
     }
 
     public void Dispose()

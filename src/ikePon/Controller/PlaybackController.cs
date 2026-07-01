@@ -201,4 +201,7 @@ public sealed class PlaybackController
     public float BgmVolume    { get => _engine.BgmVolume;    set => _engine.BgmVolume = value; }
     public float SeVolume     { get => _engine.SeVolume;     set => _engine.SeVolume = value; }
     public float MovieVolume  { get => _engine.MovieVolume;  set => _engine.MovieVolume = value; }
+
+    // WASAPIバッファを強制フラッシュ（ハードウェアループ解除）
+    public void FlushOutput() => _engine.FlushOutput();
 }
