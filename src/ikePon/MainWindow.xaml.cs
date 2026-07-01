@@ -62,6 +62,11 @@ public partial class MainWindow : Window
         _project = new ProjectData();
 
         InitializeComponent();
+        if (_settings.WindowWidth.HasValue && _settings.WindowHeight.HasValue)
+        {
+            Width  = Math.Max(_settings.WindowWidth.Value,  MinWidth);
+            Height = Math.Max(_settings.WindowHeight.Value, MinHeight);
+        }
         App.SetLightTitleBar(this);
         BuildPadGrid();
         BuildBankGrid();
@@ -238,7 +243,6 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
-        bool isShift = _modifier == ModifierState.Shift;
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -248,7 +252,7 @@ public partial class MainWindow : Window
             _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain);
         }
         for (int i = 0; i < _faders.Length; i++)
-            _faders[i].UpdateShiftState(isShift);
+            _faders[i].UpdateModifierState(_modifier);
     }
 
     // ------------------------------------------------------------------
@@ -790,6 +794,8 @@ public partial class MainWindow : Window
         }
         _uiTimer.Stop();
         _engine.Dispose();
+        _settings.WindowWidth  = Width;
+        _settings.WindowHeight = Height;
         _settings.Save();
         _gainDb.Save();
     }

@@ -198,15 +198,15 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             try
             {
-                ReadSource(buffer, offset, count, st);
+                int actualRead = ReadSource(buffer, offset, count, st);
 
                 float gain = _fileGain * _padGain;
                 if (Math.Abs(gain - 1f) > 0.001f)
-                    for (int i = 0; i < count; i++) buffer[offset + i] *= gain;
+                    for (int i = 0; i < actualRead; i++) buffer[offset + i] *= gain;
 
                 if (st == PadPlayState.FadingOut)
                 {
-                    bool done = _fade.Apply(buffer, offset, count);
+                    bool done = _fade.Apply(buffer, offset, actualRead);
                     if (done)
                     {
                         if ((PadPlayState)_stateInt == PadPlayState.FadingOut)
@@ -225,7 +225,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         }
     }
 
-    private void ReadSource(float[] buffer, int offset, int count, PadPlayState st)
+    private int ReadSource(float[] buffer, int offset, int count, PadPlayState st)
     {
         if (_preloaded != null)
         {
@@ -255,23 +255,14 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     _stateInt = (int)PadPlayState.Idle;
                 PlaybackPosition = 0f;
             }
-            return;
+            return toRead;
         }
 
-        // ストリーミング: フォーマット変換済みプロバイダで読み取る
-        // リサンプラー等が要求より少ないサンプルを返すことがあるためループで埋める
-        // n==0 が返っても即 EOF 扱いせず数回リトライ（MF デコーダ初回シーク後の warmup 対策）
+        // ストリーミング: 1回の Read のみ（複数回ループするとステレオL/Rフレームがずれてノイズになる）
         var provider = _streamProvider ?? (ISampleProvider?)_reader;
         if (provider != null)
         {
-            int totalRead = 0;
-            int zeros = 0;
-            while (totalRead < count && zeros < 8)
-            {
-                int n = provider.Read(buffer, offset + totalRead, count - totalRead);
-                if (n > 0) { totalRead += n; zeros = 0; }
-                else zeros++;
-            }
+            int totalRead = provider.Read(buffer, offset, count);
 
             if (totalRead < count)
                 Array.Clear(buffer, offset + totalRead, count - totalRead);
@@ -291,16 +282,18 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 }
             }
 
-            if (totalRead < count && st == PadPlayState.Playing)
+            if (totalRead == 0 && st == PadPlayState.Playing)
             {
                 if ((PadPlayState)_stateInt == PadPlayState.Playing)
                     _stateInt = (int)PadPlayState.Idle;
                 PlaybackPosition = 0f;
             }
-            return;
+
+            return totalRead;
         }
 
         Array.Clear(buffer, offset, count);
+        return 0;
     }
 
     private void TriggerEndFade()

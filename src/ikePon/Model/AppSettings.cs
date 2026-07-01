@@ -19,6 +19,8 @@ public class AppSettings
     public MovieDisplayMode MovieMode { get; set; } = MovieDisplayMode.Window;
     public int MovieMonitorIndex { get; set; } = 1;
     public double InterLockMs { get; set; } = 500;
+    public double? WindowWidth { get; set; } = null;
+    public double? WindowHeight { get; set; } = null;
 
     public static AppSettings Load()
     {

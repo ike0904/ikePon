@@ -235,9 +235,6 @@
             <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
-        <TextBlock Text="形式: 分:秒.1秒  例: 0:00.0  /  1:23.5  /  12（→ 0:12.0）"
-                   FontSize="12" Foreground="White" Margin="0,0,0,12"/>
-
         <Separator Background="#383838" Margin="0,0,0,12"/>
 
         <!-- OK / キャンセル -->

@@ -10,19 +10,21 @@ namespace ikePon.UI.Controls;
 public partial class VFaderControl : UserControl
 {
     // 目盛り定義: (ラベル, スライダー値)
-    // Maximum=3.162 (+10dB), 0dB=1.0, -6dB≈0.5, -12dB≈0.25
+    // Maximum=1.995 (+6dB), 0dB=1.0, -6dB≈0.501
     private static readonly (string label, double val)[] ScaleMarks =
     [
-        ("+10", 3.162),
         ("+6",  1.995),
         ("0",   1.000),
         ("-6",  0.501),
         ("-12", 0.251),
+        ("-18", 0.126),
+        ("-24", 0.063),
+        ("-30", 0.032),
         ("-∞",  0.0)
     ];
 
     private const double ThumbHalf = 10.0; // サムの高さ20 / 2
-    public  const double FaderMax  = 3.162;
+    public  const double FaderMax  = 1.995;
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
@@ -39,7 +41,8 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushMemText        = new(Color.FromRgb(0x66, 0x66, 0x66));
     private static readonly SolidColorBrush BrushMemTextMatch   = new(Colors.White);
     private static readonly SolidColorBrush BrushMemTextReg     = new(Color.FromRgb(0xFF, 0xDD, 0x44));
-    private static readonly SolidColorBrush BrushMemRegistered  = new(Color.FromRgb(0x0E, 0x22, 0x3A));
+    private static readonly SolidColorBrush BrushMemRegistered  = new(Color.FromRgb(0x0E, 0x22, 0x3A)); // SHIFT: 青系
+    private static readonly SolidColorBrush BrushMemRedReg      = new(Color.FromRgb(0x3A, 0x0E, 0x0E)); // 通常: 赤系
     private static readonly SolidColorBrush BrushMemBorderYellow= new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushMemBorderEmpty = new(Color.FromRgb(0x44, 0x44, 0x44));
     private static readonly SolidColorBrush BrushScaleGray  = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
@@ -171,7 +174,7 @@ public partial class VFaderControl : UserControl
 
     public float? GetMemory(int slot) => slot >= 0 && slot < 4 ? _memories[slot] : null;
 
-    private void UpdateMemoryButton(int slot, bool stored)
+    private void UpdateMemoryButton(int slot, bool stored, ModifierState modifier = ModifierState.None)
     {
         var btn = slot switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
         if (!stored)
@@ -187,13 +190,19 @@ public partial class VFaderControl : UserControl
             if (matches)
             {
                 btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextMatch; // 白
+                btn.Foreground  = BrushMemTextMatch;
+                btn.BorderBrush = BrushMemBorderYellow;
+            }
+            else if (modifier == ModifierState.Shift)
+            {
+                btn.Background  = BrushMemRegistered; // 青系
+                btn.Foreground  = BrushMemTextReg;
                 btn.BorderBrush = BrushMemBorderYellow;
             }
             else
             {
-                btn.Background  = BrushMemRegistered;
-                btn.Foreground  = BrushMemTextReg;   // 金
+                btn.Background  = BrushMemRedReg;     // 赤系（通常 or CTRL）
+                btn.Foreground  = BrushMemTextReg;
                 btn.BorderBrush = BrushMemBorderYellow;
             }
         }
@@ -206,24 +215,11 @@ public partial class VFaderControl : UserControl
             UpdateMemoryButton(i, _memories[i].HasValue);
     }
 
-    public void UpdateShiftState(bool isShift)
+    public void UpdateModifierState(ModifierState modifier)
     {
         if (Mem1 == null) return;
         for (int i = 0; i < 4; i++)
-        {
-            if (!_memories[i].HasValue) continue;
-            var btn = i switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
-            if (isShift)
-            {
-                btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextMatch;
-                btn.BorderBrush = BrushMemBorderYellow;
-            }
-            else
-            {
-                UpdateMemoryButton(i, true);
-            }
-        }
+            UpdateMemoryButton(i, _memories[i].HasValue, modifier);
     }
 
     private void Memory_Click(object sender, RoutedEventArgs e)

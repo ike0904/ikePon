@@ -5,7 +5,7 @@
         Title="ikePon v1.0.0"
         Background="#272727"
         MinWidth="1200" MinHeight="720"
-        Width="1280" Height="760"
+        Width="1200" Height="720"
         WindowStyle="SingleBorderWindow"
         KeyDown="Window_KeyDown"
         KeyUp="Window_KeyUp"
@@ -70,8 +70,8 @@
                                                     <TextBlock Text="PANIC"
                                                                FontSize="18" FontWeight="Bold"
                                                                Foreground="White"
-                                                               HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                               Margin="10,0,0,0"/>
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Margin="0,0,44,0"/>
                                                     <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
                                                             BorderThickness="1" CornerRadius="2"
                                                             Padding="4,1"
