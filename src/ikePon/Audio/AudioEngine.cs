@@ -30,7 +30,6 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     private volatile bool _paSeparate;
 
     private readonly float[] _tempBuf = new float[65536];
-    private bool _wasActive; // 前回Readで1つ以上のパッドが再生中だったか
 
     public WaveFormat WaveFormat => _format;
 
@@ -59,12 +58,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, exLatency);
             _wasapiOut.Init(this);
             _wasapiOut.Play();
-            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT mode=WASAPI_Exclusive latency={exLatency}ms");
             return;
         }
-        catch (Exception ex)
+        catch
         {
-            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT WASAPI_Exclusive failed: {ex.Message}");
             try { _wasapiOut?.Stop(); } catch { }
             try { _wasapiOut?.Dispose(); } catch { }
             _wasapiOut = null;
@@ -78,12 +75,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             woe.Init(provider);
             woe.Play();
             _waveOutFallback = woe;
-            PadAudioSource.DiagLog.Enqueue("AUDIO_OUTPUT mode=WaveOutEvent latency=200ms buffers=4");
             return;
         }
-        catch (Exception ex)
+        catch
         {
-            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT WaveOutEvent failed: {ex.Message}");
             try { _waveOutFallback?.Stop(); } catch { }
             try { _waveOutFallback?.Dispose(); } catch { }
             _waveOutFallback = null;
@@ -95,12 +90,8 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(100, latencyMs));
             _wasapiOut.Init(this);
             _wasapiOut.Play();
-            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT mode=WASAPI_Shared latency={Math.Max(100, latencyMs)}ms");
         }
-        catch (Exception ex)
-        {
-            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT all modes failed: {ex.Message}");
-        }
+        catch { /* すべて失敗した場合は無音で動作継続 */ }
     }
 
     // ------------------------------------------------------------------
@@ -143,13 +134,11 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             int bank = _activeBank;
             float mstr = _masterVol;
             bool separate = _paSeparate;
-            bool anyActive = false;
 
             for (int pad = 0; pad < PadCount; pad++)
             {
                 var src = _sources[bank, pad];
                 if (src.State == PadPlayState.Idle) continue;
-                anyActive = true;
 
                 var cat = _padCategories[bank, pad];
                 float catVol = cat switch
@@ -190,10 +179,6 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
                 }
             }
 
-            // 再生中→全Idle になった瞬間だけログ（ハードウェアが本当に無音を受け取っているかの確認用）
-            if (_wasActive && !anyActive)
-                PadAudioSource.DiagLog.Enqueue($"{DateTime.Now:HH:mm:ss.fff} ENGINE_ALL_IDLE bank={bank} outputting silence");
-            _wasActive = anyActive;
         }
         catch
         {

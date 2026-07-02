@@ -44,10 +44,6 @@ public partial class MainWindow : Window
     // 確認待ち（フェーダーメモリ上書き）
     private (VFaderControl fader, int slot, double gain)? _pendingMemOverwrite;
 
-    // 診断ログ出力先（デスクトップに ikePon_audio_debug.txt）
-    private System.IO.StreamWriter? _diagLogWriter;
-    private int _diagHeartbeat;
-
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0xFF, 0xD7, 0x00)); // 黄色ボーダー（選択中）
@@ -86,18 +82,6 @@ public partial class MainWindow : Window
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
-
-        // 診断ログ初期化（デスクトップへ）
-        try
-        {
-            string logPath = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                "ikePon_audio_debug.txt");
-            _diagLogWriter = new System.IO.StreamWriter(logPath, append: false, encoding: System.Text.Encoding.UTF8)
-                { AutoFlush = true };
-            _diagLogWriter.WriteLine($"=== ikePon audio diagnostic log start {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
-        }
-        catch { /* ログが書けなくても動作継続 */ }
 
         UpdateBankHighlight();
         UpdateTitle();
@@ -277,28 +261,6 @@ public partial class MainWindow : Window
         }
         for (int i = 0; i < _faders.Length; i++)
             _faders[i].UpdateModifierState(_modifier);
-
-        // 診断ログを flush
-        if (_diagLogWriter != null)
-        {
-            while (Audio.PadAudioSource.DiagLog.TryDequeue(out var logMsg))
-                _diagLogWriter.WriteLine(logMsg);
-
-            // 1秒ごとに再生中のパッド状態をハートビートとして出力
-            if (++_diagHeartbeat % 30 == 0)
-            {
-                for (int i = 0; i < BankData.PadCount; i++)
-                {
-                    var st = _playback.GetPadState(i);
-                    if (st != Audio.PadPlayState.Idle)
-                    {
-                        var padCfg = _playback.GetPadSettings(i);
-                        _diagLogWriter.WriteLine(
-                            $"{DateTime.Now:HH:mm:ss.fff} HEARTBEAT pad={i} state={st} pos={_playback.GetPadPosition(i):F3} gain={_playback.GetPadFadeGain(i):F3} file={System.IO.Path.GetFileName(padCfg?.FilePath ?? "(none)")}");
-                    }
-                }
-            }
-        }
     }
 
     // ------------------------------------------------------------------
@@ -853,7 +815,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.24{fname}{dirty}";
+        Title = $"ikePon v1.0.25{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -870,7 +832,6 @@ public partial class MainWindow : Window
         }
         _uiTimer.Stop();
         _engine.Dispose();
-        _diagLogWriter?.Dispose();
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
         _settings.Save();
