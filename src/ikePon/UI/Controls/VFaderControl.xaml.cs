@@ -81,6 +81,8 @@ public partial class VFaderControl : UserControl
 
     public event EventHandler<double>? VolumeChanged;
     public event EventHandler<(int slot, bool quick)>? MemoryRecall;
+    // 登録済みスロットへの上書きをMainWindowに確認させるイベント
+    public event EventHandler<(int slot, double gain)>? MemoryRegisterRequested;
 
     public string Label { get => FaderLabel.Text; set => FaderLabel.Text = value; }
 
@@ -252,7 +254,7 @@ public partial class VFaderControl : UserControl
 
     public float? GetMemory(int slot) => slot >= 0 && slot < 4 ? _memories[slot] : null;
 
-    private void UpdateMemoryButton(int slot, bool stored, ModifierState modifier = ModifierState.None)
+    private void UpdateMemoryButton(int slot, bool stored)
     {
         var btn = slot switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
         if (!stored)
@@ -263,26 +265,10 @@ public partial class VFaderControl : UserControl
         }
         else
         {
-            float cur = (float)PositionToGain(FaderSlider.Value);
-            bool matches = _memories[slot].HasValue && Math.Abs(_memories[slot]!.Value - cur) < 0.01f;
-            if (matches)
-            {
-                btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextMatch;
-                btn.BorderBrush = BrushMemBorderYellow;
-            }
-            else if (modifier == ModifierState.Shift)
-            {
-                btn.Background  = BrushMemRegistered;
-                btn.Foreground  = BrushMemTextReg;
-                btn.BorderBrush = BrushMemBorderYellow;
-            }
-            else
-            {
-                btn.Background  = BrushMemRedReg;
-                btn.Foreground  = BrushMemTextReg;
-                btn.BorderBrush = BrushMemBorderYellow;
-            }
+            // 登録済みは修飾キーや位置によらず常にオレンジ固定
+            btn.Background  = BrushMemStored;
+            btn.Foreground  = BrushMemTextMatch;
+            btn.BorderBrush = BrushMemBorderYellow;
         }
     }
 
@@ -293,52 +279,60 @@ public partial class VFaderControl : UserControl
             UpdateMemoryButton(i, _memories[i].HasValue);
     }
 
-    public void UpdateModifierState(ModifierState modifier)
-    {
-        if (Mem1 == null) return;
-        for (int i = 0; i < 4; i++)
-            UpdateMemoryButton(i, _memories[i].HasValue, modifier);
-    }
+    public void UpdateModifierState(ModifierState modifier) { }  // 色は常時固定のため何もしない
 
     private void Memory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         int slot = Convert.ToInt32(btn.Tag);
-        bool isShift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         if (_memories[slot].HasValue)
-            MemoryRecall?.Invoke(this, (slot, !isShift));
+            MemoryRecall?.Invoke(this, (slot, true));  // 登録済 → 即座に移動
+        else
+            StoreMemory(slot, Value);  // 空 → 現在値を登録
     }
 
     private void Memory_RightClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Button btn) return;
         int slot = Convert.ToInt32(btn.Tag);
+        if (!_memories[slot].HasValue) { e.Handled = true; return; }
 
         var cm = new ContextMenu();
-
-        if (_memories[slot].HasValue)
-        {
-            var quick = new MenuItem { Header = "即座に移動" };
-            var slow  = new MenuItem { Header = "ゆっくり移動" };
-            var reReg = new MenuItem { Header = "再登録" };
-            var del   = new MenuItem { Header = "削除" };
-            quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
-            slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
-            reReg.Click += (_, _) => StoreMemory(slot, Value);
-            del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot, false); };
-            cm.Items.Add(quick);
-            cm.Items.Add(slow);
-            cm.Items.Add(reReg);
-            cm.Items.Add(del);
-        }
-        else
-        {
-            var store = new MenuItem { Header = "登録" };
-            store.Click += (_, _) => StoreMemory(slot, Value);
-            cm.Items.Add(store);
-        }
-
+        var quick = new MenuItem { Header = "即座に移動" };
+        var slow  = new MenuItem { Header = "ゆっくり移動" };
+        var reReg = new MenuItem { Header = "再登録" };
+        var del   = new MenuItem { Header = "削除" };
+        quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
+        slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
+        reReg.Click += (_, _) => StoreMemory(slot, Value);
+        del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot, false); };
+        cm.Items.Add(quick);
+        cm.Items.Add(slow);
+        cm.Items.Add(reReg);
+        cm.Items.Add(del);
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void FaderSlider_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        var cm = new ContextMenu();
+        for (int i = 0; i < 4; i++)
+        {
+            int captured = i;
+            var item = new MenuItem { Header = $"M{i + 1}に登録" };
+            item.Click += (_, _) => RequestStoreMemory(captured);
+            cm.Items.Add(item);
+        }
+        cm.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void RequestStoreMemory(int slot)
+    {
+        if (_memories[slot].HasValue)
+            MemoryRegisterRequested?.Invoke(this, (slot, Value));  // 上書き確認をMainWindowに依頼
+        else
+            StoreMemory(slot, Value);
     }
 }

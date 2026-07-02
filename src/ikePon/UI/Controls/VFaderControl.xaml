@@ -33,7 +33,8 @@
                         HorizontalAlignment="Center"
                         Width="40"
                         ValueChanged="FaderSlider_ValueChanged"
-                        SizeChanged="FaderSlider_SizeChanged">
+                        SizeChanged="FaderSlider_SizeChanged"
+                        MouseRightButtonUp="FaderSlider_RightClick">
                     <Slider.Template>
                         <ControlTemplate TargetType="Slider">
                             <Grid>

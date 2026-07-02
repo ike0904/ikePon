@@ -39,8 +39,10 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _uiTimer;
     private ModifierState _modifier = ModifierState.None;
 
-    // バンク確認中フラグ
+    // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
+    // 確認待ち（フェーダーメモリ上書き）
+    private (VFaderControl fader, int slot, double gain)? _pendingMemOverwrite;
 
     // 診断ログ出力先（デスクトップに ikePon_audio_debug.txt）
     private System.IO.StreamWriter? _diagLogWriter;
@@ -228,6 +230,13 @@ public partial class MainWindow : Window
             int captured = i;
             fader.VolumeChanged += (_, v) => OnFaderChanged(captured, v);
             fader.MemoryRecall += (_, args) => OnMemoryRecall(captured, args.slot, args.quick);
+            fader.MemoryRegisterRequested += (s, args) =>
+            {
+                if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
+                var f = (VFaderControl)s!;
+                _pendingMemOverwrite = (f, args.slot, args.gain);
+                SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？  [Y] 確定  /  [N] キャンセル");
+            };
 
             _faders[i] = fader;
             MixerGrid.Children.Add(fader);
@@ -311,6 +320,13 @@ public partial class MainWindow : Window
         {
             if (e.Key == Key.Y) { _bankManager.Confirm(); e.Handled = true; return; }
             if (e.Key == Key.N) { _bankManager.Cancel();  e.Handled = true; return; }
+        }
+
+        // メモリ上書き確認中
+        if (_pendingMemOverwrite.HasValue)
+        {
+            if (e.Key == Key.Y) { ConfirmMemOverwrite(); e.Handled = true; return; }
+            if (e.Key == Key.N) { CancelMemOverwrite();  e.Handled = true; return; }
         }
 
         // パニック
@@ -563,8 +579,31 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     // バンク確認ボタン
     // ------------------------------------------------------------------
-    private void BankYesBtn_Click(object sender, RoutedEventArgs e) => _bankManager.Confirm();
-    private void BankNoBtn_Click(object sender, RoutedEventArgs e)  => _bankManager.Cancel();
+    private void BankYesBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingBankConfirm) _bankManager.Confirm();
+        else if (_pendingMemOverwrite.HasValue) ConfirmMemOverwrite();
+    }
+    private void BankNoBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingBankConfirm) _bankManager.Cancel();
+        else if (_pendingMemOverwrite.HasValue) CancelMemOverwrite();
+    }
+
+    private void ConfirmMemOverwrite()
+    {
+        if (!_pendingMemOverwrite.HasValue) return;
+        var (fader, slot, gain) = _pendingMemOverwrite.Value;
+        _pendingMemOverwrite = null;
+        fader.StoreMemory(slot, gain);
+        SetInfo2("");
+    }
+
+    private void CancelMemOverwrite()
+    {
+        _pendingMemOverwrite = null;
+        SetInfo2("");
+    }
 
     private void SetInfo2(string text)
     {
@@ -815,7 +854,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.17{fname}{dirty}";
+        Title = $"ikePon v1.0.18{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

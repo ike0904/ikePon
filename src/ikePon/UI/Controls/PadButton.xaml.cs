@@ -106,18 +106,16 @@ public partial class PadButton : UserControl
             BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
             BorderRoot.BorderThickness = new Thickness(2.5);
             FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg2, tb2));
-            bool shiftFade = modifier == ModifierState.Shift;
-            KeyLabel.Foreground  = shiftFade ? BrushBorderPlay : BrushKeyGray;
-            KeyBadge.BorderBrush = shiftFade ? BrushBorderPlay : BrushKeyGray;
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
         }
         else
         {
             BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
             BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
             FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
-            bool shiftOn = modifier == ModifierState.Shift;
-            KeyLabel.Foreground  = shiftOn ? BrushBorderPlay : BrushKeyGray;
-            KeyBadge.BorderBrush = shiftOn ? BrushBorderPlay : BrushKeyGray;
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
         }
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 
