@@ -60,6 +60,7 @@ public partial class VFaderControl : UserControl
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
+    private ModifierState _currentModifier = ModifierState.None;
 
     // アニメーション
     private readonly DispatcherTimer _animTimer;
@@ -249,12 +250,12 @@ public partial class VFaderControl : UserControl
     {
         if (slot < 0 || slot >= 4) return;
         _memories[slot] = (float)gain;
-        UpdateMemoryButton(slot, true);
+        UpdateMemoryButton(slot, true, _currentModifier);
     }
 
     public float? GetMemory(int slot) => slot >= 0 && slot < 4 ? _memories[slot] : null;
 
-    private void UpdateMemoryButton(int slot, bool stored)
+    private void UpdateMemoryButton(int slot, bool stored, ModifierState modifier = ModifierState.None)
     {
         var btn = slot switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
         if (!stored)
@@ -265,10 +266,26 @@ public partial class VFaderControl : UserControl
         }
         else
         {
-            // 登録済みは修飾キーや位置によらず常にオレンジ固定
-            btn.Background  = BrushMemStored;
-            btn.Foreground  = BrushMemTextMatch;
-            btn.BorderBrush = BrushMemBorderYellow;
+            bool match = _memories[slot].HasValue &&
+                         Math.Abs((double)_memories[slot]!.Value - Value) < 0.001;
+            if (match)
+            {
+                btn.Background  = BrushMemStored;
+                btn.Foreground  = BrushMemTextMatch;
+                btn.BorderBrush = BrushMemBorderYellow;
+            }
+            else if (modifier == ModifierState.Shift)
+            {
+                btn.Background  = BrushMemRegistered;
+                btn.Foreground  = BrushMemTextReg;
+                btn.BorderBrush = BrushMemBorderEmpty;
+            }
+            else
+            {
+                btn.Background  = BrushMemRedReg;
+                btn.Foreground  = BrushMemTextReg;
+                btn.BorderBrush = BrushMemBorderEmpty;
+            }
         }
     }
 
@@ -276,10 +293,14 @@ public partial class VFaderControl : UserControl
     {
         if (Mem1 == null) return;
         for (int i = 0; i < 4; i++)
-            UpdateMemoryButton(i, _memories[i].HasValue);
+            UpdateMemoryButton(i, _memories[i].HasValue, _currentModifier);
     }
 
-    public void UpdateModifierState(ModifierState modifier) { }  // 色は常時固定のため何もしない
+    public void UpdateModifierState(ModifierState modifier)
+    {
+        _currentModifier = modifier;
+        UpdateAllMemoryButtons();
+    }
 
     private void Memory_Click(object sender, RoutedEventArgs e)
     {

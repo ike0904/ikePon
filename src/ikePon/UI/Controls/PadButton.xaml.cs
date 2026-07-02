@@ -34,6 +34,7 @@ public partial class PadButton : UserControl
     private float _progress;
     private float _fadeGain = 1f;
     private double _padWidth;
+    private bool _initialized;
 
     private static byte Lerp(byte a, byte b, float t)
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
@@ -48,10 +49,15 @@ public partial class PadButton : UserControl
 
     public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier, float fadeGain = 1f)
     {
-        bool changed = _state != state || _modifier != modifier ||
+        // modifier変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
+        bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
+        bool changed = !_initialized ||
+                       _state != state ||
+                       (modifierAffectsVisual && _modifier != modifier) ||
                        (settings != null && _category != settings.Category) ||
                        Math.Abs(_progress - progress) > 0.005f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
+        _initialized = true;
 
         _state = state;
         _progress = progress;
