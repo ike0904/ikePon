@@ -30,6 +30,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     private volatile bool _paSeparate;
 
     private readonly float[] _tempBuf = new float[65536];
+    private bool _wasActive; // 前回Readで1つ以上のパッドが再生中だったか
 
     public WaveFormat WaveFormat => _format;
 
@@ -118,11 +119,13 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             int bank = _activeBank;
             float mstr = _masterVol;
             bool separate = _paSeparate;
+            bool anyActive = false;
 
             for (int pad = 0; pad < PadCount; pad++)
             {
                 var src = _sources[bank, pad];
                 if (src.State == PadPlayState.Idle) continue;
+                anyActive = true;
 
                 var cat = _padCategories[bank, pad];
                 float catVol = cat switch
@@ -162,11 +165,16 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
                     }
                 }
             }
+
+            // 再生中→全Idle になった瞬間だけログ（ハードウェアが本当に無音を受け取っているかの確認用）
+            if (_wasActive && !anyActive)
+                PadAudioSource.DiagLog.Enqueue($"{DateTime.Now:HH:mm:ss.fff} ENGINE_ALL_IDLE bank={bank} outputting silence");
+            _wasActive = anyActive;
         }
         catch
         {
             // レンダースレッドをクラッシュさせないため例外を飲み込んで無音を返す
-            Array.Clear(buffer, offset, count);
+            try { Array.Clear(buffer, offset, count); } catch { }
         }
 
         return count;

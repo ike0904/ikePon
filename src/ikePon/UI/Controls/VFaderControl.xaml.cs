@@ -325,7 +325,7 @@ public partial class VFaderControl : UserControl
         var del   = new MenuItem { Header = "削除" };
         quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
         slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
-        reReg.Click += (_, _) => StoreMemory(slot, Value);
+        reReg.Click += (_, _) => RequestStoreMemory(slot);
         del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot, false); };
         cm.Items.Add(quick);
         cm.Items.Add(slow);

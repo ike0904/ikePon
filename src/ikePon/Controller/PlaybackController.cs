@@ -121,11 +121,13 @@ public sealed class PlaybackController
         bool isMovieBgm = pad.Category == AudioCategory.Movie || pad.Category == AudioCategory.BGM;
         if (isSamePad && isMovieBgm && src.State != PadPlayState.Idle)
         {
+            PadAudioSource.DiagLog.Enqueue($"{DateTime.Now:HH:mm:ss.fff} TRIGGER_STOP(same BGM/MOV) pad={padIndex} cat={pad.Category} prev={prev}");
             src.Stop(_settings.LongFadeDuration);
             _activePad[catIdx] = -1;
             return;
         }
 
+        PadAudioSource.DiagLog.Enqueue($"{DateTime.Now:HH:mm:ss.fff} TRIGGER_PAD pad={padIndex} cat={pad.Category} prev={prev} prevStop={(prev >= 0 && prev != padIndex)}");
         src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration);
     }
 
