@@ -52,31 +52,55 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     {
         _latencyMs = latencyMs;
 
-        // WaveOutEvent を優先使用（WASAPI shared mode より安定; バッファ管理がシンプルで確実）
+        // 1. WASAPI Exclusive — Windows オーディオミキサーを完全バイパス（エフェクト・多重化を排除）
+        try
+        {
+            int exLatency = Math.Max(100, latencyMs);
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, exLatency);
+            _wasapiOut.Init(this);
+            _wasapiOut.Play();
+            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT mode=WASAPI_Exclusive latency={exLatency}ms");
+            return;
+        }
+        catch (Exception ex)
+        {
+            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT WASAPI_Exclusive failed: {ex.Message}");
+            try { _wasapiOut?.Stop(); } catch { }
+            try { _wasapiOut?.Dispose(); } catch { }
+            _wasapiOut = null;
+        }
+
+        // 2. WaveOutEvent — 大きめバッファで安定動作
         try
         {
             var provider = new NAudio.Wave.SampleProviders.SampleToWaveProvider(this);
-            var woe = new NAudio.Wave.WaveOutEvent { DesiredLatency = 100, NumberOfBuffers = 3 };
+            var woe = new NAudio.Wave.WaveOutEvent { DesiredLatency = 200, NumberOfBuffers = 4 };
             woe.Init(provider);
             woe.Play();
             _waveOutFallback = woe;
+            PadAudioSource.DiagLog.Enqueue("AUDIO_OUTPUT mode=WaveOutEvent latency=200ms buffers=4");
             return;
         }
-        catch
+        catch (Exception ex)
         {
+            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT WaveOutEvent failed: {ex.Message}");
             try { _waveOutFallback?.Stop(); } catch { }
             try { _waveOutFallback?.Dispose(); } catch { }
             _waveOutFallback = null;
         }
 
-        // WaveOutEvent 失敗時のフォールバック: WASAPI Shared
+        // 3. WASAPI Shared — 最終フォールバック
         try
         {
-            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, latencyMs);
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(100, latencyMs));
             _wasapiOut.Init(this);
             _wasapiOut.Play();
+            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT mode=WASAPI_Shared latency={Math.Max(100, latencyMs)}ms");
         }
-        catch { /* 両方失敗した場合は無音で動作継続 */ }
+        catch (Exception ex)
+        {
+            PadAudioSource.DiagLog.Enqueue($"AUDIO_OUTPUT all modes failed: {ex.Message}");
+        }
     }
 
     // ------------------------------------------------------------------
