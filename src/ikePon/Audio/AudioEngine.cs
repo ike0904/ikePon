@@ -19,7 +19,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     private readonly AudioCategory[,] _padCategories;
 
     private WasapiOut? _wasapiOut;
-    private NAudio.Wave.WaveOut? _waveOutFallback;
+    private NAudio.Wave.IWavePlayer? _waveOutFallback;
     private int _latencyMs = 30;
 
     private volatile int _activeBank;
@@ -50,28 +50,32 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     public void Start(int latencyMs = 30)
     {
         _latencyMs = latencyMs;
+
+        // WaveOutEvent を優先使用（WASAPI shared mode より安定; バッファ管理がシンプルで確実）
+        try
+        {
+            var provider = new NAudio.Wave.SampleProviders.SampleToWaveProvider(this);
+            var woe = new NAudio.Wave.WaveOutEvent { DesiredLatency = 100, NumberOfBuffers = 3 };
+            woe.Init(provider);
+            woe.Play();
+            _waveOutFallback = woe;
+            return;
+        }
+        catch
+        {
+            try { _waveOutFallback?.Stop(); } catch { }
+            try { _waveOutFallback?.Dispose(); } catch { }
+            _waveOutFallback = null;
+        }
+
+        // WaveOutEvent 失敗時のフォールバック: WASAPI Shared
         try
         {
             _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, latencyMs);
             _wasapiOut.Init(this);
             _wasapiOut.Play();
         }
-        catch
-        {
-            // WASAPI 失敗 → 確実に停止・解放してから WaveOutEvent フォールバック
-            try { _wasapiOut?.Stop(); } catch { }
-            try { _wasapiOut?.Dispose(); } catch { }
-            _wasapiOut = null;
-
-            try
-            {
-                var provider = new NAudio.Wave.SampleProviders.SampleToWaveProvider(this);
-                _waveOutFallback = new NAudio.Wave.WaveOut { DesiredLatency = 150 };
-                _waveOutFallback.Init(provider);
-                _waveOutFallback.Play();
-            }
-            catch { /* 両方失敗した場合は無音で動作継続 */ }
-        }
+        catch { /* 両方失敗した場合は無音で動作継続 */ }
     }
 
     // ------------------------------------------------------------------
