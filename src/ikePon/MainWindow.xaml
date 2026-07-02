@@ -35,10 +35,6 @@
                 <Separator Background="#444"/>
                 <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
             </MenuItem>
-            <MenuItem Header="表示(_V)">
-                <MenuItem Header="PAセパレートモード" x:Name="MenuPaSeparate"
-                          IsCheckable="True" Click="Menu_PaSeparate"/>
-            </MenuItem>
             <MenuItem Header="設定(_S)">
                 <MenuItem Header="設定..." Click="Menu_Settings"/>
             </MenuItem>
@@ -67,7 +63,8 @@
                                             <Border x:Name="Bd" Background="#BB1111"
                                                     BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
                                                 <Grid>
-                                                    <TextBlock Text="PANIC"
+                                                    <TextBlock x:Name="PanicText"
+                                                               Text="PANIC"
                                                                FontSize="18" FontWeight="Bold"
                                                                Foreground="White"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"

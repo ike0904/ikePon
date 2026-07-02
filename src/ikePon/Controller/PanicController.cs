@@ -8,19 +8,34 @@ namespace ikePon.Controller;
 public sealed class PanicController
 {
     private readonly PlaybackController _playback;
+    private long _lastPressTick;
+    private volatile bool _isFading;
+
+    public bool IsFading => _isFading;
 
     public PanicController(PlaybackController playback)
     {
         _playback = playback;
     }
 
+    public void ClearFadeState() => _isFading = false;
+
     public void Trigger()
     {
-        // フェードアウトでは止まらないケースがあるため、常に即座停止に統一。
-        // 個別フェードは SHIFT+パッドで行う。
-        _playback.PanicStopAll();
+        long now = Environment.TickCount64;
+        bool doubleTap = _isFading && (now - _lastPressTick) < 200;
+        _lastPressTick = now;
 
-        // IAudioClient を完全に閉じ新規セッションを開くことでドライバループを解除
-        _playback.FlushOutput();
+        if (doubleTap)
+        {
+            _playback.PanicStopAll();
+            _playback.FlushOutput();
+            _isFading = false;
+        }
+        else
+        {
+            _playback.PanicFadeAll();
+            _isFading = true;
+        }
     }
 }

@@ -60,7 +60,6 @@ public partial class PadButton : UserControl
         _initialized = true;
 
         _state = state;
-        _progress = progress;
         _modifier = modifier;
         _fadeGain = fadeGain;
 
@@ -90,6 +89,7 @@ public partial class PadButton : UserControl
         }
 
         if (!changed) return;
+        _progress = progress;
 
         bool playing = state != PadPlayState.Idle;
 

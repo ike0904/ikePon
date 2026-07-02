@@ -176,7 +176,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     if (done)
                     {
                         if ((PadPlayState)_stateInt == PadPlayState.FadingOut)
+                        {
                             _stateInt = (int)PadPlayState.Idle;
+                            PlaybackPosition = 0f;
+                        }
                     }
                 }
             }

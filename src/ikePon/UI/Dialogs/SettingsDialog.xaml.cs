@@ -11,6 +11,7 @@ public partial class SettingsDialog : Window
     {
         _settings = settings;
         InitializeComponent();
+        CbPaSeparate.SelectedIndex = settings.PaSeparateMode ? 1 : 0;
         TbShortFade.Text = settings.ShortFadeDuration.ToString("F1");
         TbLongFade.Text  = settings.LongFadeDuration.ToString("F1");
         TbInterlock.Text = settings.InterLockMs.ToString();
@@ -26,6 +27,7 @@ public partial class SettingsDialog : Window
         if (!TryParseInt(TbLatency.Text,   1, 500,  out int latency))           { ShowError(TbLatency,   "1〜500");   return; }
         if (!TryParseInt(TbPreload.Text,   1, 600,  out int preload))           { ShowError(TbPreload,   "1〜600");   return; }
 
+        _settings.PaSeparateMode          = CbPaSeparate.SelectedIndex == 1;
         _settings.ShortFadeDuration       = shortFade;
         _settings.LongFadeDuration        = longFade;
         _settings.InterLockMs             = interlock;

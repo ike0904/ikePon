@@ -39,6 +39,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _uiTimer;
     private ModifierState _modifier = ModifierState.None;
 
+    // PANICボタンのテンプレートパーツ（遅延キャッシュ）
+    private System.Windows.Controls.Border? _panicBd;
+    private System.Windows.Controls.TextBlock? _panicText;
+    private bool _prevPanicFading;
+
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
     // 確認待ち（フェーダーメモリ上書き）
@@ -77,7 +82,6 @@ public partial class MainWindow : Window
         _playback.SetProject(_project);
         _engine.Start(_settings.WasapiLatencyMs);
         _engine.PaSeparate = _settings.PaSeparateMode;
-        MenuPaSeparate.IsChecked = _settings.PaSeparateMode;
 
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _uiTimer.Tick += UiTimer_Tick;
@@ -251,6 +255,9 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
+        float panicMaxGain = 0f;
+        bool panicAnyActive = false;
+
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -258,9 +265,54 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain);
+
+            if (state != PadPlayState.Idle)
+            {
+                panicAnyActive = true;
+                if (fadeGain > panicMaxGain) panicMaxGain = fadeGain;
+            }
         }
+
         for (int i = 0; i < _faders.Length; i++)
             _faders[i].UpdateModifierState(_modifier);
+
+        // PANICボタン色更新（フェード中は黄色→通常色にアニメーション）
+        bool isFading = _panic.IsFading;
+        if (isFading)
+        {
+            if (!panicAnyActive) { _panic.ClearFadeState(); UpdatePanicButtonColor(-1f); }
+            else UpdatePanicButtonColor(panicMaxGain);
+        }
+        else if (_prevPanicFading)
+        {
+            UpdatePanicButtonColor(-1f);
+        }
+        _prevPanicFading = isFading;
+    }
+
+    private void UpdatePanicButtonColor(float gain)
+    {
+        _panicBd   ??= PanicButton.Template.FindName("Bd",        PanicButton) as System.Windows.Controls.Border;
+        _panicText ??= PanicButton.Template.FindName("PanicText", PanicButton) as System.Windows.Controls.TextBlock;
+        if (_panicBd == null || _panicText == null) return;
+
+        if (gain < 0f)
+        {
+            _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x44, 0x44));
+            _panicText.Foreground = new SolidColorBrush(Colors.White);
+        }
+        else
+        {
+            float g = Math.Clamp(gain, 0f, 1f);
+            // ボーダー: g=1→黄(FFD700), g=0→赤(FF4444)
+            byte bg = (byte)(0x44 + (0xD7 - 0x44) * g);
+            byte bb = (byte)(0x44 * (1f - g));
+            _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, bg, bb));
+            // テキスト: g=1→黄(FFD700), g=0→白(FFFFFF)
+            byte tg = (byte)(0xFF - (0xFF - 0xD7) * g);
+            byte tb = (byte)(0xFF * (1f - g));
+            _panicText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, tg, tb));
+        }
     }
 
     // ------------------------------------------------------------------
@@ -746,16 +798,10 @@ public partial class MainWindow : Window
         var dlg = new ikePon.UI.Dialogs.SettingsDialog(_settings) { Owner = this };
         if (dlg.ShowDialog() == true)
         {
+            _engine.PaSeparate = _settings.PaSeparateMode;
             _settings.Save();
             SetInfo2("設定を保存しました。");
         }
-    }
-
-    private void Menu_PaSeparate(object sender, RoutedEventArgs e)
-    {
-        _engine.PaSeparate = MenuPaSeparate.IsChecked;
-        _settings.PaSeparateMode = MenuPaSeparate.IsChecked;
-        SetInfo2(MenuPaSeparate.IsChecked ? "PAセパレートモード ON (L=MOVIE+BGM / R=SE)" : "PAセパレートモード OFF");
     }
 
     private void SaveProject(string path)
@@ -815,7 +861,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.25{fname}{dirty}";
+        Title = $"ikePon v1.0.26{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
