@@ -193,6 +193,13 @@ public partial class VFaderControl : UserControl
         if (t >= 1.0) _animTimer.Stop();
     }
 
+    private void FaderSlider_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        double step = e.Delta > 0 ? FaderSlider.SmallChange : -FaderSlider.SmallChange;
+        FaderSlider.Value = Math.Clamp(FaderSlider.Value + step, 0, 1.0);
+        e.Handled = true;
+    }
+
     private void FaderSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         UpdateAllMemoryButtons();

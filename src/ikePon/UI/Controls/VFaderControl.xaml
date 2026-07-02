@@ -34,7 +34,8 @@
                         Width="40"
                         ValueChanged="FaderSlider_ValueChanged"
                         SizeChanged="FaderSlider_SizeChanged"
-                        MouseRightButtonUp="FaderSlider_RightClick">
+                        MouseRightButtonUp="FaderSlider_RightClick"
+                        MouseWheel="FaderSlider_MouseWheel">
                     <Slider.Template>
                         <ControlTemplate TargetType="Slider">
                             <Grid>
@@ -77,9 +78,9 @@
                                                             Cursor="SizeNS">
                                                         <!-- グリップ線 3本 -->
                                                         <StackPanel VerticalAlignment="Center" Margin="6,0">
-                                                            <Rectangle Height="1" Fill="White" Margin="0,1"/>
-                                                            <Rectangle Height="1" Fill="White" Margin="0,2"/>
-                                                            <Rectangle Height="1" Fill="White" Margin="0,2"/>
+                                                            <Rectangle x:Name="Grip1" Height="1" Fill="White" Margin="0,1"/>
+                                                            <Rectangle x:Name="Grip2" Height="1" Fill="White" Margin="0,2"/>
+                                                            <Rectangle x:Name="Grip3" Height="1" Fill="White" Margin="0,2"/>
                                                         </StackPanel>
                                                     </Border>
                                                     <ControlTemplate.Triggers>
@@ -89,6 +90,13 @@
                                                         <Trigger Property="IsDragging" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="Background" Value="#787878"/>
                                                         </Trigger>
+                                                        <!-- 矢印キーで操作可能な時（スライダーがキーボードフォーカスを持つ時）黄色 -->
+                                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Slider}}, Path=IsKeyboardFocusWithin}" Value="True">
+                                                            <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#FFD700"/>
+                                                            <Setter TargetName="Grip1" Property="Fill" Value="#FFD700"/>
+                                                            <Setter TargetName="Grip2" Property="Fill" Value="#FFD700"/>
+                                                            <Setter TargetName="Grip3" Property="Fill" Value="#FFD700"/>
+                                                        </DataTrigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
                                             </Thumb.Template>

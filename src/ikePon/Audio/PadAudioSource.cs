@@ -7,7 +7,7 @@ using ikePon.Model;
 namespace ikePon.Audio;
 
 /// <summary>
-/// 1パッド分の音声ソース。プリロード（≤10秒）とストリーミング（>10秒）を自動切り替え。
+/// 1パッド分の音声ソース。全ファイルを完全プリロード（メモリ再生）に一本化。
 /// Read() はオーディオスレッドから、Trigger/Stop は UI スレッドから呼ばれる。
 /// </summary>
 public sealed class PadAudioSource : ISampleProvider, IDisposable
@@ -20,14 +20,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private readonly WaveFormat _format;
     private readonly object _lock = new();
 
-    // Preloaded
+    // 全ファイル完全プリロード（ストリーミング廃止）
     private float[]? _preloaded;
     private int _preloadTotal;
     private int _readPos;
-
-    // Streaming — _reader は seek 用、_streamProvider は変換済みの読み取り用
-    private AudioFileReader? _reader;
-    private ISampleProvider? _streamProvider;
 
     // State
     private volatile int _stateInt; // PadPlayState
@@ -65,37 +61,17 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         try
         {
-            using var probe = new AudioFileReader(filePath);
-            double duration = probe.TotalTime.TotalSeconds;
-
-            if (duration <= thresholdSecs)
+            using var reader = new AudioFileReader(filePath);
+            double duration  = reader.TotalTime.TotalSeconds;
+            var resampled    = ConvertToFormat(reader, _format);
+            lock (_lock)
             {
-                var resampled = ConvertToFormat(probe, _format);
-                lock (_lock)
-                {
-                    _preloaded      = resampled;
-                    _preloadTotal   = resampled.Length;
-                    _reader         = null;
-                    _streamProvider = null;
-                    FilePath        = filePath;
-                    FileTotalSec    = (float)duration;
-                }
-                Log($"LOAD preload file={Path.GetFileName(filePath)} dur={duration:F2}s samples={resampled.Length} (={resampled.Length / (float)(_format.SampleRate * _format.Channels):F2}s decoded)");
+                _preloaded    = resampled;
+                _preloadTotal = resampled.Length;
+                FilePath      = filePath;
+                FileTotalSec  = (float)duration;
             }
-            else
-            {
-                var reader   = new AudioFileReader(filePath);
-                var provider = BuildStreamProvider(reader);
-                lock (_lock)
-                {
-                    _reader         = reader;
-                    _streamProvider = provider;
-                    _preloaded      = null;
-                    FilePath        = filePath;
-                    FileTotalSec    = (float)duration;
-                }
-                Log($"LOAD stream file={Path.GetFileName(filePath)} dur={duration:F2}s");
-            }
+            Log($"LOAD file={Path.GetFileName(filePath)} dur={duration:F2}s decoded={resampled.Length / (float)(_format.SampleRate * _format.Channels):F2}s samples={resampled.Length}");
             return true;
         }
         catch
@@ -114,15 +90,13 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     {
         lock (_lock)
         {
-            _stateInt       = (int)PadPlayState.Idle;
+            _stateInt        = (int)PadPlayState.Idle;
             _fade.Reset();
-            _reader?.Dispose();
-            _reader         = null;
-            _streamProvider = null;
-            _preloaded      = null;
-            _readPos        = 0;
-            FilePath        = null;
-            FileTotalSec    = 0f;
+            _preloaded       = null;
+            _preloadTotal    = 0;
+            _readPos         = 0;
+            FilePath         = null;
+            FileTotalSec     = 0f;
             PlaybackPosition = 0f;
         }
     }
@@ -138,7 +112,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     {
         lock (_lock)
         {
-            if (_preloaded == null && _reader == null) return;
+            if (_preloaded == null) return;
 
             _startSec     = Math.Max(0f, startSec);
             _endSec       = endSec;
@@ -149,13 +123,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 _readPos = Math.Clamp(
                     (int)(_startSec * _format.SampleRate * _format.Channels),
                     0, _preloadTotal);
-                Log($"TRIGGER preload file={Path.GetFileName(FilePath)} readPos={_readPos}/{_preloadTotal} prevState={(PadPlayState)_stateInt}");
-            }
-            else if (_reader != null)
-            {
-                SeekReaderToSec(_startSec);
-                _streamProvider = BuildStreamProvider(_reader);
-                Log($"TRIGGER stream file={Path.GetFileName(FilePath)} startSec={startSec} prevState={(PadPlayState)_stateInt}");
+                Log($"TRIGGER file={Path.GetFileName(FilePath)} readPos={_readPos}/{_preloadTotal} prevState={(PadPlayState)_stateInt}");
             }
 
             _fade.Reset();
@@ -271,47 +239,6 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             return toRead;
         }
 
-        // ストリーミング: 1回の Read のみ（複数回ループするとステレオL/Rフレームがずれてノイズになる）
-        var provider = _streamProvider ?? (ISampleProvider?)_reader;
-        if (provider != null)
-        {
-            int totalRead = provider.Read(buffer, offset, count);
-
-            if (totalRead < count)
-                Array.Clear(buffer, offset + totalRead, count - totalRead);
-
-            if (_reader != null && _reader.Length > 0)
-                PlaybackPosition = (float)_reader.Position / _reader.Length;
-
-            // 終了位置チェック
-            if (_endSec > 0 && st == PadPlayState.Playing && _reader != null)
-            {
-                double totalSecs = _reader.TotalTime.TotalSeconds;
-                if (totalSecs > 0 && _reader.Length > 0)
-                {
-                    float currentSec = (float)(_reader.Position / (double)_reader.Length * totalSecs);
-                    if (currentSec >= _endSec)
-                        TriggerEndFade();
-                }
-            }
-
-            bool streamEof = (totalRead == 0) ||
-                             (_reader != null && _reader.Length > 0 && _reader.Position >= _reader.Length);
-            if (streamEof)
-            {
-                var curState = (PadPlayState)_stateInt;
-                if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
-                {
-                    Log($"EOF_STREAM file={Path.GetFileName(FilePath)} totalRead={totalRead} pos={_reader?.Position}/{_reader?.Length} state={curState}");
-                    _stateInt = (int)PadPlayState.Idle;
-                    _fade.Reset();
-                    PlaybackPosition = 0f;
-                }
-            }
-
-            return totalRead;
-        }
-
         Array.Clear(buffer, offset, count);
         return 0;
     }
@@ -332,37 +259,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     // ヘルパー
     // ------------------------------------------------------------------
 
-    private void SeekReaderToSec(float sec)
-    {
-        if (_reader == null) return;
-        long byteOffset = 0;
-        if (sec > 0 && _reader.TotalTime.TotalSeconds > 0 && _reader.Length > 0)
-        {
-            byteOffset = (long)(sec / _reader.TotalTime.TotalSeconds * _reader.Length);
-            byteOffset = Math.Clamp(byteOffset, 0, _reader.Length);
-            if (_reader.BlockAlign > 0)
-                byteOffset -= byteOffset % _reader.BlockAlign;
-        }
-        _reader.Seek(byteOffset, SeekOrigin.Begin);
-    }
-
-    /// <summary>
-    /// AudioFileReader をエンジンフォーマット（44100Hz ステレオ）に変換する ISampleProvider を構築。
-    /// ストリーミングパスで seek 後にも呼ぶ（リサンプラー内部状態をリセット）。
-    /// </summary>
-    private ISampleProvider BuildStreamProvider(AudioFileReader reader)
-    {
-        ISampleProvider p = reader;
-        if (p.WaveFormat.SampleRate != _format.SampleRate)
-            p = new WdlResamplingSampleProvider(p, _format.SampleRate);
-        if (p.WaveFormat.Channels != _format.Channels)
-            p = _format.Channels == 2
-                ? (ISampleProvider)new MonoToStereoSampleProvider(p)
-                : new StereoToMonoSampleProvider(p);
-        return p;
-    }
-
-    /// <summary>プリロード用: 全データを一括デコード＆フォーマット変換。</summary>
+    /// <summary>全データを一括デコード＆フォーマット変換（ロード時のみ実行）。</summary>
     private static float[] ConvertToFormat(AudioFileReader reader, WaveFormat target)
     {
         ISampleProvider p = reader;
