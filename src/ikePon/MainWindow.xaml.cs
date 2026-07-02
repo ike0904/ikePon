@@ -49,9 +49,8 @@ public partial class MainWindow : Window
     private int _diagHeartbeat;
 
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
-    private static readonly SolidColorBrush BrushBankSelected = new(Color.FromRgb(0x1C, 0x44, 0x6E));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
-    private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0xFF, 0xD7, 0x00)); // 黄色
+    private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0xFF, 0xD7, 0x00)); // 黄色ボーダー（選択中）
     private static readonly SolidColorBrush BrushInfoWarnBg   = new(Color.FromRgb(0x44, 0x22, 0x00));
     private static readonly SolidColorBrush BrushInfoWarnText = new(Color.FromRgb(0xFF, 0xDD, 0x00));
     private static readonly SolidColorBrush BrushInfoNormal   = new(Colors.White);
@@ -555,7 +554,7 @@ public partial class MainWindow : Window
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
             bool sel = i == active;
-            _bankButtons[i].Background  = sel ? BrushBankSelected : BrushBankNormal;
+            _bankButtons[i].Background  = BrushBankNormal;
             _bankButtons[i].BorderBrush = sel ? BrushBankBorderS  : BrushBankBorderN;
 
             // ボタン内 TextBlock と badge の色更新
@@ -854,7 +853,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.22{fname}{dirty}";
+        Title = $"ikePon v1.0.23{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
