@@ -8,6 +8,7 @@ public class PadSettings
     public string? CustomLabel { get; set; }
     public float StartPositionSec { get; set; } = 0f;
     public float EndPositionSec { get; set; } = -1f; // -1 = end of file
+    public AfterPlaybackBehavior AfterPlayback { get; set; } = AfterPlaybackBehavior.Stop;
 
     public PadSettings Clone() => new()
     {
@@ -17,5 +18,6 @@ public class PadSettings
         CustomLabel = CustomLabel,
         StartPositionSec = StartPositionSec,
         EndPositionSec = EndPositionSec,
+        AfterPlayback = AfterPlayback,
     };
 }

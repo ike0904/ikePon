@@ -15,17 +15,8 @@
                Stretch="Uniform"
                HorizontalAlignment="Center"
                VerticalAlignment="Center"/>
-        <!-- 動画（再生中のみ表示） -->
-        <MediaElement x:Name="VideoPlayer"
-                      LoadedBehavior="Manual"
-                      UnloadedBehavior="Stop"
-                      Volume="0"
-                      Stretch="Uniform"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      ScrubbingEnabled="True"
-                      Visibility="Collapsed"
-                      MediaOpened="VideoPlayer_MediaOpened"
-                      MediaEnded="VideoPlayer_MediaEnded"/>
+        <!-- 動画（MediaPlayer+VideoDrawing で描画、再生中のみ表示） -->
+        <Rectangle x:Name="VideoRect"
+                   Visibility="Collapsed"/>
     </Grid>
 </Window>

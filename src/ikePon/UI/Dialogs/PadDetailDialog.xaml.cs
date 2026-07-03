@@ -13,13 +13,14 @@ public partial class PadDetailDialog : Window
     private readonly FileGainDatabase _gainDb;
     private readonly float _fileTotalSec;
 
-    public AudioCategory ResultCategory  { get; private set; }
-    public string?        ResultLabel    { get; private set; }
-    public string?        ResultFilePath { get; private set; }
-    public float          ResultFileGain { get; private set; }
-    public float          ResultPadGain  { get; private set; }
-    public float          ResultStartSec { get; private set; }
-    public float          ResultEndSec   { get; private set; }
+    public AudioCategory       ResultCategory     { get; private set; }
+    public string?             ResultLabel        { get; private set; }
+    public string?             ResultFilePath     { get; private set; }
+    public float               ResultFileGain     { get; private set; }
+    public float               ResultPadGain      { get; private set; }
+    public float               ResultStartSec     { get; private set; }
+    public float               ResultEndSec       { get; private set; }
+    public AfterPlaybackBehavior ResultAfterPlayback { get; private set; }
 
     // Mouse drag state
     private TextBox? _dragBox;
@@ -45,6 +46,14 @@ public partial class PadDetailDialog : Window
             AudioCategory.BGM   => 1,
             _                   => 2
         };
+
+        CbAfterPlayback.SelectedIndex = _padSettings.AfterPlayback switch
+        {
+            AfterPlaybackBehavior.FreezeLastFrame => 1,
+            AfterPlaybackBehavior.Loop            => 2,
+            _                                     => 0
+        };
+        UpdateAfterPlaybackItemStates();
 
         string defaultName = string.IsNullOrEmpty(_padSettings.FilePath)
             ? "" : Path.GetFileNameWithoutExtension(_padSettings.FilePath);
@@ -105,11 +114,30 @@ public partial class PadDetailDialog : Window
         ResultPadGain   = padGainInt / 100.0f;
         ResultStartSec  = startSec;
         ResultEndSec    = endSec;
+        ResultAfterPlayback = CbAfterPlayback.SelectedIndex switch
+        {
+            1 => AfterPlaybackBehavior.FreezeLastFrame,
+            2 => AfterPlaybackBehavior.Loop,
+            _ => AfterPlaybackBehavior.Stop
+        };
 
         DialogResult = true;
     }
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void CbCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => UpdateAfterPlaybackItemStates();
+
+    private void CbAfterPlayback_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+
+    private void UpdateAfterPlaybackItemStates()
+    {
+        if (CbAfterFreeze == null || CbAfterLoop == null) return;
+        var cat = CbCategory.SelectedIndex switch { 0 => AudioCategory.Movie, 1 => AudioCategory.BGM, _ => AudioCategory.SE };
+        CbAfterFreeze.IsEnabled = (cat == AudioCategory.Movie);
+        CbAfterLoop.IsEnabled   = (cat != AudioCategory.SE);
+    }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {

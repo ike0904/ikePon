@@ -194,11 +194,7 @@
                                                         BorderThickness="1" CornerRadius="2"
                                                         Padding="4,1"
                                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                        Margin="0,0,4,3"
-                                                        RenderTransformOrigin="1,0.5">
-                                                    <Border.RenderTransform>
-                                                        <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
-                                                    </Border.RenderTransform>
+                                                        Margin="0,0,4,3">
                                                     <TextBlock Text="0"
                                                                FontSize="16" FontWeight="Bold"
                                                                FontFamily="Consolas"
@@ -245,11 +241,7 @@
                                                         BorderThickness="1" CornerRadius="2"
                                                         Padding="4,1"
                                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                        Margin="0,0,4,3"
-                                                        RenderTransformOrigin="1,0.5">
-                                                    <Border.RenderTransform>
-                                                        <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
-                                                    </Border.RenderTransform>
+                                                        Margin="0,0,4,3">
                                                     <TextBlock Text="-"
                                                                FontSize="16" FontWeight="Bold"
                                                                FontFamily="Consolas"

@@ -31,6 +31,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private float _startSec = 0f;
     private float _endSec   = -1f; // -1 = end of file
     private float _shortFadeSec = 0.5f;
+    private bool  _shouldLoop = false;
 
     public WaveFormat WaveFormat => _format;
     public PadPlayState State    => (PadPlayState)_stateInt;
@@ -101,7 +102,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     /// <summary>
     /// パッドをトリガー。再生中・フェード中問わず即座に startSec から再生開始。
     /// </summary>
-    public void Trigger(float startSec, float endSec, float shortFadeSec)
+    public void Trigger(float startSec, float endSec, float shortFadeSec, bool shouldLoop = false)
     {
         lock (_lock)
         {
@@ -110,6 +111,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             _startSec     = Math.Max(0f, startSec);
             _endSec       = endSec;
             _shortFadeSec = shortFadeSec;
+            _shouldLoop   = shouldLoop;
 
             if (_preloaded != null)
             {
@@ -215,13 +217,32 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     ? (float)_readPos / (_format.SampleRate * _format.Channels)
                     : 0f;
                 if (currentSec >= _endSec)
-                    TriggerEndFade();
+                {
+                    if (_shouldLoop)
+                        _readPos = Math.Clamp((int)(_startSec * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                    else
+                        TriggerEndFade();
+                }
             }
 
             if (_readPos >= _preloadTotal)
             {
                 var curState = (PadPlayState)_stateInt;
-                if (curState == PadPlayState.Playing || curState == PadPlayState.FadingOut)
+                if (curState == PadPlayState.Playing)
+                {
+                    if (_shouldLoop)
+                    {
+                        _readPos = Math.Clamp((int)(_startSec * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                        PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+                    }
+                    else
+                    {
+                        _stateInt = (int)PadPlayState.Idle;
+                        _fade.Reset();
+                        PlaybackPosition = 0f;
+                    }
+                }
+                else if (curState == PadPlayState.FadingOut)
                 {
                     _stateInt = (int)PadPlayState.Idle;
                     _fade.Reset();

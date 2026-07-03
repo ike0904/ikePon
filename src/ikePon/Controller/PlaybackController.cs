@@ -126,7 +126,9 @@ public sealed class PlaybackController
             return;
         }
 
-        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration);
+        bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop
+                       && pad.Category != AudioCategory.SE;
+        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration, shouldLoop);
     }
 
     // ------------------------------------------------------------------

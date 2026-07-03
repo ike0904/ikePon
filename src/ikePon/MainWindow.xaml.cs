@@ -486,7 +486,7 @@ public partial class MainWindow : Window
         if (!fadeOut && !stopImmediate)
         {
             if (!string.IsNullOrEmpty(pad.FilePath))
-                _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec);
+                _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec, pad.AfterPlayback);
         }
         else if (stopImmediate)
         {
@@ -552,6 +552,7 @@ public partial class MainWindow : Window
         pad.PadGain         = dlg.ResultPadGain;
         pad.StartPositionSec = dlg.ResultStartSec;
         pad.EndPositionSec  = dlg.ResultEndSec;
+        pad.AfterPlayback   = dlg.ResultAfterPlayback;
 
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
@@ -1001,7 +1002,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.32{fname}{dirty}";
+        Title = $"ikePon v1.0.33{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

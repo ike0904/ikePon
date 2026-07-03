@@ -34,6 +34,9 @@
                     <Setter Property="Background" Value="#3A5080"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#555555"/>
+                </Trigger>
             </Style.Triggers>
         </Style>
         <!-- ComboBoxのカスタムテンプレート（背景色をダーク化） -->
@@ -119,7 +122,8 @@
             <TextBlock Text="カテゴリ" Grid.Column="0"/>
             <ComboBox x:Name="CbCategory" Grid.Column="1"
                       Background="#2E2E2E" Foreground="#EEEEEE" BorderBrush="#555"
-                      ItemContainerStyle="{StaticResource DarkComboBoxItem}">
+                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                      SelectionChanged="CbCategory_SelectionChanged">
                 <ComboBox.Resources>
                     <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2E2E2E"/>
                     <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#EEEEEE"/>
@@ -233,6 +237,24 @@
                      PreviewMouseUp="NumericBox_MouseUp"
                      PreviewMouseWheel="PosBox_MouseWheel"/>
             <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0"/>
+        </Grid>
+
+        <Separator Background="#383838" Margin="0,0,0,12"/>
+
+        <!-- 最後まで再生した後 -->
+        <Grid Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="最後まで再生した後" Grid.Column="0"/>
+            <ComboBox x:Name="CbAfterPlayback" Grid.Column="1"
+                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                      SelectionChanged="CbAfterPlayback_SelectionChanged">
+                <ComboBoxItem x:Name="CbAfterStop"    Content="そのまま終了"/>
+                <ComboBoxItem x:Name="CbAfterFreeze"  Content="最終フレームで止める"/>
+                <ComboBoxItem x:Name="CbAfterLoop"    Content="ループ再生"/>
+            </ComboBox>
         </Grid>
 
         <Separator Background="#383838" Margin="0,0,0,12"/>
