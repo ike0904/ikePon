@@ -12,7 +12,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="5"/>
+                <RowDefinition Height="10"/>
             </Grid.RowDefinitions>
 
             <!-- メインコンテンツ -->
@@ -64,13 +64,18 @@
                             <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
                         </StackPanel>
                         <!-- ループアイコン（↻） -->
-                        <TextBlock x:Name="IconLoop"
-                                   Text="↻"
-                                   FontSize="13"
-                                   Foreground="#AAAAAA"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Visibility="Collapsed"/>
+                        <Viewbox x:Name="IconLoop"
+                                 Width="13" Height="13"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 Visibility="Collapsed">
+                            <TextBlock Text="↻"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="#AAAAAA"
+                                       LineHeight="28"
+                                       Padding="0"/>
+                        </Viewbox>
                     </Grid>
                 </Border>
 

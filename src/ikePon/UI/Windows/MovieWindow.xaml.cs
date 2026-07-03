@@ -86,20 +86,15 @@ public partial class MovieWindow : Window
         AfterPlaybackBehavior afterPlayback = AfterPlaybackBehavior.Stop)
     {
         StopFadeTimer();
-        _player.Stop();
+        ShowStandby(); // 読み込み完了まではスタンバイを維持
 
         if (!VideoExts.Contains(System.IO.Path.GetExtension(filePath)))
-        {
-            ShowStandby();
             return;
-        }
 
         _pendingStartSec = startSec;
         _afterPlayback   = afterPlayback;
-        VideoRect.Opacity    = 1.0;
-        VideoRect.Visibility = Visibility.Visible;
         _player.Open(new Uri(filePath, UriKind.Absolute));
-        // 再生は Player_MediaOpened で行う（開く前に Play() を呼ぶと黒画面になる）
+        // VideoRect の表示は Player_MediaOpened で Play() 呼び出し後に行う
     }
 
     public void StopVideo()
@@ -166,6 +161,9 @@ public partial class MovieWindow : Window
             if (_pendingStartSec > 0)
                 _player.Position = TimeSpan.FromSeconds(_pendingStartSec);
             _player.Play();
+            // Play() 呼び出し後に表示（黒画面フラッシュを防ぐ）
+            VideoRect.Opacity    = 1.0;
+            VideoRect.Visibility = Visibility.Visible;
         });
     }
 
