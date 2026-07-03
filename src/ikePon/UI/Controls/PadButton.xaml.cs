@@ -39,10 +39,17 @@ public partial class PadButton : UserControl
     private static byte Lerp(byte a, byte b, float t)
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
 
+    public event EventHandler? CategoryTapped;
+
     public PadButton()
     {
         InitializeComponent();
         SizeChanged += (_, e) => { _padWidth = e.NewSize.Width - 8; UpdateProgress(); };
+        CategoryBadge.MouseLeftButtonDown += (s, e) =>
+        {
+            CategoryTapped?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
+        };
     }
 
     public void SetKey(string label) => KeyLabel.Text = label;

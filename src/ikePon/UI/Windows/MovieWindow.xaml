@@ -6,6 +6,7 @@
         MinWidth="320" MinHeight="180"
         Width="1280" Height="720"
         ShowInTaskbar="True"
+        ShowActivated="False"
         Closing="Window_Closing"
         MouseDoubleClick="Window_MouseDoubleClick">
     <Grid Background="Black">

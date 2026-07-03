@@ -199,8 +199,8 @@
                                                     <Border.RenderTransform>
                                                         <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
                                                     </Border.RenderTransform>
-                                                    <TextBlock Text="[0]"
-                                                               FontSize="14" FontWeight="Bold"
+                                                    <TextBlock Text="0"
+                                                               FontSize="16" FontWeight="Bold"
                                                                FontFamily="Consolas"
                                                                Foreground="#AAAAAA"/>
                                                 </Border>
@@ -250,8 +250,8 @@
                                                     <Border.RenderTransform>
                                                         <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
                                                     </Border.RenderTransform>
-                                                    <TextBlock Text="[-]"
-                                                               FontSize="14" FontWeight="Bold"
+                                                    <TextBlock Text="-"
+                                                               FontSize="16" FontWeight="Bold"
                                                                FontFamily="Consolas"
                                                                Foreground="#AAAAAA"/>
                                                 </Border>

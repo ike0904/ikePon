@@ -23,13 +23,14 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- カテゴリバッジ -->
+                <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
                 <Border Grid.Row="0"
                         x:Name="CategoryBadge"
                         Background="#444"
                         CornerRadius="2"
                         Padding="4,1"
-                        HorizontalAlignment="Left">
+                        HorizontalAlignment="Left"
+                        Cursor="Hand">
                     <TextBlock x:Name="CategoryLabel"
                                Text="BGM"
                                FontSize="12"

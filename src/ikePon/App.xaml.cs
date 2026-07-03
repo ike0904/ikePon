@@ -11,6 +11,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // WPF MediaElement の黒画面対策：ソフトウェアレンダリングを強制
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+
         // 未処理例外をキャッチしてクラッシュを防ぐ
         DispatcherUnhandledException += (_, ex) =>
         {

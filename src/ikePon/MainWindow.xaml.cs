@@ -116,6 +116,7 @@ public partial class MainWindow : Window
             pad.Cursor = Cursors.Hand;
 
             int captured = i;
+            pad.CategoryTapped += (_, _) => CyclePadCategory(captured);
             pad.MouseLeftButtonDown += (_, e) =>
             {
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -510,6 +511,19 @@ public partial class MainWindow : Window
         _playback.LoadBank(_playback.ActiveBank);
         MarkDirty();
         SetInfo2($"Pad {padIndex + 1} に設定をペーストしました。");
+    }
+
+    private void CyclePadCategory(int padIndex)
+    {
+        var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
+        pad.Category = pad.Category switch
+        {
+            AudioCategory.BGM   => AudioCategory.Movie,
+            AudioCategory.Movie => AudioCategory.SE,
+            _                   => AudioCategory.BGM
+        };
+        _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
+        MarkDirty();
     }
 
     private void ClearPad(int padIndex)
@@ -987,7 +1001,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.31{fname}{dirty}";
+        Title = $"ikePon v1.0.32{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
