@@ -167,15 +167,16 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // 背景色 — SHIFT=再生中のみ青、CTRL=再生中のみ赤
+        // 背景色 — フェードアウト中は即グレー。SHIFT=再生中のみ青、CTRL=再生中のみ赤
         // 修飾キーなし: 再生中かつMOVIE/BGMのみ青系（SEと未設定は常にグレー）
         bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
-        BorderRoot.Background = modifier switch
-        {
-            ModifierState.Shift => playing ? BrushShift    : BrushPadDefault,
-            ModifierState.Ctrl  => playing ? BrushCtrl     : BrushPadDefault,
-            _                   => (playing && isMovieBgm) ? BrushShift : BrushPadDefault
-        };
+        BorderRoot.Background = (state == PadPlayState.FadingOut) ? BrushPadDefault :
+            modifier switch
+            {
+                ModifierState.Shift => playing ? BrushShift    : BrushPadDefault,
+                ModifierState.Ctrl  => playing ? BrushCtrl     : BrushPadDefault,
+                _                   => (playing && isMovieBgm) ? BrushShift : BrushPadDefault
+            };
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
         if (state == PadPlayState.FadingOut)
@@ -197,7 +198,8 @@ public partial class PadButton : UserControl
             KeyLabel.Foreground  = BrushKeyGray;
             KeyBadge.BorderBrush = BrushKeyGray;
         }
-        ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
+        ProgressBar.Fill    = playing ? BrushProgressPlay : BrushProgress;
+        ProgressBar.Opacity = (state == PadPlayState.FadingOut) ? Math.Clamp(fadeGain, 0f, 1f) : 1.0;
 
         UpdateProgress();
         UpdateAfterPlaybackIcon();
@@ -246,7 +248,8 @@ public partial class PadButton : UserControl
         FileNameLabel.Foreground = BrushTextNormal;
         KeyLabel.Foreground  = BrushKeyGray;
         KeyBadge.BorderBrush = BrushKeyGray;
-        ProgressBar.Width = 0;
+        ProgressBar.Width   = 0;
+        ProgressBar.Opacity = 1.0;
     }
 }
 
