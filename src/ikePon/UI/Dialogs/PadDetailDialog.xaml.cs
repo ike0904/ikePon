@@ -137,6 +137,11 @@ public partial class PadDetailDialog : Window
         var cat = CbCategory.SelectedIndex switch { 0 => AudioCategory.Movie, 1 => AudioCategory.BGM, _ => AudioCategory.SE };
         CbAfterFreeze.IsEnabled = (cat == AudioCategory.Movie);
         CbAfterLoop.IsEnabled   = (cat != AudioCategory.SE);
+
+        if (!CbAfterFreeze.IsEnabled && CbAfterPlayback.SelectedIndex == 1)
+            CbAfterPlayback.SelectedIndex = 0;
+        if (!CbAfterLoop.IsEnabled && CbAfterPlayback.SelectedIndex == 2)
+            CbAfterPlayback.SelectedIndex = 0;
     }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)

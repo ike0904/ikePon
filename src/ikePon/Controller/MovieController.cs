@@ -102,6 +102,11 @@ public sealed class MovieController
         CloseDisplay();
     }
 
+    public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
+    {
+        _window?.UpdateAfterPlayback(afterPlayback);
+    }
+
     public void ReloadStandbyImage()
     {
         _window?.LoadStandbyImage(_settings.MovieStandbyImagePath);

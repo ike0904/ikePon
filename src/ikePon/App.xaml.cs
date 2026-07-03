@@ -11,6 +11,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // VideoDrawing + MediaPlayer でのビデオレンダリングを安定させるためソフトウェアレンダリング強制
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+
         // 未処理例外をキャッチしてクラッシュを防ぐ
         DispatcherUnhandledException += (_, ex) =>
         {

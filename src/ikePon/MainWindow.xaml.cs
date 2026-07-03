@@ -117,6 +117,19 @@ public partial class MainWindow : Window
 
             int captured = i;
             pad.CategoryTapped += (_, _) => CyclePadCategory(captured);
+            pad.AfterPlaybackChanged += (_, behavior) =>
+            {
+                var padSettings = _playback.GetPadSettings(captured);
+                if (padSettings == null) return;
+                padSettings.AfterPlayback = behavior;
+                bool shouldLoop = behavior == AfterPlaybackBehavior.Loop
+                               && padSettings.Category != AudioCategory.SE;
+                _engine.GetSource(_playback.ActiveBank, captured).SetLoop(shouldLoop);
+                if (padSettings.Category == AudioCategory.Movie)
+                    _movieCtrl.UpdateAfterPlayback(behavior);
+                MarkDirty();
+            };
+            pad.SeekRequested += (_, fraction) => SeekPad(captured, fraction);
             pad.MouseLeftButtonDown += (_, e) =>
             {
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -511,6 +524,11 @@ public partial class MainWindow : Window
         _playback.LoadBank(_playback.ActiveBank);
         MarkDirty();
         SetInfo2($"Pad {padIndex + 1} に設定をペーストしました。");
+    }
+
+    private void SeekPad(int padIndex, float fraction)
+    {
+        _engine.GetSource(_playback.ActiveBank, padIndex).SeekToFraction(fraction);
     }
 
     private void CyclePadCategory(int padIndex)
@@ -1002,7 +1020,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.33{fname}{dirty}";
+        Title = $"ikePon v1.0.34{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

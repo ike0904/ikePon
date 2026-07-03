@@ -51,7 +51,7 @@ public partial class MovieWindow : Window
 
         _player.MediaOpened += Player_MediaOpened;
         _player.MediaEnded  += Player_MediaEnded;
-        _player.MediaFailed += (_, _) => Dispatcher.Invoke(ShowStandby);
+        _player.MediaFailed += (_, _) => Dispatcher.BeginInvoke(ShowStandby);
 
         if (_settings.MovieWindowX.HasValue)
         {
@@ -149,9 +149,14 @@ public partial class MovieWindow : Window
         VideoRect.Visibility = Visibility.Collapsed;
     }
 
+    public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
+    {
+        _afterPlayback = afterPlayback;
+    }
+
     private void Player_MediaOpened(object? sender, EventArgs e)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             var w = _player.NaturalVideoWidth;
             var h = _player.NaturalVideoHeight;
@@ -166,7 +171,7 @@ public partial class MovieWindow : Window
 
     private void Player_MediaEnded(object? sender, EventArgs e)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             switch (_afterPlayback)
             {

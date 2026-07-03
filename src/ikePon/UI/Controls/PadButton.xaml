@@ -39,6 +39,41 @@
                                />
                 </Border>
 
+                <!-- 再生後アイコンバッジ（タップで循環変更） -->
+                <Border Grid.Row="0"
+                        x:Name="AfterPlaybackBadge"
+                        Background="#444"
+                        CornerRadius="2"
+                        Padding="4,1"
+                        HorizontalAlignment="Right"
+                        Cursor="Hand">
+                    <Grid Width="14" Height="14">
+                        <!-- 停止アイコン（■） -->
+                        <Rectangle x:Name="IconStop"
+                                   Width="9" Height="9"
+                                   Fill="#AAAAAA"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                        <!-- 一時停止アイコン（‖）-->
+                        <StackPanel x:Name="IconFreeze"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="Collapsed">
+                            <Rectangle Width="3" Height="11" Fill="#AAAAAA" Margin="0,0,2,0"/>
+                            <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
+                        </StackPanel>
+                        <!-- ループアイコン（↻） -->
+                        <TextBlock x:Name="IconLoop"
+                                   Text="↻"
+                                   FontSize="13"
+                                   Foreground="#AAAAAA"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Visibility="Collapsed"/>
+                    </Grid>
+                </Border>
+
                 <!-- ファイル名 -->
                 <TextBlock x:Name="FileNameLabel"
                            Grid.Row="1"
@@ -73,8 +108,10 @@
 
             <!-- プログレスバー（下端） -->
             <Border Grid.Row="1"
+                    x:Name="ProgressBorder"
                     Background="#222"
-                    CornerRadius="0,0,2,2">
+                    CornerRadius="0,0,2,2"
+                    Cursor="Hand">
                 <Rectangle x:Name="ProgressBar"
                            HorizontalAlignment="Left"
                            Width="0"

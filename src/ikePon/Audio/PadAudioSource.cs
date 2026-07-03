@@ -256,6 +256,20 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         return 0;
     }
 
+    public void SeekToFraction(float fraction)
+    {
+        lock (_lock)
+        {
+            if (_preloaded == null || (PadPlayState)_stateInt == PadPlayState.Idle) return;
+            _readPos = Math.Clamp((int)(fraction * _preloadTotal), 0, _preloadTotal);
+        }
+    }
+
+    public void SetLoop(bool loop)
+    {
+        lock (_lock) { _shouldLoop = loop; }
+    }
+
     private void TriggerEndFade()
     {
         lock (_lock)

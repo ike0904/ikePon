@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using ikePon.Audio;
 using ikePon.Model;
@@ -30,6 +31,7 @@ public partial class PadButton : UserControl
 
     private PadPlayState _state = PadPlayState.Idle;
     private AudioCategory _category = AudioCategory.BGM;
+    private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private ModifierState _modifier = ModifierState.None;
     private float _progress;
     private float _fadeGain = 1f;
@@ -40,6 +42,8 @@ public partial class PadButton : UserControl
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
 
     public event EventHandler? CategoryTapped;
+    public event EventHandler<AfterPlaybackBehavior>? AfterPlaybackChanged;
+    public event EventHandler<float>? SeekRequested;
 
     public PadButton()
     {
@@ -47,9 +51,66 @@ public partial class PadButton : UserControl
         SizeChanged += (_, e) => { _padWidth = e.NewSize.Width - 8; UpdateProgress(); };
         CategoryBadge.MouseLeftButtonDown += (s, e) =>
         {
+            if (_state != PadPlayState.Idle) { e.Handled = true; return; }
             CategoryTapped?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         };
+        AfterPlaybackBadge.MouseLeftButtonDown += (s, e) =>
+        {
+            CycleAfterPlayback();
+            e.Handled = true;
+        };
+        ProgressBorder.MouseLeftButtonDown += (s, e) =>
+        {
+            if (_state == PadPlayState.Idle) { e.Handled = true; return; }
+            double clickX = e.GetPosition(ProgressBorder).X;
+            double totalWidth = ProgressBorder.ActualWidth;
+            if (totalWidth > 0)
+            {
+                float fraction = (float)Math.Clamp(clickX / totalWidth, 0.0, 1.0);
+                SeekRequested?.Invoke(this, fraction);
+            }
+            e.Handled = true;
+        };
+    }
+
+    private void CycleAfterPlayback()
+    {
+        _afterPlayback = GetNextAfterPlayback(_afterPlayback);
+        UpdateAfterPlaybackIcon();
+        AfterPlaybackChanged?.Invoke(this, _afterPlayback);
+    }
+
+    private AfterPlaybackBehavior GetNextAfterPlayback(AfterPlaybackBehavior current)
+    {
+        var next = current switch
+        {
+            AfterPlaybackBehavior.Stop            => AfterPlaybackBehavior.FreezeLastFrame,
+            AfterPlaybackBehavior.FreezeLastFrame => AfterPlaybackBehavior.Loop,
+            AfterPlaybackBehavior.Loop            => AfterPlaybackBehavior.Stop,
+            _                                     => AfterPlaybackBehavior.Stop
+        };
+        if (next == AfterPlaybackBehavior.FreezeLastFrame && _category != AudioCategory.Movie)
+            return GetNextAfterPlayback(next);
+        if (next == AfterPlaybackBehavior.Loop && _category == AudioCategory.SE)
+            return GetNextAfterPlayback(next);
+        return next;
+    }
+
+    private void UpdateAfterPlaybackIcon()
+    {
+        IconStop.Visibility   = Visibility.Collapsed;
+        IconFreeze.Visibility = Visibility.Collapsed;
+        IconLoop.Visibility   = Visibility.Collapsed;
+        switch (_afterPlayback)
+        {
+            case AfterPlaybackBehavior.FreezeLastFrame:
+                IconFreeze.Visibility = Visibility.Visible; break;
+            case AfterPlaybackBehavior.Loop:
+                IconLoop.Visibility = Visibility.Visible; break;
+            default:
+                IconStop.Visibility = Visibility.Visible; break;
+        }
     }
 
     public void SetKey(string label) => KeyLabel.Text = label;
@@ -62,6 +123,7 @@ public partial class PadButton : UserControl
                        _state != state ||
                        (modifierAffectsVisual && _modifier != modifier) ||
                        (settings != null && _category != settings.Category) ||
+                       (settings != null && _afterPlayback != settings.AfterPlayback) ||
                        Math.Abs(_progress - progress) > 0.005f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
         _initialized = true;
@@ -73,6 +135,7 @@ public partial class PadButton : UserControl
         if (settings != null)
         {
             _category = settings.Category;
+            _afterPlayback = settings.AfterPlayback;
             string label = settings.CustomLabel
                 ?? System.IO.Path.GetFileNameWithoutExtension(settings.FilePath ?? "");
             FileNameLabel.Text = string.IsNullOrEmpty(label) ? "---" : label;
@@ -133,6 +196,7 @@ public partial class PadButton : UserControl
         ProgressBar.Fill = playing ? BrushProgressPlay : BrushProgress;
 
         UpdateProgress();
+        UpdateAfterPlaybackIcon();
     }
 
     private void UpdateProgress()
