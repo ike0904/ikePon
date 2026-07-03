@@ -22,7 +22,9 @@
                       Stretch="Uniform"
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
+                      ScrubbingEnabled="True"
                       Visibility="Collapsed"
+                      MediaOpened="VideoPlayer_MediaOpened"
                       MediaEnded="VideoPlayer_MediaEnded"/>
     </Grid>
 </Window>

@@ -18,6 +18,7 @@ public partial class MovieWindow : Window
 
     private bool _isFullScreen;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
+    private double _pendingStartSec;
 
     private static readonly HashSet<string> VideoExts =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
@@ -71,10 +72,10 @@ public partial class MovieWindow : Window
             return;
         }
 
+        _pendingStartSec = startSec;
         VideoPlayer.Visibility = Visibility.Visible;
         VideoPlayer.Source = new Uri(filePath, UriKind.Absolute);
-        VideoPlayer.Position = TimeSpan.FromSeconds(startSec);
-        VideoPlayer.Play();
+        // 再生は MediaOpened イベントで開始（WPF MediaElement 黒画面対策）
     }
 
     public void StopVideo()
@@ -150,6 +151,13 @@ public partial class MovieWindow : Window
             Width  = _savedWidth;
             Height = _savedHeight;
         }
+    }
+
+    private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
+    {
+        if (_pendingStartSec > 0)
+            VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
+        VideoPlayer.Play();
     }
 
     private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e) => ShowStandby();

@@ -14,7 +14,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- メニューバー -->
-            <RowDefinition Height="70"/>    <!-- インフォ+パニック -->
+            <RowDefinition Height="62"/>    <!-- インフォ+パニック -->
             <RowDefinition Height="*"/>     <!-- メインエリア -->
         </Grid.RowDefinitions>
 
@@ -113,14 +113,14 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="130"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- PANIC ボタン（左側） -->
                 <Grid Grid.Column="0">
                     <Button x:Name="PanicButton"
-                            Height="52"
+                            Height="44"
                             Margin="0,0,6,0"
                             Click="PanicButton_Click">
                         <Button.Style>
@@ -173,7 +173,7 @@
                 <!-- FULLボタン（右端から2番目） -->
                 <Button x:Name="FullButton"
                         Grid.Column="2"
-                        Height="52"
+                        Height="44"
                         Margin="6,0,0,0"
                         Click="FullButton_Click">
                     <Button.Style>
@@ -181,13 +181,13 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="FullBd" Background="#303030"
-                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                        <Border x:Name="FullBd" Background="#1C3D1C"
+                                                BorderBrush="#336633" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="FullText"
                                                            Text="FULL"
                                                            FontSize="15" FontWeight="Bold"
-                                                           Foreground="#888888"
+                                                           Foreground="#77BB77"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
                                                 <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
@@ -208,10 +208,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="FullBd" Property="Background" Value="#404040"/>
+                                                <Setter TargetName="FullBd" Property="Background" Value="#254E25"/>
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="FullBd" Property="Background" Value="#505050"/>
+                                                <Setter TargetName="FullBd" Property="Background" Value="#2F5E2F"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -224,7 +224,7 @@
                 <!-- DISPLAYボタン（右端） -->
                 <Button x:Name="DispButton"
                         Grid.Column="3"
-                        Height="52"
+                        Height="44"
                         Margin="4,0,0,0"
                         Click="DispButton_Click">
                     <Button.Style>
@@ -232,13 +232,13 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="DispBd" Background="#303030"
-                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                        <Border x:Name="DispBd" Background="#1C3D1C"
+                                                BorderBrush="#336633" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="DispText"
                                                            Text="DISP"
                                                            FontSize="15" FontWeight="Bold"
-                                                           Foreground="#888888"
+                                                           Foreground="#77BB77"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
                                                 <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
@@ -259,10 +259,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="DispBd" Property="Background" Value="#404040"/>
+                                                <Setter TargetName="DispBd" Property="Background" Value="#254E25"/>
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="DispBd" Property="Background" Value="#505050"/>
+                                                <Setter TargetName="DispBd" Property="Background" Value="#2F5E2F"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>

@@ -644,9 +644,9 @@ public partial class MainWindow : Window
         }
         else
         {
-            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
-            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
-            _fullText.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _fullText.Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0xBB, 0x77));
         }
     }
 
@@ -658,15 +658,15 @@ public partial class MainWindow : Window
 
         if (isOn)
         {
-            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
             _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
             _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
         }
         else
         {
-            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
-            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
-            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0xBB, 0x77));
         }
     }
 
@@ -987,7 +987,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.30{fname}{dirty}";
+        Title = $"ikePon v1.0.31{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
