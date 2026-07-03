@@ -21,9 +21,17 @@
         <!-- ====== メニューバー ====== -->
         <Menu Grid.Row="0" Background="#1A1A1A" Foreground="#CCCCCC" FontSize="12">
             <Menu.Resources>
+                <!-- ポップアップ背景・ハイライト色をダークに上書き -->
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}"          Color="#1E1E1E"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#2D2D2D"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"     Color="#2A4A6A"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}"      Color="#CCCCCC"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}"   Color="#CCCCCC"/>
                 <Style TargetType="MenuItem">
-                    <Setter Property="Background" Value="#1A1A1A"/>
-                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                    <Setter Property="Background"       Value="Transparent"/>
+                    <Setter Property="Foreground"       Value="#CCCCCC"/>
+                    <Setter Property="BorderThickness"  Value="0"/>
+                    <Setter Property="BorderBrush"      Value="Transparent"/>
                 </Style>
             </Menu.Resources>
             <MenuItem Header="ファイル(_F)">

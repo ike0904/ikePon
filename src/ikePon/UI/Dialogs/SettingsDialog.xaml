@@ -20,28 +20,105 @@
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
         <Style TargetType="Label">
-            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="Foreground" Value="#AAAAAA"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+        </Style>
+        <!-- コンボボックス（ダーク） -->
+        <Style TargetType="ComboBox">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="#2E2E2E"/>
+            <Setter Property="Foreground" Value="#EEEEEE"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleBtn" Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="16"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="1" Data="M 2 0 L 6 5 L 10 0"
+                                                      Stroke="#AAAAAA" StrokeThickness="1.5" Fill="Transparent"
+                                                      VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              IsHitTestVisible="False"
+                                              Margin="5,0,20,0"
+                                              VerticalAlignment="Center"/>
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   Focusable="False">
+                                <Border Background="#2E2E2E" BorderBrush="#555" BorderThickness="1">
+                                    <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#EEEEEE"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A7FC1"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1C446E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <StackPanel Margin="16">
+    <!-- SharedSizeScope で入力欄・単位列の横位置を全行で揃える -->
+    <StackPanel Margin="16" Grid.IsSharedSizeScope="True">
 
         <!-- PAセパレートモード -->
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="PAセパレートモード" Grid.Column="0"/>
-            <ComboBox x:Name="CbPaSeparate" Grid.Column="1" Width="70"
-                      Background="#2E2E2E" Foreground="#EEEEEE" BorderBrush="#555">
+            <ComboBox x:Name="CbPaSeparate" Grid.Column="1" Width="70">
                 <ComboBoxItem Content="OFF"/>
                 <ComboBoxItem Content="ON"/>
             </ComboBox>
+            <!-- 単位列は空（他の行と横位置を合わせるためのプレースホルダ） -->
         </Grid>
 
         <Separator Background="#383838" Margin="0,4,0,8"/>
@@ -53,8 +130,8 @@
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="短いフェード（即時停止）" Grid.Column="0"/>
             <TextBox  x:Name="TbShortFade" Grid.Column="1"/>
@@ -64,8 +141,8 @@
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="長いフェードアウト" Grid.Column="0"/>
             <TextBox  x:Name="TbLongFade" Grid.Column="1"/>
@@ -81,8 +158,8 @@
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="連打防止時間" Grid.Column="0"/>
             <TextBox  x:Name="TbInterlock" Grid.Column="1"/>
@@ -98,8 +175,8 @@
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="WASAPIレイテンシ" Grid.Column="0"/>
             <TextBox  x:Name="TbLatency" Grid.Column="1"/>
@@ -109,8 +186,8 @@
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="プリロード上限" Grid.Column="0"/>
             <TextBox  x:Name="TbPreload" Grid.Column="1"/>

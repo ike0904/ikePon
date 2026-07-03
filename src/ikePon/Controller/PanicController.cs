@@ -23,7 +23,7 @@ public sealed class PanicController
     public void Trigger()
     {
         long now = Environment.TickCount64;
-        bool doubleTap = _isFading && (now - _lastPressTick) < 200;
+        bool doubleTap = _isFading; // フェード中は時間に関係なく即座に停止
         _lastPressTick = now;
 
         if (doubleTap)

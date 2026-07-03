@@ -356,6 +356,12 @@ public partial class MainWindow : Window
         {
             bool shift = _modifier == ModifierState.Shift;
             bool ctrl  = _modifier == ModifierState.Ctrl;
+            // 通常再生トリガーの場合、PANICフェードを中断して即座停止
+            if (!shift && !ctrl && _panic.IsFading)
+            {
+                _playback.PanicStopAll();
+                _panic.ClearFadeState();
+            }
             _playback.TriggerPad(padIdx.Value, shift, ctrl);
             e.Handled = true;
             return;
@@ -861,7 +867,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.26{fname}{dirty}";
+        Title = $"ikePon v1.0.28{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
