@@ -361,6 +361,7 @@ public partial class MainWindow : Window
             {
                 _playback.PanicStopAll();
                 _panic.ClearFadeState();
+                UpdatePanicButtonColor(-1f); // タイマーを待たず即座に色を戻す
             }
             _playback.TriggerPad(padIdx.Value, shift, ctrl);
             e.Handled = true;
@@ -867,7 +868,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.28{fname}{dirty}";
+        Title = $"ikePon v1.0.29{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

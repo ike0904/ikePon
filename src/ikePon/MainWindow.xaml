@@ -21,17 +21,75 @@
         <!-- ====== メニューバー ====== -->
         <Menu Grid.Row="0" Background="#1A1A1A" Foreground="#CCCCCC" FontSize="12">
             <Menu.Resources>
-                <!-- ポップアップ背景・ハイライト色をダークに上書き -->
-                <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}"          Color="#1E1E1E"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#2D2D2D"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"     Color="#2A4A6A"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}"      Color="#CCCCCC"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}"   Color="#CCCCCC"/>
+                <!-- ControlTemplate でポップアップ背景を直接指定（SystemColors 上書きは Windows 11 では効かない） -->
                 <Style TargetType="MenuItem">
-                    <Setter Property="Background"       Value="Transparent"/>
-                    <Setter Property="Foreground"       Value="#CCCCCC"/>
-                    <Setter Property="BorderThickness"  Value="0"/>
-                    <Setter Property="BorderBrush"      Value="Transparent"/>
+                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                    <Setter Property="Padding"    Value="8,5"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="MenuItem">
+                                <Grid>
+                                    <Border x:Name="Bd"
+                                            Background="{TemplateBinding Background}"
+                                            BorderThickness="0"
+                                            Padding="{TemplateBinding Padding}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter ContentSource="Header"
+                                                              RecognizesAccessKey="True"
+                                                              VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="Igt"
+                                                       Grid.Column="1"
+                                                       Text="{TemplateBinding InputGestureText}"
+                                                       Foreground="#777"
+                                                       Margin="24,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="Collapsed"/>
+                                        </Grid>
+                                    </Border>
+                                    <!-- サブメニュー用ポップアップ（背景を直接 #1E1E1E に指定） -->
+                                    <Popup x:Name="PART_Popup"
+                                           Placement="Bottom"
+                                           IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                           AllowsTransparency="True"
+                                           Focusable="False">
+                                        <Border Background="#1E1E1E" BorderBrush="#444"
+                                                BorderThickness="1" Padding="0,2">
+                                            <ItemsPresenter/>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <!-- SubmenuItem: ショートカットキー表示 -->
+                                    <Trigger Property="Role" Value="SubmenuItem">
+                                        <Setter TargetName="Igt" Property="Visibility" Value="Visible"/>
+                                    </Trigger>
+                                    <Trigger Property="IsHighlighted" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="#2E2E2E"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Foreground" Value="#555"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+                <Style TargetType="Separator">
+                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Separator">
+                                <Border Height="1" Background="#444" Margin="6,2"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </Menu.Resources>
             <MenuItem Header="ファイル(_F)">

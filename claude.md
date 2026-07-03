@@ -1,3 +1,4 @@
-C:\Users\ike09\.claude\claude.md 初回起動時と更新あり時は必ず読むこと。
+・C:\Users\ike09\.claude\claude.md 初回起動時と更新あり時は必ず読むこと。
+・このmdファイルの内容を書き換える時、元のファイルを必ず「.md.bak」で残すこと。「.md.bak」の上書きは許可する。
 
 
