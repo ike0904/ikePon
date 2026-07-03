@@ -20,7 +20,8 @@ public sealed class PanicController
 
     public void ClearFadeState() => _isFading = false;
 
-    public void Trigger()
+    // Returns true if this was an immediate stop (2nd press / any press during fade)
+    public bool Trigger()
     {
         long now = Environment.TickCount64;
         bool doubleTap = _isFading; // フェード中は時間に関係なく即座に停止
@@ -31,11 +32,13 @@ public sealed class PanicController
             _playback.PanicStopAll();
             _playback.FlushOutput();
             _isFading = false;
+            return true;
         }
         else
         {
             _playback.PanicFadeAll();
             _isFading = true;
+            return false;
         }
     }
 }

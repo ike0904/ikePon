@@ -113,6 +113,8 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="80"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- PANIC ボタン（左側） -->
@@ -167,6 +169,108 @@
                         </Button.Style>
                     </Button>
                 </Grid>
+
+                <!-- FULLボタン（右端から2番目） -->
+                <Button x:Name="FullButton"
+                        Grid.Column="2"
+                        Height="52"
+                        Margin="6,0,0,0"
+                        Click="FullButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="FullBd" Background="#303030"
+                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                            <Grid>
+                                                <TextBlock x:Name="FullText"
+                                                           Text="FULL"
+                                                           FontSize="15" FontWeight="Bold"
+                                                           Foreground="#888888"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Panel.ZIndex="1"/>
+                                                <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
+                                                        BorderThickness="1" CornerRadius="2"
+                                                        Padding="4,1"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                        Margin="0,0,4,3"
+                                                        RenderTransformOrigin="1,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
+                                                    </Border.RenderTransform>
+                                                    <TextBlock Text="[0]"
+                                                               FontSize="14" FontWeight="Bold"
+                                                               FontFamily="Consolas"
+                                                               Foreground="#AAAAAA"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="FullBd" Property="Background" Value="#404040"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="FullBd" Property="Background" Value="#505050"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- DISPLAYボタン（右端） -->
+                <Button x:Name="DispButton"
+                        Grid.Column="3"
+                        Height="52"
+                        Margin="4,0,0,0"
+                        Click="DispButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="DispBd" Background="#303030"
+                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                            <Grid>
+                                                <TextBlock x:Name="DispText"
+                                                           Text="DISP"
+                                                           FontSize="15" FontWeight="Bold"
+                                                           Foreground="#888888"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Panel.ZIndex="1"/>
+                                                <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
+                                                        BorderThickness="1" CornerRadius="2"
+                                                        Padding="4,1"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                        Margin="0,0,4,3"
+                                                        RenderTransformOrigin="1,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
+                                                    </Border.RenderTransform>
+                                                    <TextBlock Text="[-]"
+                                                               FontSize="14" FontWeight="Bold"
+                                                               FontFamily="Consolas"
+                                                               Foreground="#AAAAAA"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="DispBd" Property="Background" Value="#404040"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="DispBd" Property="Background" Value="#505050"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
 
                 <!-- インフォメーションエリア（右側） -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">

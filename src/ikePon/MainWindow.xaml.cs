@@ -10,6 +10,7 @@ using ikePon.Controller;
 using ikePon.Model;
 using ikePon.UI.Controls;
 using ikePon.UI.Dialogs;
+using ikePon.UI.Windows;
 
 namespace ikePon;
 
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private readonly BankManager _bankManager;
     private readonly KeyboardMapper _keyMapper;
     private readonly PanicController _panic;
+    private readonly MovieController _movieCtrl;
     private ProjectData _project;
     private string? _projectFilePath;
     private bool _projectDirty;
@@ -44,6 +46,12 @@ public partial class MainWindow : Window
     private System.Windows.Controls.TextBlock? _panicText;
     private bool _prevPanicFading;
 
+    // FULL/DISPボタンのテンプレートパーツ（遅延キャッシュ）
+    private System.Windows.Controls.Border? _fullBd;
+    private System.Windows.Controls.TextBlock? _fullText;
+    private System.Windows.Controls.Border? _dispBd;
+    private System.Windows.Controls.TextBlock? _dispText;
+
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
     // 確認待ち（フェーダーメモリ上書き）
@@ -64,8 +72,9 @@ public partial class MainWindow : Window
         _playback = new PlaybackController(_engine, _settings, _gainDb);
         _bankManager = new BankManager(_playback);
         _keyMapper = new KeyboardMapper();
-        _panic = new PanicController(_playback);
-        _project = new ProjectData();
+        _panic     = new PanicController(_playback);
+        _movieCtrl = new MovieController(_settings);
+        _project   = new ProjectData();
 
         InitializeComponent();
         if (_settings.WindowWidth.HasValue && _settings.WindowHeight.HasValue)
@@ -86,6 +95,9 @@ public partial class MainWindow : Window
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
+
+        _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() => UpdateDispButton(on));
+        _movieCtrl.FullScreenChanged    += on => Dispatcher.Invoke(() => UpdateFullButton(on));
 
         UpdateBankHighlight();
         UpdateTitle();
@@ -108,7 +120,7 @@ public partial class MainWindow : Window
             {
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
                 bool ctrl  = Keyboard.IsKeyDown(Key.LeftCtrl)  || Keyboard.IsKeyDown(Key.RightCtrl);
-                _playback.TriggerPad(captured, shift, ctrl);
+                TriggerPadWithMovie(captured, shift, ctrl);
                 e.Handled = true;
             };
             pad.MouseRightButtonUp += (_, e) => PadRightClick(captured, e);
@@ -345,7 +357,24 @@ public partial class MainWindow : Window
         // パニック
         if (e.Key == Key.Escape)
         {
-            _panic.Trigger();
+            ExecutePanic();
+            e.Handled = true;
+            return;
+        }
+
+        // FULL ボタン（[0]キー）
+        if (e.Key == Key.D0)
+        {
+            _movieCtrl.ToggleFullScreen();
+            UpdateFullButton(_movieCtrl.IsFullScreen);
+            e.Handled = true;
+            return;
+        }
+
+        // DISPLAY ボタン（[-]キー）
+        if (e.Key == Key.OemMinus)
+        {
+            _movieCtrl.ToggleDisplay();
             e.Handled = true;
             return;
         }
@@ -361,9 +390,10 @@ public partial class MainWindow : Window
             {
                 _playback.PanicStopAll();
                 _panic.ClearFadeState();
-                UpdatePanicButtonColor(-1f); // タイマーを待たず即座に色を戻す
+                UpdatePanicButtonColor(-1f);
+                _movieCtrl.StopVideo();
             }
-            _playback.TriggerPad(padIdx.Value, shift, ctrl);
+            TriggerPadWithMovie(padIdx.Value, shift, ctrl);
             e.Handled = true;
             return;
         }
@@ -397,9 +427,9 @@ public partial class MainWindow : Window
         if (state != PadPlayState.Idle)
         {
             var fadeOut = new MenuItem { Header = "フェードアウト" };
-            fadeOut.Click += (_, _) => _playback.TriggerPad(padIndex, fadeOut: true);
+            fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
             var stopNow = new MenuItem { Header = "即座に停止" };
-            stopNow.Click += (_, _) => _playback.TriggerPad(padIndex, stopImmediate: true);
+            stopNow.Click += (_, _) => TriggerPadWithMovie(padIndex, stopImmediate: true);
             cm.Items.Add(fadeOut);
             cm.Items.Add(stopNow);
         }
@@ -440,6 +470,31 @@ public partial class MainWindow : Window
 
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    // ------------------------------------------------------------------
+    // パッドトリガー（音声 + 動画連動）
+    // ------------------------------------------------------------------
+    private void TriggerPadWithMovie(int padIndex, bool fadeOut = false, bool stopImmediate = false)
+    {
+        _playback.TriggerPad(padIndex, fadeOut, stopImmediate);
+
+        var pad = _playback.GetPadSettings(padIndex);
+        if (pad?.Category != AudioCategory.Movie) return;
+
+        if (!fadeOut && !stopImmediate)
+        {
+            if (!string.IsNullOrEmpty(pad.FilePath))
+                _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec);
+        }
+        else if (stopImmediate)
+        {
+            _movieCtrl.StopVideo();
+        }
+        else
+        {
+            _movieCtrl.FadeVideo(_settings.ShortFadeDuration);
+        }
     }
 
     private void PastePadSettings(int padIndex)
@@ -562,9 +617,72 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
+    // FULL / DISPLAY ボタン
+    // ------------------------------------------------------------------
+    private void FullButton_Click(object sender, RoutedEventArgs e)
+    {
+        _movieCtrl.ToggleFullScreen();
+        UpdateFullButton(_movieCtrl.IsFullScreen);
+    }
+
+    private void DispButton_Click(object sender, RoutedEventArgs e)
+    {
+        _movieCtrl.ToggleDisplay();
+    }
+
+    private void UpdateFullButton(bool isOn)
+    {
+        _fullBd   ??= FullButton.Template.FindName("FullBd",   FullButton) as System.Windows.Controls.Border;
+        _fullText ??= FullButton.Template.FindName("FullText", FullButton) as System.Windows.Controls.TextBlock;
+        if (_fullBd == null || _fullText == null) return;
+
+        if (isOn)
+        {
+            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x1A, 0x5C, 0x1A));
+            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0xAA, 0x33));
+            _fullText.Foreground = new SolidColorBrush(Colors.White);
+        }
+        else
+        {
+            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            _fullText.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+        }
+    }
+
+    private void UpdateDispButton(bool isOn)
+    {
+        _dispBd   ??= DispButton.Template.FindName("DispBd",   DispButton) as System.Windows.Controls.Border;
+        _dispText ??= DispButton.Template.FindName("DispText", DispButton) as System.Windows.Controls.TextBlock;
+        if (_dispBd == null || _dispText == null) return;
+
+        if (isOn)
+        {
+            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+        }
+        else
+        {
+            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+        }
+    }
+
+    // ------------------------------------------------------------------
     // パニックボタン
     // ------------------------------------------------------------------
-    private void PanicButton_Click(object sender, RoutedEventArgs e) => _panic.Trigger();
+    private void PanicButton_Click(object sender, RoutedEventArgs e) => ExecutePanic();
+
+    private void ExecutePanic()
+    {
+        bool wasImmediateStop = _panic.Trigger();
+        if (wasImmediateStop)
+            _movieCtrl.PanicStop();
+        else
+            _movieCtrl.PanicFade(_settings.LongFadeDuration);
+    }
 
     // ------------------------------------------------------------------
     // バンクハイライト更新
@@ -806,6 +924,7 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() == true)
         {
             _engine.PaSeparate = _settings.PaSeparateMode;
+            _movieCtrl.ReloadStandbyImage();
             _settings.Save();
             SetInfo2("設定を保存しました。");
         }
@@ -868,7 +987,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.29{fname}{dirty}";
+        Title = $"ikePon v1.0.30{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -885,6 +1004,7 @@ public partial class MainWindow : Window
         }
         _uiTimer.Stop();
         _engine.Dispose();
+        _movieCtrl.CloseDisplay(); // MovieWindowのポジションを_settingsに保存してから
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
         _settings.Save();

@@ -1,7 +1,7 @@
 <Window x:Class="ikePon.UI.Dialogs.SettingsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="設定" Width="360" SizeToContent="Height"
+        Title="設定" Width="480" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E" Foreground="#CCCCCC">
@@ -105,6 +105,42 @@
 
     <!-- SharedSizeScope で入力欄・単位列の横位置を全行で揃える -->
     <StackPanel Margin="16" Grid.IsSharedSizeScope="True">
+
+        <!-- ムービー画面設定 -->
+        <TextBlock Text="ムービー画面設定" FontWeight="Bold" FontSize="12"
+                   Foreground="#AAAAAA" Margin="0,0,0,8"/>
+
+        <TextBlock Text="スタンバイ画像" Margin="0,0,0,4"/>
+        <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="TbMovieStandby"
+                     Grid.Column="0"
+                     IsReadOnly="True"
+                     Width="Auto"
+                     HorizontalAlignment="Stretch"
+                     AllowDrop="True"
+                     PreviewDragOver="TbMovieStandby_PreviewDragOver"
+                     Drop="TbMovieStandby_Drop"
+                     Cursor="Arrow"
+                     VerticalContentAlignment="Center"
+                     Padding="4,2"/>
+            <Button x:Name="BtnClearMovieStandby"
+                    Grid.Column="1"
+                    Content="×"
+                    Width="28" Height="22"
+                    Margin="4,0,0,0"
+                    FontSize="12"
+                    Click="BtnClearMovieStandby_Click"
+                    Background="#3C3C3C" BorderBrush="#555" Foreground="#CCC"
+                    Padding="0"/>
+        </Grid>
+        <TextBlock Text="※ 動画非再生時にムービーウィンドウへ表示する静止画。未設定は黒画面。"
+                   FontSize="10" Foreground="#666" Margin="0,0,0,6" TextWrapping="Wrap"/>
+
+        <Separator Background="#383838" Margin="0,4,0,8"/>
 
         <!-- PAセパレートモード -->
         <Grid Margin="0,0,0,6">

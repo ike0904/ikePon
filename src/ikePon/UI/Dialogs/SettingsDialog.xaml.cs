@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using System.Windows;
 using ikePon.Model;
 
@@ -6,6 +8,8 @@ namespace ikePon.UI.Dialogs;
 public partial class SettingsDialog : Window
 {
     private readonly AppSettings _settings;
+
+    private const string StandbyHint = "別ファイルに変更：ここへドラッグ＆ドロップ";
 
     public SettingsDialog(AppSettings settings)
     {
@@ -17,6 +21,34 @@ public partial class SettingsDialog : Window
         TbInterlock.Text = settings.InterLockMs.ToString();
         TbLatency.Text   = settings.WasapiLatencyMs.ToString();
         TbPreload.Text   = settings.PreloadThresholdSeconds.ToString();
+
+        TbMovieStandby.Text = string.IsNullOrEmpty(settings.MovieStandbyImagePath)
+            ? StandbyHint
+            : settings.MovieStandbyImagePath;
+    }
+
+    private void TbMovieStandby_PreviewDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void TbMovieStandby_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
+        var imageExts = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".tif" };
+        string? file = files.FirstOrDefault(f => imageExts.Contains(
+            Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
+        if (file == null) return;
+        TbMovieStandby.Text = file;
+        e.Handled = true;
+    }
+
+    private void BtnClearMovieStandby_Click(object sender, RoutedEventArgs e)
+    {
+        TbMovieStandby.Text = StandbyHint;
     }
 
     private void BtnOk_Click(object sender, RoutedEventArgs e)
@@ -33,6 +65,8 @@ public partial class SettingsDialog : Window
         _settings.InterLockMs             = interlock;
         _settings.WasapiLatencyMs         = latency;
         _settings.PreloadThresholdSeconds = preload;
+        _settings.MovieStandbyImagePath   = TbMovieStandby.Text == StandbyHint
+            ? "" : TbMovieStandby.Text;
 
         DialogResult = true;
     }

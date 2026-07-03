@@ -883,3 +883,5 @@ E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\U
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\SettingsDialog.g.cs
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\PadDetailDialog.baml
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\PadDetailDialog.g.cs
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Windows\MovieWindow.baml
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Windows\MovieWindow.g.cs

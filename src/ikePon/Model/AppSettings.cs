@@ -18,6 +18,12 @@ public class AppSettings
     public bool PaSeparateMode { get; set; } = false;
     public MovieDisplayMode MovieMode { get; set; } = MovieDisplayMode.Window;
     public int MovieMonitorIndex { get; set; } = 1;
+    public bool DisplayOutputActive { get; set; } = false;
+    public string MovieStandbyImagePath { get; set; } = "";
+    public double? MovieWindowX { get; set; }
+    public double? MovieWindowY { get; set; }
+    public double? MovieWindowWidth { get; set; }
+    public double? MovieWindowHeight { get; set; }
     public double InterLockMs { get; set; } = 500;
     public double? WindowWidth { get; set; } = null;
     public double? WindowHeight { get; set; } = null;
