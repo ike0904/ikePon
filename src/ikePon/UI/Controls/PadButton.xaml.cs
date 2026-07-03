@@ -35,6 +35,7 @@ public partial class PadButton : UserControl
     private ModifierState _modifier = ModifierState.None;
     private float _progress;
     private float _fadeGain = 1f;
+    private float _totalSec;
     private double _padWidth;
     private bool _initialized;
 
@@ -72,6 +73,7 @@ public partial class PadButton : UserControl
             }
             e.Handled = true;
         };
+        DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
     }
 
     private void CycleAfterPlayback()
@@ -115,7 +117,7 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier, float fadeGain = 1f)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier, float fadeGain = 1f, float totalSec = 0f)
     {
         // modifier変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
         bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
@@ -125,6 +127,7 @@ public partial class PadButton : UserControl
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
                        Math.Abs(_progress - progress) > 0.005f ||
+                       Math.Abs(_totalSec - totalSec) > 0.5f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
         _initialized = true;
 
@@ -159,7 +162,8 @@ public partial class PadButton : UserControl
         }
 
         if (!changed) return;
-        _progress = progress;
+        _progress  = progress;
+        _totalSec  = totalSec;
 
         bool playing = state != PadPlayState.Idle;
 
@@ -197,6 +201,32 @@ public partial class PadButton : UserControl
 
         UpdateProgress();
         UpdateAfterPlaybackIcon();
+        UpdateTimeLabel(state, progress, totalSec);
+    }
+
+    private static string FormatTime(float secs)
+    {
+        int m = (int)(secs / 60);
+        int s = (int)(secs % 60);
+        return $"{m}:{s:00}";
+    }
+
+    private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec)
+    {
+        if (totalSec <= 0f)
+        {
+            TimeLabel.Text = "";
+            return;
+        }
+        if (state == PadPlayState.Idle)
+        {
+            TimeLabel.Text = FormatTime(totalSec);
+        }
+        else
+        {
+            float currentSec = Math.Clamp(progress * totalSec, 0f, totalSec);
+            TimeLabel.Text = $"{FormatTime(currentSec)}/{FormatTime(totalSec)}";
+        }
     }
 
     private void UpdateProgress()

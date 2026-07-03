@@ -13,6 +13,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="10"/>
+                <RowDefinition Height="10"/>
             </Grid.RowDefinitions>
 
             <!-- メインコンテンツ -->
@@ -35,8 +36,7 @@
                                Text="BGM"
                                FontSize="12"
                                FontWeight="Bold"
-                               Foreground="#999"
-                               />
+                               Foreground="#999"/>
                 </Border>
 
                 <!-- 再生後アイコンバッジ（タップで循環変更） -->
@@ -63,19 +63,15 @@
                             <Rectangle Width="3" Height="11" Fill="#AAAAAA" Margin="0,0,2,0"/>
                             <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
                         </StackPanel>
-                        <!-- ループアイコン（↻） -->
-                        <Viewbox x:Name="IconLoop"
-                                 Width="13" Height="13"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 Visibility="Collapsed">
-                            <TextBlock Text="↻"
-                                       FontSize="28"
-                                       FontWeight="Bold"
-                                       Foreground="#AAAAAA"
-                                       LineHeight="28"
-                                       Padding="0"/>
-                        </Viewbox>
+                        <!-- ループアイコン（Segoe MDL2 Assets RepeatAll） -->
+                        <TextBlock x:Name="IconLoop"
+                                   Text="&#xE8EE;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="13"
+                                   Foreground="#AAAAAA"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Visibility="Collapsed"/>
                     </Grid>
                 </Border>
 
@@ -92,7 +88,17 @@
                            TextTrimming="CharacterEllipsis"
                            Margin="0,4"/>
 
-                <!-- キーラベル（バンクボタンと統一したバッジスタイル） -->
+                <!-- 下段：時間表示（左）＋キーバッジ（右） -->
+                <TextBlock x:Name="TimeLabel"
+                           Grid.Row="2"
+                           Text=""
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           FontFamily="Consolas"
+                           Foreground="#888888"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Margin="2,1,0,0"/>
                 <Border Grid.Row="2"
                         x:Name="KeyBadge"
                         Background="#1C1C1C"
@@ -111,8 +117,13 @@
                 </Border>
             </Grid>
 
-            <!-- プログレスバー（下端） -->
+            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない） -->
             <Border Grid.Row="1"
+                    x:Name="DeadZone"
+                    Background="Transparent"/>
+
+            <!-- プログレスバー（下端） -->
+            <Border Grid.Row="2"
                     x:Name="ProgressBorder"
                     Background="#222"
                     CornerRadius="0,0,2,2"

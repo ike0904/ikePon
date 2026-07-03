@@ -290,7 +290,8 @@ public partial class MainWindow : Window
             var pos      = _playback.GetPadPosition(i);
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
-            _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain);
+            var totalSec = _playback.GetPadTotalTime(i);
+            _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain, totalSec);
 
             if (state != PadPlayState.Idle)
             {
@@ -1020,7 +1021,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.35{fname}{dirty}";
+        Title = $"ikePon v1.0.36{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

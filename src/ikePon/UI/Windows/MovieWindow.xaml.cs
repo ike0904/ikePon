@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ikePon.Model;
@@ -23,9 +22,6 @@ public partial class MovieWindow : Window
     private double _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
 
-    private readonly MediaPlayer _player = new();
-    private readonly VideoDrawing _videoDrawing;
-
     private static readonly HashSet<string> VideoExts =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
 
@@ -37,21 +33,6 @@ public partial class MovieWindow : Window
     {
         _settings = settings;
         InitializeComponent();
-
-        // MediaPlayer + VideoDrawing でフレームを WPF 描画パイプラインに乗せる
-        _videoDrawing = new VideoDrawing
-        {
-            Player = _player,
-            Rect   = new Rect(0, 0, 1920, 1080),
-        };
-        VideoRect.Fill = new DrawingBrush(_videoDrawing)
-        {
-            Stretch = Stretch.Uniform,
-        };
-
-        _player.MediaOpened += Player_MediaOpened;
-        _player.MediaEnded  += Player_MediaEnded;
-        _player.MediaFailed += (_, _) => Dispatcher.BeginInvoke(ShowStandby);
 
         if (_settings.MovieWindowX.HasValue)
         {
@@ -86,15 +67,15 @@ public partial class MovieWindow : Window
         AfterPlaybackBehavior afterPlayback = AfterPlaybackBehavior.Stop)
     {
         StopFadeTimer();
-        ShowStandby(); // 読み込み完了まではスタンバイを維持
+        ShowStandby();
 
         if (!VideoExts.Contains(System.IO.Path.GetExtension(filePath)))
             return;
 
         _pendingStartSec = startSec;
         _afterPlayback   = afterPlayback;
-        _player.Open(new Uri(filePath, UriKind.Absolute));
-        // VideoRect の表示は Player_MediaOpened で Play() 呼び出し後に行う
+        VideoPlayer.Source = new Uri(filePath, UriKind.Absolute);
+        // 再生は VideoPlayer_MediaOpened で行う
     }
 
     public void StopVideo()
@@ -105,7 +86,7 @@ public partial class MovieWindow : Window
 
     public void FadeVideo(double durationSec)
     {
-        if (VideoRect.Visibility != Visibility.Visible) return;
+        if (VideoPlayer.Visibility != Visibility.Visible) return;
         StopFadeTimer();
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
@@ -125,7 +106,7 @@ public partial class MovieWindow : Window
         }
         else
         {
-            VideoRect.Opacity = 1.0 - progress;
+            VideoPlayer.Opacity = 1.0 - progress;
         }
     }
 
@@ -139,9 +120,10 @@ public partial class MovieWindow : Window
 
     private void ShowStandby()
     {
-        _player.Stop();
-        VideoRect.Opacity    = 1.0;
-        VideoRect.Visibility = Visibility.Collapsed;
+        VideoPlayer.Stop();
+        VideoPlayer.Source     = null;
+        VideoPlayer.Opacity    = 1.0;
+        VideoPlayer.Visibility = Visibility.Collapsed;
     }
 
     public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
@@ -149,42 +131,35 @@ public partial class MovieWindow : Window
         _afterPlayback = afterPlayback;
     }
 
-    private void Player_MediaOpened(object? sender, EventArgs e)
+    private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
     {
-        Dispatcher.BeginInvoke(() =>
-        {
-            var w = _player.NaturalVideoWidth;
-            var h = _player.NaturalVideoHeight;
-            if (w > 0 && h > 0)
-                _videoDrawing.Rect = new Rect(0, 0, w, h);
-
-            if (_pendingStartSec > 0)
-                _player.Position = TimeSpan.FromSeconds(_pendingStartSec);
-            _player.Play();
-            // Play() 呼び出し後に表示（黒画面フラッシュを防ぐ）
-            VideoRect.Opacity    = 1.0;
-            VideoRect.Visibility = Visibility.Visible;
-        });
+        if (_pendingStartSec > 0)
+            VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
+        VideoPlayer.Play();
+        VideoPlayer.Opacity    = 1.0;
+        VideoPlayer.Visibility = Visibility.Visible;
     }
 
-    private void Player_MediaEnded(object? sender, EventArgs e)
+    private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
     {
-        Dispatcher.BeginInvoke(() =>
+        switch (_afterPlayback)
         {
-            switch (_afterPlayback)
-            {
-                case AfterPlaybackBehavior.FreezeLastFrame:
-                    // VideoRect はそのまま表示を継続（最終フレームが見える）
-                    break;
-                case AfterPlaybackBehavior.Loop:
-                    _player.Position = TimeSpan.FromSeconds(_pendingStartSec);
-                    _player.Play();
-                    break;
-                default:
-                    ShowStandby();
-                    break;
-            }
-        });
+            case AfterPlaybackBehavior.FreezeLastFrame:
+                VideoPlayer.Pause();
+                break;
+            case AfterPlaybackBehavior.Loop:
+                VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
+                VideoPlayer.Play();
+                break;
+            default:
+                ShowStandby();
+                break;
+        }
+    }
+
+    private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(ShowStandby);
     }
 
     public void SetFullScreen(bool full)
@@ -225,8 +200,7 @@ public partial class MovieWindow : Window
     private void Window_Closing(object sender, CancelEventArgs e)
     {
         StopFadeTimer();
-        _player.Stop();
-        _player.Close();
+        VideoPlayer.Stop();
 
         double saveLeft   = _isFullScreen ? _savedLeft   : Left;
         double saveTop    = _isFullScreen ? _savedTop    : Top;
