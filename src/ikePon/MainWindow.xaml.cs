@@ -101,6 +101,8 @@ public partial class MainWindow : Window
 
         UpdateBankHighlight();
         UpdateTitle();
+        UpdateFullButton(_movieCtrl.IsFullScreen);
+        UpdateDispButton(_movieCtrl.DisplayActive);
         SetInfo2("準備完了");
     }
 
@@ -169,7 +171,7 @@ public partial class MainWindow : Window
                 FontSize = 12, FontWeight = FontWeights.SemiBold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+                Foreground = new SolidColorBrush(Colors.White)
             });
             var badge = new Border
             {
@@ -185,7 +187,7 @@ public partial class MainWindow : Window
                     Text = KeyboardMapper.BankLabels[i],
                     FontSize = 16, FontWeight = FontWeights.Bold,
                     FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+                    Foreground = new SolidColorBrush(Colors.White)
                 }
             };
             content.Children.Add(badge);
@@ -219,7 +221,8 @@ public partial class MainWindow : Window
             { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
         bd.SetBinding(Border.BorderBrushProperty, new System.Windows.Data.Binding("BorderBrush")
             { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
-        bd.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
+        bd.SetBinding(Border.BorderThicknessProperty, new System.Windows.Data.Binding("BorderThickness")
+            { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
         bd.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
         var cp = new FrameworkElementFactory(typeof(ContentPresenter));
         cp.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
@@ -228,17 +231,26 @@ public partial class MainWindow : Window
         tpl.VisualTree = bd;
         style.Setters.Add(new Setter(Control.BackgroundProperty, BrushBankNormal));
         style.Setters.Add(new Setter(Control.BorderBrushProperty, BrushBankBorderN));
-        style.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))));
+        style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1.5)));
+        style.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Colors.White)));
         style.Setters.Add(new Setter(Control.TemplateProperty, tpl));
         return style;
     }
+
+    private static readonly SolidColorBrush[] MixerLabelColors =
+    [
+        new(Color.FromRgb(0x9A, 0x4A, 0xCC)),  // MOVIE
+        new(Color.FromRgb(0x3A, 0x7F, 0xC1)),  // BGM
+        new(Color.FromRgb(0x3A, 0xA0, 0x4A)),  // SE
+        new(Color.FromRgb(0xAA, 0xAA, 0xAA)),  // MASTER（現状維持）
+    ];
 
     private void BuildMixerGrid()
     {
         string[] labels = ["MOVIE", "BGM", "SE", "MASTER"];
         for (int i = 0; i < 4; i++)
         {
-            var fader = new VFaderControl { Label = labels[i] };
+            var fader = new VFaderControl { Label = labels[i], LabelBrush = MixerLabelColors[i] };
             fader.Value = 1.0;
             int captured = i;
             fader.VolumeChanged += (_, v) => OnFaderChanged(captured, v);
@@ -534,9 +546,9 @@ public partial class MainWindow : Window
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.Category = pad.Category switch
         {
-            AudioCategory.BGM   => AudioCategory.Movie,
-            AudioCategory.Movie => AudioCategory.SE,
-            _                   => AudioCategory.BGM
+            AudioCategory.Movie => AudioCategory.BGM,
+            AudioCategory.BGM   => AudioCategory.SE,
+            _                   => AudioCategory.Movie
         };
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
         MarkDirty();
@@ -562,13 +574,14 @@ public partial class MainWindow : Window
 
         bool fileChanged = dlg.ResultFilePath != pad.FilePath;
 
-        pad.Category        = dlg.ResultCategory;
-        pad.CustomLabel     = dlg.ResultLabel;
-        pad.FilePath        = dlg.ResultFilePath;
-        pad.PadGain         = dlg.ResultPadGain;
-        pad.StartPositionSec = dlg.ResultStartSec;
-        pad.EndPositionSec  = dlg.ResultEndSec;
-        pad.AfterPlayback   = dlg.ResultAfterPlayback;
+        pad.Category             = dlg.ResultCategory;
+        pad.CustomLabel          = dlg.ResultLabel;
+        pad.FilePath             = dlg.ResultFilePath;
+        pad.PadGain              = dlg.ResultPadGain;
+        pad.StartPositionSec     = dlg.ResultStartSec;
+        pad.EndPositionSec       = dlg.ResultEndSec;
+        pad.AfterPlayback        = dlg.ResultAfterPlayback;
+        pad.PadBackgroundColor   = dlg.ResultPadBackgroundColor;
 
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
@@ -669,15 +682,17 @@ public partial class MainWindow : Window
 
         if (isOn)
         {
-            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x1A, 0x5C, 0x1A));
-            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0xAA, 0x33));
-            _fullText.Foreground = new SolidColorBrush(Colors.White);
+            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x1A, 0x5C, 0x1A));
+            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _fullBd.BorderThickness = new Thickness(2.5);
+            _fullText.Foreground    = new SolidColorBrush(Colors.White);
         }
         else
         {
-            _fullBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
-            _fullBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
-            _fullText.Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0xBB, 0x77));
+            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _fullBd.BorderThickness = new Thickness(2);
+            _fullText.Foreground    = new SolidColorBrush(Colors.White);
         }
     }
 
@@ -689,15 +704,17 @@ public partial class MainWindow : Window
 
         if (isOn)
         {
-            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
-            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
-            _dispText.Foreground = new SolidColorBrush(Colors.White);
+            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _dispBd.BorderThickness = new Thickness(2.5);
+            _dispText.Foreground    = new SolidColorBrush(Colors.White);
         }
         else
         {
-            _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
-            _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
-            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0x77, 0xBB, 0x77));
+            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _dispBd.BorderThickness = new Thickness(2);
+            _dispText.Foreground    = new SolidColorBrush(Colors.White);
         }
     }
 
@@ -724,19 +741,20 @@ public partial class MainWindow : Window
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
             bool sel = i == active;
-            _bankButtons[i].Background  = BrushBankNormal;
-            _bankButtons[i].BorderBrush = sel ? BrushBankBorderS  : BrushBankBorderN;
+            _bankButtons[i].Background       = BrushBankNormal;
+            _bankButtons[i].BorderBrush      = sel ? BrushBankBorderS  : BrushBankBorderN;
+            _bankButtons[i].BorderThickness  = sel ? new Thickness(2.5) : new Thickness(1.5);
 
-            // ボタン内 TextBlock と badge の色更新
+            // ボタン内 TextBlock と badge の色更新（常に白）
             if (_bankButtons[i].Content is Grid g)
             {
                 if (g.Children[0] is TextBlock tb)
-                    tb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+                    tb.Foreground = new SolidColorBrush(Colors.White);
                 if (g.Children[1] is Border badge)
                 {
                     badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                     if (badge.Child is TextBlock badgeTb)
-                        badgeTb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+                        badgeTb.Foreground = new SolidColorBrush(Colors.White);
                 }
             }
         }
@@ -1018,7 +1036,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.38{fname}{dirty}";
+        Title = $"ikePon v1.0.39{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

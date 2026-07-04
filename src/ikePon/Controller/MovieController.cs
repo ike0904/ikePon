@@ -10,7 +10,7 @@ public sealed class MovieController
     private MovieWindow? _window;
 
     public bool DisplayActive { get; private set; }
-    public bool IsFullScreen => _window?.IsFullScreen ?? false;
+    public bool IsFullScreen => _settings.MovieMode == MovieDisplayMode.FullScreen;
 
     public event Action<bool>? DisplayActiveChanged;
     public event Action<bool>? FullScreenChanged;
@@ -66,10 +66,9 @@ public sealed class MovieController
 
     public void ToggleFullScreen()
     {
-        if (_window == null) return;
-        bool newState = !_window.IsFullScreen;
-        _window.SetFullScreen(newState);
+        bool newState = _settings.MovieMode != MovieDisplayMode.FullScreen;
         _settings.MovieMode = newState ? MovieDisplayMode.FullScreen : MovieDisplayMode.Window;
+        _window?.SetFullScreen(newState);
         FullScreenChanged?.Invoke(newState);
     }
 

@@ -86,6 +86,7 @@ public partial class VFaderControl : UserControl
     public event EventHandler<(int slot, double gain)>? MemoryRegisterRequested;
 
     public string Label { get => FaderLabel.Text; set => FaderLabel.Text = value; }
+    public System.Windows.Media.Brush LabelBrush { get => FaderLabel.Foreground; set => FaderLabel.Foreground = value; }
 
     public double Value
     {
@@ -277,21 +278,24 @@ public partial class VFaderControl : UserControl
                          Math.Abs((double)_memories[slot]!.Value - Value) < 0.001;
             if (match)
             {
-                btn.Background  = BrushMemStored;
-                btn.Foreground  = BrushMemTextMatch;
-                btn.BorderBrush = BrushMemBorderYellow;
+                btn.Background       = BrushMemStored;
+                btn.Foreground       = BrushMemTextMatch;
+                btn.BorderBrush      = BrushMemBorderYellow;
+                btn.BorderThickness  = new Thickness(2.5);
             }
             else if (modifier == ModifierState.Shift)
             {
-                btn.Background  = BrushMemRegistered;
-                btn.Foreground  = BrushMemTextReg;
-                btn.BorderBrush = BrushMemBorderEmpty;
+                btn.Background       = BrushMemRegistered;
+                btn.Foreground       = BrushMemTextReg;
+                btn.BorderBrush      = BrushMemBorderEmpty;
+                btn.BorderThickness  = new Thickness(1);
             }
             else
             {
-                btn.Background  = BrushMemRedReg;
-                btn.Foreground  = BrushMemTextReg;
-                btn.BorderBrush = BrushMemBorderEmpty;
+                btn.Background       = BrushMemRedReg;
+                btn.Foreground       = BrushMemTextReg;
+                btn.BorderBrush      = BrushMemBorderEmpty;
+                btn.BorderThickness  = new Thickness(1);
             }
         }
     }

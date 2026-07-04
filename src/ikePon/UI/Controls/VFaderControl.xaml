@@ -93,6 +93,7 @@
                                                         <!-- 矢印キーで操作可能な時（スライダーがキーボードフォーカスを持つ時）黄色 -->
                                                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Slider}}, Path=IsKeyboardFocusWithin}" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#FFD700"/>
+                                                            <Setter TargetName="ThumbBd" Property="BorderThickness" Value="2.5"/>
                                                             <Setter TargetName="Grip1" Property="Fill" Value="#FFD700"/>
                                                             <Setter TargetName="Grip2" Property="Fill" Value="#FFD700"/>
                                                             <Setter TargetName="Grip3" Property="Fill" Value="#FFD700"/>

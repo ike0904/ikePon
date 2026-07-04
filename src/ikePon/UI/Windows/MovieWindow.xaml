@@ -15,11 +15,12 @@
                Stretch="Uniform"
                HorizontalAlignment="Center"
                VerticalAlignment="Center"/>
-        <!-- 動画（MediaElement で描画、再生中のみ表示） -->
+        <!-- 動画（MediaElement で描画、再生中のみ表示。音声はNAudio側で再生するためミュート） -->
         <MediaElement x:Name="VideoPlayer"
                       LoadedBehavior="Manual"
                       UnloadedBehavior="Stop"
                       Stretch="Uniform"
+                      IsMuted="True"
                       Visibility="Collapsed"
                       MediaOpened="VideoPlayer_MediaOpened"
                       MediaEnded="VideoPlayer_MediaEnded"

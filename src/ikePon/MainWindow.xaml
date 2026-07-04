@@ -189,7 +189,7 @@
                                                 <TextBlock x:Name="FullText"
                                                            Text="FULL"
                                                            FontSize="15" FontWeight="Bold"
-                                                           Foreground="#77BB77"
+                                                           Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
                                                 <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
@@ -237,7 +237,7 @@
                                                 <TextBlock x:Name="DispText"
                                                            Text="DISP"
                                                            FontSize="15" FontWeight="Bold"
-                                                           Foreground="#77BB77"
+                                                           Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
                                                 <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
