@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ikePon.Model;
 
 namespace ikePon.UI.Dialogs;
@@ -10,17 +11,30 @@ namespace ikePon.UI.Dialogs;
 public partial class PadDetailDialog : Window
 {
     private readonly PadSettings _padSettings;
-    private readonly FileGainDatabase _gainDb;
     private readonly float _fileTotalSec;
 
-    public AudioCategory       ResultCategory     { get; private set; }
-    public string?             ResultLabel        { get; private set; }
-    public string?             ResultFilePath     { get; private set; }
-    public float               ResultFileGain     { get; private set; }
-    public float               ResultPadGain      { get; private set; }
-    public float               ResultStartSec     { get; private set; }
-    public float               ResultEndSec       { get; private set; }
-    public AfterPlaybackBehavior ResultAfterPlayback { get; private set; }
+    public AudioCategory       ResultCategory          { get; private set; }
+    public string?             ResultLabel             { get; private set; }
+    public string?             ResultFilePath          { get; private set; }
+    public float               ResultPadGain           { get; private set; }
+    public float               ResultStartSec          { get; private set; }
+    public float               ResultEndSec            { get; private set; }
+    public AfterPlaybackBehavior ResultAfterPlayback   { get; private set; }
+    public string?             ResultPadBackgroundColor { get; private set; }
+
+    private string? _selectedBgColor;
+
+    private static readonly string[] BgColorPalette =
+    [
+        "#3C3C3C",
+        "#162744",
+        "#143A14",
+        "#3A1414",
+        "#2A1040",
+        "#3A2010",
+        "#103A3A",
+        "#2A3010",
+    ];
 
     // Mouse drag state
     private TextBox? _dragBox;
@@ -28,10 +42,9 @@ public partial class PadDetailDialog : Window
     private double _dragStartVal;
     private bool _isDragging;
 
-    public PadDetailDialog(PadSettings padSettings, FileGainDatabase gainDb, float fileTotalSec)
+    public PadDetailDialog(PadSettings padSettings, float fileTotalSec)
     {
         _padSettings  = padSettings;
-        _gainDb       = gainDb;
         _fileTotalSec = fileTotalSec;
         InitializeComponent();
         Loaded += (_, _) => App.SetLightTitleBar(this);
@@ -61,9 +74,7 @@ public partial class PadDetailDialog : Window
 
         TbFilePath.Text = _padSettings.FilePath ?? "";
 
-        float fileGain = _gainDb.GetGain(_padSettings.FilePath);
-        TbFileGain.Text = Math.Clamp((int)Math.Round(fileGain * 100), 0, 200).ToString();
-        TbPadGain.Text  = Math.Clamp((int)Math.Round(_padSettings.PadGain * 100), 0, 200).ToString();
+        TbPadGain.Text = Math.Clamp((int)Math.Round(_padSettings.PadGain * 100), 0, 200).ToString();
 
         TbStartPos.Text = SecsToTimestamp(_padSettings.StartPositionSec);
 
@@ -74,6 +85,49 @@ public partial class PadDetailDialog : Window
 
         if (_fileTotalSec > 0)
             LblTotalTime.Content = $"/ {SecsToTimestamp(_fileTotalSec)}  （総時間）";
+
+        _selectedBgColor = _padSettings.PadBackgroundColor;
+        BuildBgColorSwatches();
+    }
+
+    private void BuildBgColorSwatches()
+    {
+        BgColorSwatchesPanel.Children.Clear();
+        foreach (var hex in BgColorPalette)
+        {
+            var bd = new Border
+            {
+                Width = 28, Height = 28,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(3),
+                Margin = new Thickness(0, 0, 4, 0),
+                Cursor = Cursors.Hand,
+                Tag = hex,
+            };
+            string captured = hex;
+            bd.MouseLeftButtonDown += (_, _) => SelectBgColor(captured);
+            BgColorSwatchesPanel.Children.Add(bd);
+        }
+        UpdateSwatchBorders();
+    }
+
+    private void SelectBgColor(string hex)
+    {
+        _selectedBgColor = (hex == "#3C3C3C") ? null : hex;
+        UpdateSwatchBorders();
+    }
+
+    private void UpdateSwatchBorders()
+    {
+        string effective = _selectedBgColor ?? "#3C3C3C";
+        foreach (Border bd in BgColorSwatchesPanel.Children.OfType<Border>())
+        {
+            bool sel = bd.Tag is string h && h.Equals(effective, StringComparison.OrdinalIgnoreCase);
+            bd.BorderBrush = sel
+                ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00))
+                : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+        }
     }
 
     private void BtnOk_Click(object sender, RoutedEventArgs e)
@@ -85,10 +139,8 @@ public partial class PadDetailDialog : Window
             _ => AudioCategory.SE
         };
 
-        if (!TryParseGainInt(TbFileGain.Text, out int fileGainInt))
-        { ShowError(TbFileGain, "ファイルゲイン: 0〜200の整数"); return; }
         if (!TryParseGainInt(TbPadGain.Text, out int padGainInt))
-        { ShowError(TbPadGain, "パッドゲイン: 0〜200の整数"); return; }
+        { ShowError(TbPadGain, "音量: 0〜200の整数"); return; }
 
         CommitPosBox(TbStartPos);
         CommitPosBox(TbEndPos);
@@ -107,19 +159,19 @@ public partial class PadDetailDialog : Window
             { ShowError(TbEndPos, "開始位置より後の時刻を入力してください"); return; }
         }
 
-        ResultCategory  = cat;
-        ResultLabel     = string.IsNullOrWhiteSpace(TbDisplayName.Text) ? null : TbDisplayName.Text.Trim();
-        ResultFilePath  = string.IsNullOrWhiteSpace(TbFilePath.Text) ? null : TbFilePath.Text.Trim();
-        ResultFileGain  = fileGainInt / 100.0f;
-        ResultPadGain   = padGainInt / 100.0f;
-        ResultStartSec  = startSec;
-        ResultEndSec    = endSec;
-        ResultAfterPlayback = CbAfterPlayback.SelectedIndex switch
+        ResultCategory           = cat;
+        ResultLabel              = string.IsNullOrWhiteSpace(TbDisplayName.Text) ? null : TbDisplayName.Text.Trim();
+        ResultFilePath           = string.IsNullOrWhiteSpace(TbFilePath.Text) ? null : TbFilePath.Text.Trim();
+        ResultPadGain            = padGainInt / 100.0f;
+        ResultStartSec           = startSec;
+        ResultEndSec             = endSec;
+        ResultAfterPlayback      = CbAfterPlayback.SelectedIndex switch
         {
             1 => AfterPlaybackBehavior.FreezeLastFrame,
             2 => AfterPlaybackBehavior.Loop,
             _ => AfterPlaybackBehavior.Stop
         };
+        ResultPadBackgroundColor = _selectedBgColor;
 
         DialogResult = true;
     }
@@ -158,7 +210,7 @@ public partial class PadDetailDialog : Window
         if (e.Key is not (Key.Return or Key.Enter)) return;
         if (sender is TextBox tb)
         {
-            bool isGain = (tb == TbFileGain || tb == TbPadGain);
+            bool isGain = (tb == TbPadGain);
             if (isGain) CommitGainBox(tb);
             else CommitPosBox(tb);
             tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
@@ -201,7 +253,7 @@ public partial class PadDetailDialog : Window
         _dragStartY = e.GetPosition(this).Y;
         _isDragging = false;
 
-        bool isGain = (tb == TbFileGain || tb == TbPadGain);
+        bool isGain = (tb == TbPadGain);
         if (isGain)
             _dragStartVal = TryParseGainInt(tb.Text, out int v) ? v : 100.0;
         else
@@ -218,7 +270,7 @@ public partial class PadDetailDialog : Window
         _isDragging = true;
 
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-        bool isGain = (tb == TbFileGain || tb == TbPadGain);
+        bool isGain = (tb == TbPadGain);
         int steps = (int)(deltaY / 5.0); // 5px per step
 
         if (isGain)
@@ -295,8 +347,6 @@ public partial class PadDetailDialog : Window
         TbFilePath.Text = file;
         if (string.IsNullOrWhiteSpace(TbDisplayName.Text))
             TbDisplayName.Text = Path.GetFileNameWithoutExtension(file);
-        float fg = _gainDb.GetGain(file);
-        TbFileGain.Text = Math.Clamp((int)Math.Round(fg * 100), 0, 200).ToString();
         e.Handled = true;
     }
 

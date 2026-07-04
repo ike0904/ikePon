@@ -193,8 +193,8 @@ public sealed class PlaybackController
     public float GetPadTotalTime(int padIndex)
         => _engine.GetSource(_engine.ActiveBank, padIndex).FileTotalSec;
 
-    public void UpdatePadGain(int padIndex, float fileGain, float padGain)
-        => _engine.GetSource(_engine.ActiveBank, padIndex).UpdateGain(fileGain, padGain);
+    public void UpdatePadGain(int padIndex, float padGain)
+        => _engine.GetSource(_engine.ActiveBank, padIndex).UpdateGain(1.0f, padGain);
 
     public int ActiveBank => _engine.ActiveBank;
 

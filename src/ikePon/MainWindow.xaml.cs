@@ -550,6 +550,15 @@ public partial class MainWindow : Window
             AudioCategory.BGM   => AudioCategory.SE,
             _                   => AudioCategory.Movie
         };
+
+        // 新カテゴリで無効なAfterPlaybackをStopにリセット
+        if (pad.AfterPlayback == AfterPlaybackBehavior.FreezeLastFrame && pad.Category != AudioCategory.Movie)
+            pad.AfterPlayback = AfterPlaybackBehavior.Stop;
+        if (pad.AfterPlayback == AfterPlaybackBehavior.Loop && pad.Category == AudioCategory.SE)
+            pad.AfterPlayback = AfterPlaybackBehavior.Stop;
+
+        bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop;
+        _engine.GetSource(_playback.ActiveBank, padIndex).SetLoop(shouldLoop);
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
         MarkDirty();
     }
@@ -569,7 +578,7 @@ public partial class MainWindow : Window
         if (pad == null) return;
 
         float totalSec = _playback.GetPadTotalTime(padIndex);
-        var dlg = new PadDetailDialog(pad, _gainDb, totalSec) { Owner = this };
+        var dlg = new PadDetailDialog(pad, totalSec) { Owner = this };
         if (dlg.ShowDialog() != true) return;
 
         bool fileChanged = dlg.ResultFilePath != pad.FilePath;
@@ -585,13 +594,10 @@ public partial class MainWindow : Window
 
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
-        if (!string.IsNullOrEmpty(pad.FilePath))
-            _gainDb.SetGain(pad.FilePath, dlg.ResultFileGain);
-
         if (fileChanged)
             _playback.LoadBank(_playback.ActiveBank);
         else
-            _playback.UpdatePadGain(padIndex, dlg.ResultFileGain, pad.PadGain);
+            _playback.UpdatePadGain(padIndex, pad.PadGain);
 
         MarkDirty();
         SetInfo2($"Pad {padIndex + 1}: 詳細設定を更新しました。");
@@ -741,7 +747,10 @@ public partial class MainWindow : Window
         for (int i = 0; i < ProjectData.BankCount; i++)
         {
             bool sel = i == active;
-            _bankButtons[i].Background       = BrushBankNormal;
+            var bgColor = _project.Banks[i].BankBackgroundColor;
+            _bankButtons[i].Background = string.IsNullOrEmpty(bgColor)
+                ? BrushBankNormal
+                : new SolidColorBrush((Color)ColorConverter.ConvertFromString(bgColor));
             _bankButtons[i].BorderBrush      = sel ? BrushBankBorderS  : BrushBankBorderN;
             _bankButtons[i].BorderThickness  = sel ? new Thickness(2.5) : new Thickness(1.5);
 
@@ -876,19 +885,9 @@ public partial class MainWindow : Window
     {
         var cm = new ContextMenu();
 
-        var rename = new MenuItem { Header = "名前を変更..." };
-        rename.Click += (_, _) =>
-        {
-            string current = _project.Banks[bankIdx].BankLabel ?? $"Bank {BankNames[bankIdx]}";
-            string? newName = ShowInputDialog($"Bank {BankNames[bankIdx]} の名前を変更", current);
-            if (newName != null)
-            {
-                _project.Banks[bankIdx].BankLabel = string.IsNullOrWhiteSpace(newName) ? null : newName.Trim();
-                RefreshBankLabel(bankIdx);
-                MarkDirty();
-            }
-        };
-        cm.Items.Add(rename);
+        var detail = new MenuItem { Header = "詳細設定..." };
+        detail.Click += (_, _) => OpenBankDetail(bankIdx);
+        cm.Items.Add(detail);
         cm.Items.Add(new Separator());
 
         var copy = new MenuItem { Header = "設定をコピー（全16パッド）" };
@@ -901,6 +900,20 @@ public partial class MainWindow : Window
 
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void OpenBankDetail(int bankIdx)
+    {
+        var bank = _project.Banks[bankIdx];
+        string currentLabel = bank.BankLabel ?? $"Bank {BankNames[bankIdx]}";
+        var dlg = new ikePon.UI.Dialogs.BankDetailDialog(currentLabel, bank.BankBackgroundColor) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        bank.BankLabel = string.IsNullOrWhiteSpace(dlg.ResultLabel) ? null : dlg.ResultLabel;
+        bank.BankBackgroundColor = dlg.ResultBgColor;
+        RefreshBankLabel(bankIdx);
+        UpdateBankHighlight();
+        MarkDirty();
     }
 
     private void RefreshBankLabel(int bankIdx)

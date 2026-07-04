@@ -9,10 +9,11 @@ public class BankData
         .ToArray();
 
     public string? BankLabel { get; set; }
+    public string? BankBackgroundColor { get; set; }
 
     public BankData Clone()
     {
-        var clone = new BankData { BankLabel = BankLabel };
+        var clone = new BankData { BankLabel = BankLabel, BankBackgroundColor = BankBackgroundColor };
         for (int i = 0; i < PadCount; i++)
             clone.Pads[i] = Pads[i].Clone();
         return clone;
