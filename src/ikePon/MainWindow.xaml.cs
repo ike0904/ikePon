@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ikePon.Audio;
@@ -74,6 +76,11 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushInfoWarnBg   = new(Color.FromRgb(0x44, 0x22, 0x00));
     private static readonly SolidColorBrush BrushInfoWarnText = new(Color.FromRgb(0xFF, 0xDD, 0x00));
     private static readonly SolidColorBrush BrushInfoNormal   = new(Colors.White);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
+    private static extern short GetKeyState(int keyCode);
+    private static bool IsShiftDown() => (GetKeyState(0x10) & 0x8000) != 0;
+    private static bool IsCtrlDown()  => (GetKeyState(0x11) & 0x8000) != 0;
 
     public MainWindow()
     {
@@ -289,6 +296,9 @@ public partial class MainWindow : Window
 
     private void WireEvents()
     {
+        // MovieWindow フォーカス時でもショートカットを有効化（スレッドレベルでキー割り込み）
+        ComponentDispatcher.ThreadPreprocessMessage += OnGlobalKey;
+
         _bankManager.BankSwitchRequested += idx =>
         {
             _pendingBankConfirm = true;
@@ -376,84 +386,7 @@ public partial class MainWindow : Window
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.IsRepeat) return;
-
-        // 修飾キー状態更新
-        if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
-        { _modifier = ModifierState.Shift; return; }
-        if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
-        { _modifier = ModifierState.Ctrl; return; }
-
-        // バンク確認中は Y/N のみ受け付け（他のキー操作は通常通り）
-        if (_pendingBankConfirm)
-        {
-            if (e.Key == Key.Y) { _bankManager.Confirm(); e.Handled = true; return; }
-            if (e.Key == Key.N) { _bankManager.Cancel();  e.Handled = true; return; }
-        }
-
-        // メモリ上書き確認中
-        if (_pendingMemOverwrite.HasValue)
-        {
-            if (e.Key == Key.Y) { ConfirmMemOverwrite(); e.Handled = true; return; }
-            if (e.Key == Key.N) { CancelMemOverwrite();  e.Handled = true; return; }
-        }
-
-        // パニック
-        if (e.Key == Key.Escape)
-        {
-            ExecutePanic();
-            e.Handled = true;
-            return;
-        }
-
-        // FULL ボタン（[0]キー）
-        if (e.Key == Key.D0)
-        {
-            _movieCtrl.ToggleFullScreen();
-            UpdateFullButton(_movieCtrl.IsFullScreen);
-            e.Handled = true;
-            return;
-        }
-
-        // DISPLAY ボタン（[-]キー）
-        if (e.Key == Key.OemMinus)
-        {
-            bool dispWasActive = _movieCtrl.DisplayActive;
-            _movieCtrl.ToggleDisplay();
-            if (!_movieCtrl.DisplayActive)
-                _imageDisplayingPadIndex = -1;
-            else if (!dispWasActive)
-                ResumeMovieIfPlaying();
-            e.Handled = true;
-            return;
-        }
-
-        // パッドキー
-        var padIdx = _keyMapper.GetPadIndex(e.Key);
-        if (padIdx.HasValue)
-        {
-            bool shift = _modifier == ModifierState.Shift;
-            bool ctrl  = _modifier == ModifierState.Ctrl;
-            // 通常再生トリガーの場合、PANICフェードを中断して即座停止
-            if (!shift && !ctrl && _panic.IsFading)
-            {
-                _playback.PanicStopAll();
-                _panic.ClearFadeState();
-                UpdatePanicButtonColor(-1f);
-                _movieCtrl.StopVideo();
-                _imageDisplayingPadIndex = -1;
-            }
-            TriggerPadWithMovie(padIdx.Value, shift, ctrl);
-            e.Handled = true;
-            return;
-        }
-
-        // バンクキー
-        var bankIdx = _keyMapper.GetBankIndex(e.Key);
-        if (bankIdx.HasValue)
-        {
-            _bankManager.RequestSwitch(bankIdx.Value);
-            e.Handled = true;
-        }
+        if (HandleKeyDown(e.Key)) e.Handled = true;
     }
 
     private void Window_KeyUp(object sender, KeyEventArgs e)
@@ -463,6 +396,112 @@ public partial class MainWindow : Window
         {
             _modifier = ModifierState.None;
         }
+    }
+
+    // MovieWindowがフォーカスを持つときでもショートカットを動作させる
+    private void OnGlobalKey(ref MSG msg, ref bool handled)
+    {
+        const int WM_KEYDOWN = 0x0100;
+        if (msg.message != WM_KEYDOWN || handled) return;
+        if (IsActive) return;                    // メインウィンドウが既にアクティブなら通常処理
+        if (!_movieCtrl.DisplayActive) return;   // DISPが開いていない場合は不要
+
+        int lParam = msg.lParam.ToInt32();
+        if ((lParam & 0x40000000) != 0) return;  // リピートキーは無視
+
+        var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
+
+        // 修飾キー更新（グローバルハンドラでもShift/Ctrl追跡）
+        if (key == Key.LeftShift || key == Key.RightShift) { _modifier = ModifierState.Shift; return; }
+        if (key == Key.LeftCtrl  || key == Key.RightCtrl)  { _modifier = ModifierState.Ctrl;  return; }
+
+        bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
+                        _keyMapper.GetPadIndex(key).HasValue ||
+                        _keyMapper.GetBankIndex(key).HasValue;
+        if (!isOurKey) return;
+
+        if (HandleKeyDown(key)) handled = true;
+    }
+
+    // true を返した場合は e.Handled = true にする
+    private bool HandleKeyDown(Key key)
+    {
+        // 修飾キー状態更新
+        if (key == Key.LeftShift || key == Key.RightShift)
+        { _modifier = ModifierState.Shift; return false; }
+        if (key == Key.LeftCtrl || key == Key.RightCtrl)
+        { _modifier = ModifierState.Ctrl; return false; }
+
+        // バンク確認中は Y/N のみ受け付け
+        if (_pendingBankConfirm)
+        {
+            if (key == Key.Y) { _bankManager.Confirm(); return true; }
+            if (key == Key.N) { _bankManager.Cancel();  return true; }
+        }
+
+        // メモリ上書き確認中
+        if (_pendingMemOverwrite.HasValue)
+        {
+            if (key == Key.Y) { ConfirmMemOverwrite(); return true; }
+            if (key == Key.N) { CancelMemOverwrite();  return true; }
+        }
+
+        // パニック
+        if (key == Key.Escape)
+        {
+            ExecutePanic();
+            return true;
+        }
+
+        // FULL ボタン（[0]キー）
+        if (key == Key.D0)
+        {
+            _movieCtrl.ToggleFullScreen();
+            UpdateFullButton(_movieCtrl.IsFullScreen);
+            return true;
+        }
+
+        // DISPLAY ボタン（[-]キー）
+        if (key == Key.OemMinus)
+        {
+            bool dispWasActive = _movieCtrl.DisplayActive;
+            _movieCtrl.ToggleDisplay();
+            if (!_movieCtrl.DisplayActive)
+                _imageDisplayingPadIndex = -1;
+            else if (!dispWasActive)
+                ResumeMovieIfPlaying();
+            return true;
+        }
+
+        // パッドキー
+        var padIdx = _keyMapper.GetPadIndex(key);
+        if (padIdx.HasValue)
+        {
+            // Win32 GetKeyState で正確な修飾キー状態を取得（グローバル呼び出し対応）
+            bool shift = IsShiftDown() || _modifier == ModifierState.Shift;
+            bool ctrl  = IsCtrlDown()  || _modifier == ModifierState.Ctrl;
+            // 通常再生トリガーの場合、PANICフェードを中断して即座停止
+            if (!shift && !ctrl && (_panic.IsFading || _panic.IsActivated))
+            {
+                _playback.PanicStopAll();
+                _panic.ClearAllState();
+                UpdatePanicButtonColor(-1f);
+                _movieCtrl.StopVideo();
+                _imageDisplayingPadIndex = -1;
+            }
+            TriggerPadWithMovie(padIdx.Value, shift, ctrl);
+            return true;
+        }
+
+        // バンクキー
+        var bankIdx = _keyMapper.GetBankIndex(key);
+        if (bankIdx.HasValue)
+        {
+            _bankManager.RequestSwitch(bankIdx.Value);
+            return true;
+        }
+
+        return false;
     }
 
     // ------------------------------------------------------------------
@@ -1147,7 +1186,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.45{fname}{dirty}";
+        Title = $"ikePon v1.0.46{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -1162,6 +1201,7 @@ public partial class MainWindow : Window
             if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
             if (r == MessageBoxResult.Yes) Menu_Save(this, new RoutedEventArgs());
         }
+        ComponentDispatcher.ThreadPreprocessMessage -= OnGlobalKey;
         _uiTimer.Stop();
         _engine.Dispose();
         _movieCtrl.CloseDisplay(); // MovieWindowのポジションを_settingsに保存してから

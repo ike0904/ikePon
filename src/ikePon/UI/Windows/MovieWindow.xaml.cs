@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ikePon.Model;
@@ -20,6 +21,7 @@ public partial class MovieWindow : Window
     private DispatcherTimer? _fadeTimer;
     private long _fadeStartTick;
     private double _fadeDurationSec;
+    private Window? _fadeOverlay; // 黒オーバーレイウィンドウ（フェード用）
 
     private bool _isFullScreen;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
@@ -103,7 +105,6 @@ public partial class MovieWindow : Window
         {
             try { StandbyImage.Source = new BitmapImage(new Uri(filePath, UriKind.Absolute)); }
             catch { StandbyImage.Source = null; }
-            Opacity = 1.0;
             _afterPlayback = afterPlayback;
             _videoVisible  = true;
             Debug.WriteLine("[MovieWindow]   Image displayed");
@@ -130,13 +131,53 @@ public partial class MovieWindow : Window
         ShowStandby();
     }
 
-    // Window.Opacity でウィンドウ全体をフェード（HWND=VLC映像も含む）
+    // 黒オーバーレイウィンドウをフェードインさせて映像を隠す（VLC DirectX レンダリング対応）
     public void FadeVideo(double durationSec)
     {
         if (!_videoVisible) return;
         StopFadeTimer();
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
+
+        // 黒オーバーレイウィンドウを作成（VLC HWNDの上に重ねる）
+        var overlay = new Window
+        {
+            WindowStyle   = WindowStyle.None,
+            ResizeMode    = ResizeMode.NoResize,
+            Background    = Brushes.Black,
+            Opacity       = 0,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost       = true,
+        };
+
+        if (_isFullScreen)
+        {
+            // フルスクリーン: 同じモニターを全画面で覆う
+            overlay.Left = _savedLeft;
+            overlay.Top  = _savedTop;
+            overlay.Show();
+            overlay.WindowState = WindowState.Maximized;
+        }
+        else if (WindowState == WindowState.Maximized)
+        {
+            overlay.Left   = Left;
+            overlay.Top    = Top;
+            overlay.Width  = ActualWidth;
+            overlay.Height = ActualHeight;
+            overlay.Show();
+        }
+        else
+        {
+            overlay.Left   = Left;
+            overlay.Top    = Top;
+            overlay.Width  = ActualWidth;
+            overlay.Height = ActualHeight;
+            overlay.Show();
+        }
+
+        _fadeOverlay = overlay;
+
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _fadeTimer.Tick += FadeTimer_Tick;
         _fadeTimer.Start();
@@ -148,30 +189,55 @@ public partial class MovieWindow : Window
         double progress = elapsed / _fadeDurationSec;
         if (progress >= 1.0)
         {
-            StopFadeTimer();
+            // タイマーを止め、オーバーレイは ShowStandby で閉じる（フラッシュ防止）
+            if (_fadeTimer != null)
+            {
+                _fadeTimer.Stop();
+                _fadeTimer.Tick -= FadeTimer_Tick;
+                _fadeTimer = null;
+            }
+            if (_fadeOverlay != null) _fadeOverlay.Opacity = 1.0;
             ShowStandby();
         }
         else
         {
-            Opacity = 1.0 - progress;
+            if (_fadeOverlay != null)
+                _fadeOverlay.Opacity = progress; // 0→1（透明→黒）
         }
     }
 
     private void StopFadeTimer()
     {
-        if (_fadeTimer == null) return;
-        _fadeTimer.Stop();
-        _fadeTimer.Tick -= FadeTimer_Tick;
-        _fadeTimer = null;
+        if (_fadeTimer != null)
+        {
+            _fadeTimer.Stop();
+            _fadeTimer.Tick -= FadeTimer_Tick;
+            _fadeTimer = null;
+        }
+        CloseFadeOverlay(); // 中断時は即座に閉じる
+    }
+
+    private void CloseFadeOverlay()
+    {
+        if (_fadeOverlay == null) return;
+        _fadeOverlay.Close();
+        _fadeOverlay = null;
     }
 
     private void ShowStandby()
     {
         _mediaPlayer.Stop();
-        Opacity = 1.0;
+        StandbyLayer.Opacity    = 1.0;
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Visibility = Visibility.Visible;
         _videoVisible = false;
+        // スタンバイが描画された後にオーバーレイを閉じる（白フラッシュ防止）
+        if (_fadeOverlay != null)
+        {
+            var overlay = _fadeOverlay;
+            _fadeOverlay = null;
+            Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(overlay.Close));
+        }
     }
 
     public void SeekVideo(float fraction)
@@ -221,6 +287,10 @@ public partial class MovieWindow : Window
     public void SetFullScreen(bool full)
     {
         if (full == _isFullScreen) return;
+
+        // フルスクリーン遷移前にフェードを中断してオーバーレイを閉じる（白画面防止）
+        StopFadeTimer();
+
         _isFullScreen = full;
 
         if (full)
