@@ -417,9 +417,12 @@ public partial class MainWindow : Window
         // DISPLAY ボタン（[-]キー）
         if (e.Key == Key.OemMinus)
         {
+            bool dispWasActive = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
             if (!_movieCtrl.DisplayActive)
                 _imageDisplayingPadIndex = -1;
+            else if (!dispWasActive)
+                ResumeMovieIfPlaying();
             e.Handled = true;
             return;
         }
@@ -556,7 +559,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 音声パッド（動画含む）
+        // 音声パッド（動画含む）: 再生前の状態を記録（同パッド再押し判定）
+        var stateBefore = isMoviePad ? _playback.GetPadState(padIndex) : PadPlayState.Idle;
+        bool wasActive  = stateBefore != PadPlayState.Idle;
+
         _playback.TriggerPad(padIndex, fadeOut, stopImmediate);
 
         if (!isMoviePad) return;
@@ -571,9 +577,14 @@ public partial class MainWindow : Window
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
         }
+        else if (wasActive)
+        {
+            // 同パッド再押し → 音声フェード開始済み → 映像もフェード
+            _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+            _imageDisplayingPadIndex = -1;
+        }
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
-            // 通常トリガー: 同パッド再押しでも映像は最初から再生（音声はフェード継続）
             _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
         }
@@ -741,9 +752,29 @@ public partial class MainWindow : Window
 
     private void DispButton_Click(object sender, RoutedEventArgs e)
     {
+        bool wasActive = _movieCtrl.DisplayActive;
         _movieCtrl.ToggleDisplay();
         if (!_movieCtrl.DisplayActive)
             _imageDisplayingPadIndex = -1;
+        else if (!wasActive)
+            ResumeMovieIfPlaying();
+    }
+
+    // DISP を開き直した際に再生中の Movie パッドの映像を再開する
+    private void ResumeMovieIfPlaying()
+    {
+        for (int i = 0; i < BankData.PadCount; i++)
+        {
+            var state = _playback.GetPadState(i);
+            if (state == PadPlayState.Idle) continue;
+            var pad = _playback.GetPadSettings(i);
+            if (pad?.Category != AudioCategory.Movie) continue;
+            if (string.IsNullOrEmpty(pad.FilePath)) continue;
+            float pos      = _playback.GetPadPosition(i);
+            float totalSec = _playback.GetPadTotalTime(i);
+            _movieCtrl.PlayVideo(pad.FilePath, pos * totalSec, pad.AfterPlayback);
+            break;
+        }
     }
 
     private void UpdateFullButton(bool isOn)
@@ -1116,7 +1147,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.44{fname}{dirty}";
+        Title = $"ikePon v1.0.45{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
