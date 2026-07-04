@@ -92,7 +92,13 @@ public partial class PadButton : UserControl
 
         // 音量TextBoxのイベント
         VolumeLabel.GotFocus += (_, _) =>
+        {
             VolumeLabel.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+            // フォーカス時は % を除去して数値のみ編集
+            string raw = VolumeLabel.Text.TrimEnd('%').Trim();
+            VolumeLabel.Text = raw;
+            VolumeLabel.SelectAll();
+        };
         VolumeLabel.LostFocus += VolumeLabel_LostFocus;
         VolumeLabel.KeyDown += VolumeLabel_KeyDown;
         VolumeLabel.PreviewMouseLeftButtonDown += VolumeLabel_MouseDown;
@@ -147,7 +153,7 @@ public partial class PadButton : UserControl
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         int steps = (int)(deltaY / 5.0);
         int stepSize = shift ? 10 : 1;
-        int newVal = Math.Clamp(_volumeDragStartVal + steps * stepSize, 0, 200);
+        int newVal = Math.Clamp(_volumeDragStartVal + steps * stepSize, 0, 500);
         VolumeLabel.Text = newVal.ToString();
         e.Handled = true;
     }
@@ -167,19 +173,21 @@ public partial class PadButton : UserControl
     {
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         int step = e.Delta > 0 ? (shift ? 10 : 1) : (shift ? -10 : -1);
-        if (!int.TryParse(VolumeLabel.Text, out int val)) val = _padGainInt;
-        int newVal = Math.Clamp(val + step, 0, 200);
-        VolumeLabel.Text = newVal.ToString();
+        string raw = VolumeLabel.Text.TrimEnd('%').Trim();
+        if (!int.TryParse(raw, out int val)) val = _padGainInt;
+        int newVal = Math.Clamp(val + step, 0, 500);
+        VolumeLabel.Text = newVal.ToString() + "%";
         CommitVolumeLabel();
         e.Handled = true;
     }
 
     private void CommitVolumeLabel()
     {
-        if (!int.TryParse(VolumeLabel.Text, out int val) || val < 0 || val > 200)
+        string raw = VolumeLabel.Text.TrimEnd('%').Trim();
+        if (!int.TryParse(raw, out int val) || val < 0 || val > 500)
             val = _padGainInt;
-        val = Math.Clamp(val, 0, 200);
-        VolumeLabel.Text = val.ToString();
+        val = Math.Clamp(val, 0, 500);
+        VolumeLabel.Text = val.ToString() + "%";
         if (val != _padGainInt)
         {
             _padGainInt = val;
@@ -234,7 +242,7 @@ public partial class PadButton : UserControl
     {
         // modifier変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
         bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
-        int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 200) : 100;
+        int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
         bool changed = !_initialized ||
                        _state != state ||
@@ -286,7 +294,7 @@ public partial class PadButton : UserControl
                 {
                     _hasFile = fileExists;
                     _padGainInt = newGainInt;
-                    VolumeLabel.Text = _padGainInt.ToString();
+                    VolumeLabel.Text = _padGainInt.ToString() + "%";
                 }
             }
             VolumeLabel.Visibility = fileExists ? Visibility.Visible : Visibility.Collapsed;

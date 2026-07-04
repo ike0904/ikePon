@@ -101,6 +101,11 @@ public sealed class MovieController
         CloseDisplay();
     }
 
+    public void SeekVideo(float fraction)
+    {
+        _window?.SeekVideo(fraction);
+    }
+
     public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
     {
         _window?.UpdateAfterPlayback(afterPlayback);

@@ -74,7 +74,7 @@ public partial class PadDetailDialog : Window
 
         TbFilePath.Text = _padSettings.FilePath ?? "";
 
-        TbPadGain.Text = Math.Clamp((int)Math.Round(_padSettings.PadGain * 100), 0, 200).ToString();
+        TbPadGain.Text = Math.Clamp((int)Math.Round(_padSettings.PadGain * 100), 0, 500).ToString();
 
         TbStartPos.Text = SecsToTimestamp(_padSettings.StartPositionSec);
 
@@ -140,7 +140,7 @@ public partial class PadDetailDialog : Window
         };
 
         if (!TryParseGainInt(TbPadGain.Text, out int padGainInt))
-        { ShowError(TbPadGain, "音量: 0〜200の整数"); return; }
+        { ShowError(TbPadGain, "音量: 0〜500の整数"); return; }
 
         CommitPosBox(TbStartPos);
         CommitPosBox(TbEndPos);
@@ -276,7 +276,7 @@ public partial class PadDetailDialog : Window
         if (isGain)
         {
             double stepSize = shift ? 10.0 : 1.0;
-            int newVal = Math.Clamp((int)(_dragStartVal + steps * stepSize), 0, 200);
+            int newVal = Math.Clamp((int)(_dragStartVal + steps * stepSize), 0, 500);
             tb.Text = newVal.ToString();
         }
         else
@@ -307,7 +307,7 @@ public partial class PadDetailDialog : Window
         int step = e.Delta > 0 ? (shift ? 10 : 1) : (shift ? -10 : -1);
 
         if (!TryParseGainInt(tb.Text, out int val)) val = 100;
-        tb.Text = Math.Clamp(val + step, 0, 200).ToString();
+        tb.Text = Math.Clamp(val + step, 0, 500).ToString();
         e.Handled = true;
     }
 
@@ -397,7 +397,7 @@ public partial class PadDetailDialog : Window
     private static bool TryParseGainInt(string s, out int val)
     {
         if (int.TryParse(s.Trim(), out val))
-            return val >= 0 && val <= 200;
+            return val >= 0 && val <= 500;
         val = 100;
         return false;
     }

@@ -547,6 +547,9 @@ public partial class MainWindow : Window
     private void SeekPad(int padIndex, float fraction)
     {
         _engine.GetSource(_playback.ActiveBank, padIndex).SeekToFraction(fraction);
+        var pad = _playback.GetPadSettings(padIndex);
+        if (pad?.Category == AudioCategory.Movie)
+            _movieCtrl.SeekVideo(fraction);
     }
 
     private void CyclePadCategory(int padIndex)
@@ -1057,7 +1060,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.39{fname}{dirty}";
+        Title = $"ikePon v1.0.43{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
