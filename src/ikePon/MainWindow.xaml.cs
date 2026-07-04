@@ -132,6 +132,14 @@ public partial class MainWindow : Window
                 MarkDirty();
             };
             pad.SeekRequested += (_, fraction) => SeekPad(captured, fraction);
+            pad.PadVolumeChanged += (_, gainInt) =>
+            {
+                var padSettings = _playback.GetPadSettings(captured);
+                if (padSettings == null) return;
+                padSettings.PadGain = gainInt / 100.0f;
+                _playback.UpdatePadGain(captured, padSettings.PadGain);
+                MarkDirty();
+            };
             pad.MouseLeftButtonDown += (_, e) =>
             {
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -187,7 +195,7 @@ public partial class MainWindow : Window
                     Text = KeyboardMapper.BankLabels[i],
                     FontSize = 16, FontWeight = FontWeights.Bold,
                     FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(Colors.White)
+                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
                 }
             };
             content.Children.Add(badge);

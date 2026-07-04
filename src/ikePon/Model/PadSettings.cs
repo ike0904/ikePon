@@ -9,6 +9,7 @@ public class PadSettings
     public float StartPositionSec { get; set; } = 0f;
     public float EndPositionSec { get; set; } = -1f; // -1 = end of file
     public AfterPlaybackBehavior AfterPlayback { get; set; } = AfterPlaybackBehavior.Stop;
+    public string? PadBackgroundColor { get; set; }  // null = default (#3C3C3C)
 
     public PadSettings Clone() => new()
     {
@@ -19,5 +20,6 @@ public class PadSettings
         StartPositionSec = StartPositionSec,
         EndPositionSec = EndPositionSec,
         AfterPlayback = AfterPlayback,
+        PadBackgroundColor = PadBackgroundColor,
     };
 }

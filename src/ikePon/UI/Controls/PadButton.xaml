@@ -16,6 +16,9 @@
                 <RowDefinition Height="10"/>
             </Grid.RowDefinitions>
 
+            <!-- ユーザー設定背景色（デッドゾーンより上のみ） -->
+            <Border Grid.Row="0" x:Name="ContentBg" Background="#3C3C3C"/>
+
             <!-- メインコンテンツ -->
             <Grid Grid.Row="0" Margin="4,4,4,2">
                 <Grid.RowDefinitions>
@@ -24,59 +27,76 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- バッジ間クリック無効ゾーン（誤タップ防止、Arrow カーソル） -->
-                <Rectangle Grid.Row="0" x:Name="TopRowBlocker"
-                           Fill="Transparent"
-                           Cursor="Arrow"/>
+                <!-- 上部バッジエリア（ON/OFF不可デッドゾーン） -->
+                <Border Grid.Row="0" x:Name="TopArea" Background="Transparent" Cursor="Arrow" Padding="0,1">
+                    <Grid>
+                        <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
+                        <Border x:Name="CategoryBadge"
+                                Background="#444"
+                                CornerRadius="2"
+                                Padding="4,1"
+                                HorizontalAlignment="Left"
+                                Cursor="Hand">
+                            <TextBlock x:Name="CategoryLabel"
+                                       Text="BGM"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Foreground="#999"/>
+                        </Border>
 
-                <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
-                <Border Grid.Row="0"
-                        x:Name="CategoryBadge"
-                        Background="#444"
-                        CornerRadius="2"
-                        Padding="4,1"
-                        HorizontalAlignment="Left"
-                        Cursor="Hand">
-                    <TextBlock x:Name="CategoryLabel"
-                               Text="BGM"
-                               FontSize="12"
-                               FontWeight="Bold"
-                               Foreground="#999"/>
-                </Border>
+                        <!-- 音量表示（中央、クリック/ドラッグ/ホイールで変更可） -->
+                        <TextBox x:Name="VolumeLabel"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontSize="12" FontWeight="SemiBold"
+                                 FontFamily="Consolas"
+                                 Foreground="White"
+                                 Background="Transparent"
+                                 BorderBrush="Transparent"
+                                 BorderThickness="1"
+                                 CaretBrush="White"
+                                 SelectionBrush="#3A7FC1"
+                                 Width="44"
+                                 MaxLength="3"
+                                 TextAlignment="Center"
+                                 Padding="2,0"
+                                 Visibility="Collapsed"
+                                 Panel.ZIndex="2"/>
 
-                <!-- 再生後アイコンバッジ（タップで循環変更） -->
-                <Border Grid.Row="0"
-                        x:Name="AfterPlaybackBadge"
-                        Background="#444"
-                        CornerRadius="2"
-                        Padding="4,1"
-                        HorizontalAlignment="Right"
-                        Cursor="Hand">
-                    <Grid Width="14" Height="14">
-                        <!-- 停止アイコン（■） -->
-                        <Rectangle x:Name="IconStop"
-                                   Width="9" Height="9"
-                                   Fill="#AAAAAA"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                        <!-- 一時停止アイコン（‖）-->
-                        <StackPanel x:Name="IconFreeze"
-                                    Orientation="Horizontal"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Visibility="Collapsed">
-                            <Rectangle Width="3" Height="11" Fill="#AAAAAA" Margin="0,0,2,0"/>
-                            <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
-                        </StackPanel>
-                        <!-- ループアイコン（Segoe MDL2 Assets RepeatAll） -->
-                        <TextBlock x:Name="IconLoop"
-                                   Text="&#xE8EE;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="#AAAAAA"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Visibility="Collapsed"/>
+                        <!-- 再生後アイコンバッジ（タップで循環変更） -->
+                        <Border x:Name="AfterPlaybackBadge"
+                                Background="#444"
+                                CornerRadius="2"
+                                Padding="4,1"
+                                HorizontalAlignment="Right"
+                                Cursor="Hand">
+                            <Grid Width="14" Height="14">
+                                <!-- 停止アイコン（■） -->
+                                <Rectangle x:Name="IconStop"
+                                           Width="9" Height="9"
+                                           Fill="#AAAAAA"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                                <!-- 一時停止アイコン（‖）-->
+                                <StackPanel x:Name="IconFreeze"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <Rectangle Width="3" Height="11" Fill="#AAAAAA" Margin="0,0,2,0"/>
+                                    <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
+                                </StackPanel>
+                                <!-- ループアイコン（Segoe MDL2 Assets RepeatAll） -->
+                                <TextBlock x:Name="IconLoop"
+                                           Text="&#xE8EE;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="13"
+                                           Foreground="#AAAAAA"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Border>
 
@@ -100,7 +120,7 @@
                            FontSize="12"
                            FontWeight="SemiBold"
                            FontFamily="Consolas"
-                           Foreground="#888888"
+                           Foreground="White"
                            HorizontalAlignment="Left"
                            VerticalAlignment="Center"
                            Margin="2,1,0,0"/>

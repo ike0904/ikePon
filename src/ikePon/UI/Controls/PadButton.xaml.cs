@@ -38,6 +38,14 @@ public partial class PadButton : UserControl
     private float _totalSec;
     private double _padWidth;
     private bool _initialized;
+    private string? _padBgColor;
+    private int _padGainInt = 100;
+    private bool _hasFile;
+
+    // 音量ドラッグ状態
+    private double _volumeDragStartY;
+    private int _volumeDragStartVal;
+    private bool _volumeDragging;
 
     private static byte Lerp(byte a, byte b, float t)
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
@@ -45,13 +53,18 @@ public partial class PadButton : UserControl
     public event EventHandler? CategoryTapped;
     public event EventHandler<AfterPlaybackBehavior>? AfterPlaybackChanged;
     public event EventHandler<float>? SeekRequested;
+    public event EventHandler<int>? PadVolumeChanged;
 
     public PadButton()
     {
         InitializeComponent();
         SizeChanged += (_, e) => { _padWidth = e.NewSize.Width - 8; UpdateProgress(); };
+        ContentBg.Background = BrushPadDefault;
         DeadZone.Background = BrushPadDefault;
-        TopRowBlocker.MouseLeftButtonDown += (_, e) => e.Handled = true;
+
+        // 上部エリア全体でON/OFFを防ぐ
+        TopArea.MouseLeftButtonDown += (_, e) => e.Handled = true;
+
         CategoryBadge.MouseLeftButtonDown += (s, e) =>
         {
             if (_state != PadPlayState.Idle) { e.Handled = true; return; }
@@ -76,7 +89,105 @@ public partial class PadButton : UserControl
             e.Handled = true;
         };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
+
+        // 音量TextBoxのイベント
+        VolumeLabel.GotFocus += (_, _) =>
+            VolumeLabel.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+        VolumeLabel.LostFocus += VolumeLabel_LostFocus;
+        VolumeLabel.KeyDown += VolumeLabel_KeyDown;
+        VolumeLabel.PreviewMouseLeftButtonDown += VolumeLabel_MouseDown;
+        VolumeLabel.PreviewMouseMove += VolumeLabel_MouseMove;
+        VolumeLabel.PreviewMouseLeftButtonUp += VolumeLabel_MouseUp;
+        VolumeLabel.PreviewMouseWheel += VolumeLabel_MouseWheel;
     }
+
+    // ------------------------------------------------------------------
+    // 音量TextBoxのイベントハンドラ
+    // ------------------------------------------------------------------
+    private void VolumeLabel_LostFocus(object sender, RoutedEventArgs e)
+    {
+        VolumeLabel.BorderBrush = new SolidColorBrush(Colors.Transparent);
+        CommitVolumeLabel();
+    }
+
+    private void VolumeLabel_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Return or Key.Enter)
+        {
+            CommitVolumeLabel();
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            VolumeLabel.Text = _padGainInt.ToString();
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+    }
+
+    private void VolumeLabel_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _volumeDragStartY = e.GetPosition(this).Y;
+        _volumeDragging = false;
+        if (int.TryParse(VolumeLabel.Text, out int v))
+            _volumeDragStartVal = v;
+        else
+            _volumeDragStartVal = _padGainInt;
+        VolumeLabel.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void VolumeLabel_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!VolumeLabel.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed) return;
+        double deltaY = _volumeDragStartY - e.GetPosition(this).Y;
+        if (!_volumeDragging && Math.Abs(deltaY) < 3) return;
+        _volumeDragging = true;
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        int steps = (int)(deltaY / 5.0);
+        int stepSize = shift ? 10 : 1;
+        int newVal = Math.Clamp(_volumeDragStartVal + steps * stepSize, 0, 200);
+        VolumeLabel.Text = newVal.ToString();
+        e.Handled = true;
+    }
+
+    private void VolumeLabel_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        VolumeLabel.ReleaseMouseCapture();
+        if (_volumeDragging)
+        {
+            CommitVolumeLabel();
+            e.Handled = true;
+        }
+        _volumeDragging = false;
+    }
+
+    private void VolumeLabel_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        int step = e.Delta > 0 ? (shift ? 10 : 1) : (shift ? -10 : -1);
+        if (!int.TryParse(VolumeLabel.Text, out int val)) val = _padGainInt;
+        int newVal = Math.Clamp(val + step, 0, 200);
+        VolumeLabel.Text = newVal.ToString();
+        CommitVolumeLabel();
+        e.Handled = true;
+    }
+
+    private void CommitVolumeLabel()
+    {
+        if (!int.TryParse(VolumeLabel.Text, out int val) || val < 0 || val > 200)
+            val = _padGainInt;
+        val = Math.Clamp(val, 0, 200);
+        VolumeLabel.Text = val.ToString();
+        if (val != _padGainInt)
+        {
+            _padGainInt = val;
+            PadVolumeChanged?.Invoke(this, val);
+        }
+    }
+
+    // ------------------------------------------------------------------
 
     private void CycleAfterPlayback()
     {
@@ -123,6 +234,8 @@ public partial class PadButton : UserControl
     {
         // modifier変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
         bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
+        int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 200) : 100;
+        bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
         bool changed = !_initialized ||
                        _state != state ||
                        (modifierAffectsVisual && _modifier != modifier) ||
@@ -157,10 +270,32 @@ public partial class PadButton : UserControl
                 AudioCategory.SE    => BrushCatSe,
                 _                   => BrushCatMovie
             };
+
+            if (_padBgColor != settings.PadBackgroundColor)
+            {
+                _padBgColor = settings.PadBackgroundColor;
+                ContentBg.Background = string.IsNullOrEmpty(_padBgColor)
+                    ? BrushPadDefault
+                    : new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString(_padBgColor));
+            }
+
+            // 音量表示更新（フォーカス中は上書きしない）
+            if (!VolumeLabel.IsFocused)
+            {
+                if (_hasFile != fileExists || _padGainInt != newGainInt)
+                {
+                    _hasFile = fileExists;
+                    _padGainInt = newGainInt;
+                    VolumeLabel.Text = _padGainInt.ToString();
+                }
+            }
+            VolumeLabel.Visibility = fileExists ? Visibility.Visible : Visibility.Collapsed;
         }
         else
         {
             FileNameLabel.Text = "---";
+            _hasFile = false;
+            VolumeLabel.Visibility = Visibility.Collapsed;
         }
 
         if (!changed) return;
@@ -242,6 +377,9 @@ public partial class PadButton : UserControl
     {
         _state = PadPlayState.Idle;
         _progress = 0f;
+        _padBgColor = null;
+        _hasFile = false;
+        ContentBg.Background = BrushPadDefault;
         DeadZone.Background = BrushPadDefault;
         BorderRoot.BorderBrush = BrushBorderNormal;
         BorderRoot.BorderThickness = new Thickness(1.5);
@@ -251,6 +389,7 @@ public partial class PadButton : UserControl
         KeyBadge.BorderBrush = BrushKeyGray;
         ProgressBar.Width   = 0;
         ProgressBar.Opacity = 1.0;
+        VolumeLabel.Visibility = Visibility.Collapsed;
     }
 }
 

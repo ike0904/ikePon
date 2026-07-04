@@ -113,6 +113,23 @@
 
     <StackPanel Margin="16">
 
+        <!-- ファイル名 -->
+        <TextBlock Text="ファイル名（フルパス）" Margin="0,0,0,4"/>
+        <TextBox x:Name="TbFilePath"
+                 IsReadOnly="True"
+                 AllowDrop="True"
+                 DragOver="TbFilePath_DragOver"
+                 Drop="TbFilePath_Drop"
+                 Margin="0,0,0,2"
+                 TextWrapping="Wrap"
+                 Background="#252525"
+                 Foreground="#AAAAAA"
+                 MinHeight="32"/>
+        <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
+                   FontSize="12" Foreground="White" Margin="0,0,0,10"/>
+
+        <Separator Background="#383838" Margin="0,0,0,10"/>
+
         <!-- カテゴリ -->
         <Grid Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
@@ -158,23 +175,6 @@
         </Grid>
 
         <Separator Background="#383838" Margin="0,4,0,10"/>
-
-        <!-- ファイル名 -->
-        <TextBlock Text="ファイル名（フルパス）" Margin="0,0,0,4"/>
-        <TextBox x:Name="TbFilePath"
-                 IsReadOnly="True"
-                 AllowDrop="True"
-                 DragOver="TbFilePath_DragOver"
-                 Drop="TbFilePath_Drop"
-                 Margin="0,0,0,2"
-                 TextWrapping="Wrap"
-                 Background="#252525"
-                 Foreground="#AAAAAA"
-                 MinHeight="32"/>
-        <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
-                   FontSize="12" Foreground="White" Margin="0,0,0,10"/>
-
-        <Separator Background="#383838" Margin="0,0,0,10"/>
 
         <!-- 音量 -->
         <Grid Margin="0,0,0,8">
