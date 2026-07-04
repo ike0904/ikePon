@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -69,13 +70,20 @@ public partial class MovieWindow : Window
         StopFadeTimer();
         ShowStandby();
 
-        if (!VideoExts.Contains(System.IO.Path.GetExtension(filePath)))
+        string ext = System.IO.Path.GetExtension(filePath);
+        bool isVideo = VideoExts.Contains(ext);
+        Debug.WriteLine($"[MovieWindow] PlayVideo: {filePath}");
+        Debug.WriteLine($"[MovieWindow]   ext={ext}, isVideo={isVideo}, startSec={startSec}");
+        if (!isVideo)
+        {
+            Debug.WriteLine("[MovieWindow]   Skipped: not a video extension");
             return;
+        }
 
         _pendingStartSec = startSec;
         _afterPlayback   = afterPlayback;
         VideoPlayer.Source = new Uri(filePath, UriKind.Absolute);
-        // 再生は VideoPlayer_MediaOpened で行う
+        Debug.WriteLine("[MovieWindow]   Source set, waiting for MediaOpened...");
     }
 
     public void StopVideo()
@@ -133,11 +141,13 @@ public partial class MovieWindow : Window
 
     private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
     {
+        Debug.WriteLine($"[MovieWindow] MediaOpened: Duration={VideoPlayer.NaturalDuration}, HasVideo={VideoPlayer.HasVideo}, HasAudio={VideoPlayer.HasAudio}");
         if (_pendingStartSec > 0)
             VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
         VideoPlayer.Play();
         VideoPlayer.Opacity    = 1.0;
         VideoPlayer.Visibility = Visibility.Visible;
+        Debug.WriteLine("[MovieWindow]   Play() called, Visibility=Visible");
     }
 
     private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
@@ -159,6 +169,8 @@ public partial class MovieWindow : Window
 
     private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
     {
+        Debug.WriteLine($"[MovieWindow] MediaFailed: {e.ErrorException?.Message}");
+        Debug.WriteLine($"[MovieWindow]   HResult=0x{e.ErrorException?.HResult:X8}, Type={e.ErrorException?.GetType().Name}");
         Dispatcher.BeginInvoke(ShowStandby);
     }
 

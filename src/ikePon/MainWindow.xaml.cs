@@ -335,10 +335,7 @@ public partial class MainWindow : Window
             byte bg = (byte)(0x44 + (0xD7 - 0x44) * g);
             byte bb = (byte)(0x44 * (1f - g));
             _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, bg, bb));
-            // テキスト: g=1→黄(FFD700), g=0→白(FFFFFF)
-            byte tg = (byte)(0xFF - (0xFF - 0xD7) * g);
-            byte tb = (byte)(0xFF * (1f - g));
-            _panicText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, tg, tb));
+            _panicText.Foreground = new SolidColorBrush(Colors.White);
         }
     }
 
@@ -694,7 +691,7 @@ public partial class MainWindow : Window
         {
             _dispBd.Background   = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
             _dispBd.BorderBrush  = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
-            _dispText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _dispText.Foreground = new SolidColorBrush(Colors.White);
         }
         else
         {
@@ -734,7 +731,7 @@ public partial class MainWindow : Window
             if (_bankButtons[i].Content is Grid g)
             {
                 if (g.Children[0] is TextBlock tb)
-                    tb.Foreground = new SolidColorBrush(sel ? Color.FromRgb(0xFF, 0xD7, 0x00) : Color.FromRgb(0xAA, 0xAA, 0xAA));
+                    tb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                 if (g.Children[1] is Border badge)
                 {
                     badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
@@ -1021,7 +1018,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.37{fname}{dirty}";
+        Title = $"ikePon v1.0.38{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

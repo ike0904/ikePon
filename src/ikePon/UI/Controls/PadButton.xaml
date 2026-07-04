@@ -24,6 +24,11 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
+                <!-- バッジ間クリック無効ゾーン（誤タップ防止、Arrow カーソル） -->
+                <Rectangle Grid.Row="0" x:Name="TopRowBlocker"
+                           Fill="Transparent"
+                           Cursor="Arrow"/>
+
                 <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
                 <Border Grid.Row="0"
                         x:Name="CategoryBadge"
@@ -117,10 +122,10 @@
                 </Border>
             </Grid>
 
-            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない） -->
+            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない、状態色を表示） -->
             <Border Grid.Row="1"
                     x:Name="DeadZone"
-                    Background="Transparent"/>
+                    Cursor="Arrow"/>
 
             <!-- プログレスバー（下端） -->
             <Border Grid.Row="2"

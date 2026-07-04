@@ -50,6 +50,8 @@ public partial class PadButton : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => { _padWidth = e.NewSize.Width - 8; UpdateProgress(); };
+        DeadZone.Background = BrushPadDefault;
+        TopRowBlocker.MouseLeftButtonDown += (_, e) => e.Handled = true;
         CategoryBadge.MouseLeftButtonDown += (s, e) =>
         {
             if (_state != PadPlayState.Idle) { e.Handled = true; return; }
@@ -167,10 +169,10 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // 背景色 — フェードアウト中は即グレー。SHIFT=再生中のみ青、CTRL=再生中のみ赤
-        // 修飾キーなし: 再生中かつMOVIE/BGMのみ青系（SEと未設定は常にグレー）
+        // デッドゾーン背景色（状態インジケーター）— フェードアウト中は即グレー
+        // BorderRootは常にデフォルト色（ユーザーがカスタマイズできるよう固定）
         bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
-        BorderRoot.Background = (state == PadPlayState.FadingOut) ? BrushPadDefault :
+        DeadZone.Background = (state == PadPlayState.FadingOut) ? BrushPadDefault :
             modifier switch
             {
                 ModifierState.Shift => playing ? BrushShift    : BrushPadDefault,
@@ -183,10 +185,9 @@ public partial class PadButton : UserControl
         {
             float g = Math.Clamp(fadeGain, 0f, 1f);
             byte br = Lerp(0x55, 0xFF, g); byte bg2 = Lerp(0x55, 0xD7, g); byte bb = Lerp(0x55, 0x00, g);
-            byte tr = Lerp(0xFF, 0xFF, g); byte tg2 = Lerp(0xFF, 0xD7, g); byte tb2 = Lerp(0xFF, 0x00, g);
             BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
             BorderRoot.BorderThickness = new Thickness(2.5);
-            FileNameLabel.Foreground = new SolidColorBrush(Color.FromRgb(tr, tg2, tb2));
+            FileNameLabel.Foreground = BrushTextNormal;
             KeyLabel.Foreground  = BrushKeyGray;
             KeyBadge.BorderBrush = BrushKeyGray;
         }
@@ -194,7 +195,7 @@ public partial class PadButton : UserControl
         {
             BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
             BorderRoot.BorderThickness = playing ? new Thickness(2.5) : new Thickness(1.5);
-            FileNameLabel.Foreground = playing ? BrushTextPlay : BrushTextNormal;
+            FileNameLabel.Foreground = BrushTextNormal;
             KeyLabel.Foreground  = BrushKeyGray;
             KeyBadge.BorderBrush = BrushKeyGray;
         }
@@ -241,7 +242,7 @@ public partial class PadButton : UserControl
     {
         _state = PadPlayState.Idle;
         _progress = 0f;
-        BorderRoot.Background = BrushPadDefault;
+        DeadZone.Background = BrushPadDefault;
         BorderRoot.BorderBrush = BrushBorderNormal;
         BorderRoot.BorderThickness = new Thickness(1.5);
         FileNameLabel.Text = "---";

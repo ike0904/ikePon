@@ -73,7 +73,7 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushMemEmpty        = new(Color.FromRgb(0x2E, 0x2E, 0x2E));
     private static readonly SolidColorBrush BrushMemText         = new(Color.FromRgb(0x66, 0x66, 0x66));
     private static readonly SolidColorBrush BrushMemTextMatch    = new(Colors.White);
-    private static readonly SolidColorBrush BrushMemTextReg      = new(Color.FromRgb(0xFF, 0xDD, 0x44));
+    private static readonly SolidColorBrush BrushMemTextReg      = new(Colors.White);
     private static readonly SolidColorBrush BrushMemRegistered   = new(Color.FromRgb(0x0E, 0x22, 0x3A));
     private static readonly SolidColorBrush BrushMemRedReg       = new(Color.FromRgb(0x3A, 0x0E, 0x0E));
     private static readonly SolidColorBrush BrushMemBorderYellow = new(Color.FromRgb(0xFF, 0xD7, 0x00));
