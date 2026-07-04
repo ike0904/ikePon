@@ -1,7 +1,7 @@
 <Window x:Class="ikePon.UI.Dialogs.BankDetailDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="バンク詳細設定" Width="360" SizeToContent="Height"
+        Title="バンク詳細設定" Width="400" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#212121" Foreground="White"

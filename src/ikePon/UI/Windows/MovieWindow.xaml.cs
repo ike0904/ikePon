@@ -30,6 +30,8 @@ public partial class MovieWindow : Window
 
     private static readonly HashSet<string> VideoExts =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
+    private static readonly HashSet<string> ImageExts =
+        new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
 
     public bool IsFullScreen => _isFullScreen;
 
@@ -93,11 +95,24 @@ public partial class MovieWindow : Window
 
         string ext = System.IO.Path.GetExtension(filePath);
         bool isVideo = VideoExts.Contains(ext);
+        bool isImage = ImageExts.Contains(ext);
         Debug.WriteLine($"[MovieWindow] PlayVideo: {filePath}");
-        Debug.WriteLine($"[MovieWindow]   ext={ext}, isVideo={isVideo}, startSec={startSec}");
+        Debug.WriteLine($"[MovieWindow]   ext={ext}, isVideo={isVideo}, isImage={isImage}, startSec={startSec}");
+
+        if (isImage)
+        {
+            try { StandbyImage.Source = new BitmapImage(new Uri(filePath, UriKind.Absolute)); }
+            catch { StandbyImage.Source = null; }
+            Opacity = 1.0;
+            _afterPlayback = afterPlayback;
+            _videoVisible  = true;
+            Debug.WriteLine("[MovieWindow]   Image displayed");
+            return;
+        }
+
         if (!isVideo)
         {
-            Debug.WriteLine("[MovieWindow]   Skipped: not a video extension");
+            Debug.WriteLine("[MovieWindow]   Skipped: not a video or image extension");
             return;
         }
 
@@ -154,6 +169,7 @@ public partial class MovieWindow : Window
     {
         _mediaPlayer.Stop();
         Opacity = 1.0;
+        LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Visibility = Visibility.Visible;
         _videoVisible = false;
     }

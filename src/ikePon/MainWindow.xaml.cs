@@ -36,7 +36,18 @@ public partial class MainWindow : Window
     private BankData? _bankClipboard;
 
     private static readonly HashSet<string> AudioVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
+        { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv",
+          ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+    private static readonly HashSet<string> VideoImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp4", ".mov", ".mkv", ".avi", ".wmv",
+          ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+
+    private static bool IsImageFile(string? path) =>
+        !string.IsNullOrEmpty(path) && ImageExtensions.Contains(System.IO.Path.GetExtension(path));
+
+    private int _imageDisplayingPadIndex = -1;
 
     private readonly DispatcherTimer _uiTimer;
     private ModifierState _modifier = ModifierState.None;
@@ -407,6 +418,8 @@ public partial class MainWindow : Window
         if (e.Key == Key.OemMinus)
         {
             _movieCtrl.ToggleDisplay();
+            if (!_movieCtrl.DisplayActive)
+                _imageDisplayingPadIndex = -1;
             e.Handled = true;
             return;
         }
@@ -424,6 +437,7 @@ public partial class MainWindow : Window
                 _panic.ClearFadeState();
                 UpdatePanicButtonColor(-1f);
                 _movieCtrl.StopVideo();
+                _imageDisplayingPadIndex = -1;
             }
             TriggerPadWithMovie(padIdx.Value, shift, ctrl);
             e.Handled = true;
@@ -454,9 +468,10 @@ public partial class MainWindow : Window
     private void PadRightClick(int padIndex, MouseButtonEventArgs e)
     {
         var state = _playback.GetPadState(padIndex);
+        bool imageActive = _imageDisplayingPadIndex == padIndex;
         var cm = new ContextMenu();
 
-        if (state != PadPlayState.Idle)
+        if (state != PadPlayState.Idle || imageActive)
         {
             var fadeOut = new MenuItem { Header = "フェードアウト" };
             fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
@@ -509,23 +524,58 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void TriggerPadWithMovie(int padIndex, bool fadeOut = false, bool stopImmediate = false)
     {
+        var pad = _playback.GetPadSettings(padIndex);
+        bool isMoviePad = pad?.Category == AudioCategory.Movie;
+        bool isImagePad = isMoviePad && IsImageFile(pad?.FilePath);
+
+        if (isImagePad)
+        {
+            // 静止画パッド: 音声なし、映像のみ制御
+            if (stopImmediate)
+            {
+                _movieCtrl.StopVideo();
+                _imageDisplayingPadIndex = -1;
+            }
+            else if (fadeOut)
+            {
+                _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+                _imageDisplayingPadIndex = -1;
+            }
+            else if (_imageDisplayingPadIndex == padIndex)
+            {
+                // 同じ画像が表示中 → フェードアウト
+                _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+                _imageDisplayingPadIndex = -1;
+            }
+            else
+            {
+                // 新規表示
+                _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.AfterPlayback);
+                _imageDisplayingPadIndex = _movieCtrl.DisplayActive ? padIndex : -1;
+            }
+            return;
+        }
+
+        // 音声パッド（動画含む）
         _playback.TriggerPad(padIndex, fadeOut, stopImmediate);
 
-        var pad = _playback.GetPadSettings(padIndex);
-        if (pad?.Category != AudioCategory.Movie) return;
+        if (!isMoviePad) return;
 
-        if (!fadeOut && !stopImmediate)
-        {
-            if (!string.IsNullOrEmpty(pad.FilePath))
-                _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec, pad.AfterPlayback);
-        }
-        else if (stopImmediate)
+        if (stopImmediate)
         {
             _movieCtrl.StopVideo();
+            _imageDisplayingPadIndex = -1;
         }
-        else
+        else if (fadeOut)
         {
-            _movieCtrl.FadeVideo(_settings.ShortFadeDuration);
+            _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+            _imageDisplayingPadIndex = -1;
+        }
+        else if (!string.IsNullOrEmpty(pad!.FilePath))
+        {
+            // 通常トリガー: 同パッド再押しでも映像は最初から再生（音声はフェード継続）
+            _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec, pad.AfterPlayback);
+            _imageDisplayingPadIndex = -1;
         }
     }
 
@@ -619,7 +669,7 @@ public partial class MainWindow : Window
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = $"パッド {padIndex + 1} のファイルを選択",
-            Filter = "音声・動画ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv|すべてのファイル|*.*"
+            Filter = "音声・動画・画像ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|すべてのファイル|*.*"
         };
         if (dlg.ShowDialog() != true) return;
         AssignFileToPad(padIndex, dlg.FileName);
@@ -640,6 +690,9 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.FilePath = filePath;
+        // 動画・画像ファイルは自動的に MOV カテゴリに設定
+        if (VideoImageExtensions.Contains(System.IO.Path.GetExtension(filePath)))
+            pad.Category = AudioCategory.Movie;
         string fname = System.IO.Path.GetFileName(filePath);
         SetInfo2($"Pad {padIndex + 1}: {fname} を読み込み中...");
         _playback.LoadBank(_playback.ActiveBank,
@@ -689,6 +742,8 @@ public partial class MainWindow : Window
     private void DispButton_Click(object sender, RoutedEventArgs e)
     {
         _movieCtrl.ToggleDisplay();
+        if (!_movieCtrl.DisplayActive)
+            _imageDisplayingPadIndex = -1;
     }
 
     private void UpdateFullButton(bool isOn)
@@ -742,6 +797,7 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
+        _imageDisplayingPadIndex = -1;
         bool wasImmediateStop = _panic.Trigger();
         if (wasImmediateStop)
             _movieCtrl.PanicStop();
@@ -1060,7 +1116,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.43{fname}{dirty}";
+        Title = $"ikePon v1.0.44{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

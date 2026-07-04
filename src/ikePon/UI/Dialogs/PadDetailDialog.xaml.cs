@@ -334,17 +334,25 @@ public partial class PadDetailDialog : Window
         e.Handled = true;
     }
 
+    private static readonly HashSet<string> AcceptedExts = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv",
+          ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+    private static readonly HashSet<string> VideoImageExts = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp4", ".mov", ".mkv", ".avi", ".wmv",
+          ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+
     private void TbFilePath_Drop(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
 
-        var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
-        string? file = files.FirstOrDefault(f => exts.Contains(Path.GetExtension(f)));
+        string? file = files.FirstOrDefault(f => AcceptedExts.Contains(Path.GetExtension(f)));
         if (file == null) return;
 
         TbFilePath.Text = file;
+        // 動画・画像ファイルは自動的に MOV カテゴリに設定
+        if (VideoImageExts.Contains(Path.GetExtension(file)))
+            CbCategory.SelectedIndex = 0; // MOVIE
         if (string.IsNullOrWhiteSpace(TbDisplayName.Text))
             TbDisplayName.Text = Path.GetFileNameWithoutExtension(file);
         e.Handled = true;

@@ -12,6 +12,9 @@ public partial class PadButton : UserControl
     // ──────────────────────────────────────────────
     // カラー定数（参考画像に合わせたダーク系パレット）
     // ──────────────────────────────────────────────
+    private static readonly HashSet<string> ImageExts = new(StringComparer.OrdinalIgnoreCase)
+        { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
+
     private static readonly SolidColorBrush BrushPadDefault  = new(Color.FromRgb(0x3C, 0x3C, 0x3C));
     private static readonly SolidColorBrush BrushPadBgm      = new(Color.FromRgb(0x2A, 0x38, 0x45));
     private static readonly SolidColorBrush BrushPadSe       = new(Color.FromRgb(0x2A, 0x3D, 0x2A));
@@ -297,7 +300,10 @@ public partial class PadButton : UserControl
                     VolumeLabel.Text = _padGainInt.ToString() + "%";
                 }
             }
-            VolumeLabel.Visibility = fileExists ? Visibility.Visible : Visibility.Collapsed;
+            bool isImagePad = settings.Category == AudioCategory.Movie
+                && !string.IsNullOrEmpty(settings.FilePath)
+                && ImageExts.Contains(System.IO.Path.GetExtension(settings.FilePath));
+            VolumeLabel.Visibility = (fileExists && !isImagePad) ? Visibility.Visible : Visibility.Collapsed;
         }
         else
         {
