@@ -11,19 +11,20 @@
         Closing="Window_Closing"
         MouseDoubleClick="Window_MouseDoubleClick">
     <Grid Background="Black">
-        <!-- スタンバイ画像（常に表示、動画の下に配置） -->
-        <Image x:Name="StandbyImage"
-               Stretch="Uniform"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center"/>
-        <!-- 動画（LibVLCSharp、再生中のみ表示） -->
-        <vlc:VideoView x:Name="VideoView"
-                       Visibility="Collapsed"/>
+        <!-- 動画（LibVLCSharp、常に表示して HWND を確保） -->
+        <vlc:VideoView x:Name="VideoView"/>
         <!-- フェードアウト用オーバーレイ（黒を重ねて暗転） -->
         <Rectangle x:Name="FadeOverlay"
                    Fill="Black"
                    Opacity="0"
                    Visibility="Collapsed"
                    IsHitTestVisible="False"/>
+        <!-- スタンバイレイヤー（非再生時に最前面で覆う） -->
+        <Grid x:Name="StandbyLayer" Background="Black">
+            <Image x:Name="StandbyImage"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+        </Grid>
     </Grid>
 </Window>

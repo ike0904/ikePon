@@ -39,18 +39,22 @@ public partial class MovieWindow : Window
     {
         _settings = settings;
 
-        // LibVLC 初期化（音声なし）
         Core.Initialize();
-        _libVLC     = new LibVLC("--no-audio", "--no-video-title-show");
+        _libVLC      = new LibVLC("--no-audio", "--no-video-title-show");
         _mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
 
         InitializeComponent();
 
-        VideoView.MediaPlayer = _mediaPlayer;
+        // VideoView の HWND 確保後に MediaPlayer を割り当てる
+        Loaded += (_, _) =>
+        {
+            VideoView.MediaPlayer = _mediaPlayer;
+            Debug.WriteLine("[MovieWindow] Loaded: MediaPlayer assigned to VideoView");
+        };
 
         // イベント登録（LibVLC のイベントは別スレッドから発火するため Dispatcher 経由）
-        _mediaPlayer.Playing  += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
-        _mediaPlayer.EndReached += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
+        _mediaPlayer.Playing        += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
+        _mediaPlayer.EndReached     += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
         _mediaPlayer.EncounteredError += (_, _) => Dispatcher.BeginInvoke(OnMediaError);
 
         if (_settings.MovieWindowX.HasValue)
@@ -152,9 +156,9 @@ public partial class MovieWindow : Window
     private void ShowStandby()
     {
         _mediaPlayer.Stop();
-        FadeOverlay.Visibility = Visibility.Collapsed;
-        FadeOverlay.Opacity    = 0;
-        VideoView.Visibility   = Visibility.Collapsed;
+        FadeOverlay.Visibility  = Visibility.Collapsed;
+        FadeOverlay.Opacity     = 0;
+        StandbyLayer.Visibility = Visibility.Visible;
         _videoVisible = false;
     }
 
@@ -165,13 +169,12 @@ public partial class MovieWindow : Window
 
     private void OnMediaPlaying()
     {
-        // 開始位置シーク（ミリ秒単位）
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        VideoView.Visibility = Visibility.Visible;
+        StandbyLayer.Visibility = Visibility.Collapsed;
         _videoVisible = true;
-        Debug.WriteLine("[MovieWindow] Playing: VideoView visible");
+        Debug.WriteLine("[MovieWindow] Playing: StandbyLayer hidden, video visible");
     }
 
     private void OnMediaEnded()
@@ -180,8 +183,6 @@ public partial class MovieWindow : Window
         switch (_afterPlayback)
         {
             case AfterPlaybackBehavior.FreezeLastFrame:
-                // 最終フレームで停止（Pause は EndReached 後では効かないことがあるため、
-                // 直前に Stop しないまま保持するだけでフリーズ状態になる）
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
