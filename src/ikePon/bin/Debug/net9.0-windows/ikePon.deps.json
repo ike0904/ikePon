@@ -8,6 +8,7 @@
     ".NETCoreApp,Version=v9.0": {
       "ikePon/1.0.0": {
         "dependencies": {
+          "LibVLCSharp": "3.9.0",
           "LibVLCSharp.WPF": "3.9.0",
           "NAudio": "2.2.1"
         },

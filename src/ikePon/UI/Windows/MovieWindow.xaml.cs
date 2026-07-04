@@ -7,12 +7,16 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ikePon.Model;
+using LibVLCSharp.Shared;
 
 namespace ikePon.UI.Windows;
 
 public partial class MovieWindow : Window
 {
     private readonly AppSettings _settings;
+    private readonly LibVLC _libVLC;
+    private readonly LibVLCSharp.Shared.MediaPlayer _mediaPlayer;
+
     private DispatcherTimer? _fadeTimer;
     private long _fadeStartTick;
     private double _fadeDurationSec;
@@ -22,6 +26,7 @@ public partial class MovieWindow : Window
 
     private double _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
+    private bool _videoVisible;
 
     private static readonly HashSet<string> VideoExts =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".mkv", ".avi", ".wmv" };
@@ -33,7 +38,20 @@ public partial class MovieWindow : Window
     public MovieWindow(AppSettings settings)
     {
         _settings = settings;
+
+        // LibVLC 初期化（音声なし）
+        Core.Initialize();
+        _libVLC     = new LibVLC("--no-audio", "--no-video-title-show");
+        _mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
+
         InitializeComponent();
+
+        VideoView.MediaPlayer = _mediaPlayer;
+
+        // イベント登録（LibVLC のイベントは別スレッドから発火するため Dispatcher 経由）
+        _mediaPlayer.Playing  += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
+        _mediaPlayer.EndReached += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
+        _mediaPlayer.EncounteredError += (_, _) => Dispatcher.BeginInvoke(OnMediaError);
 
         if (_settings.MovieWindowX.HasValue)
         {
@@ -82,8 +100,11 @@ public partial class MovieWindow : Window
 
         _pendingStartSec = startSec;
         _afterPlayback   = afterPlayback;
-        VideoPlayer.Source = new Uri(filePath, UriKind.Absolute);
-        Debug.WriteLine("[MovieWindow]   Source set, waiting for MediaOpened...");
+
+        var media = new Media(_libVLC, new Uri(filePath));
+        _mediaPlayer.Play(media);
+        media.Dispose();
+        Debug.WriteLine("[MovieWindow]   MediaPlayer.Play() called, waiting for Playing event...");
     }
 
     public void StopVideo()
@@ -94,8 +115,10 @@ public partial class MovieWindow : Window
 
     public void FadeVideo(double durationSec)
     {
-        if (VideoPlayer.Visibility != Visibility.Visible) return;
+        if (!_videoVisible) return;
         StopFadeTimer();
+        FadeOverlay.Visibility = Visibility.Visible;
+        FadeOverlay.Opacity    = 0;
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
@@ -114,7 +137,7 @@ public partial class MovieWindow : Window
         }
         else
         {
-            VideoPlayer.Opacity = 1.0 - progress;
+            FadeOverlay.Opacity = progress;
         }
     }
 
@@ -128,10 +151,11 @@ public partial class MovieWindow : Window
 
     private void ShowStandby()
     {
-        VideoPlayer.Stop();
-        VideoPlayer.Source     = null;
-        VideoPlayer.Opacity    = 1.0;
-        VideoPlayer.Visibility = Visibility.Collapsed;
+        _mediaPlayer.Stop();
+        FadeOverlay.Visibility = Visibility.Collapsed;
+        FadeOverlay.Opacity    = 0;
+        VideoView.Visibility   = Visibility.Collapsed;
+        _videoVisible = false;
     }
 
     public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
@@ -139,27 +163,30 @@ public partial class MovieWindow : Window
         _afterPlayback = afterPlayback;
     }
 
-    private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
+    private void OnMediaPlaying()
     {
-        Debug.WriteLine($"[MovieWindow] MediaOpened: Duration={VideoPlayer.NaturalDuration}, HasVideo={VideoPlayer.HasVideo}, HasAudio={VideoPlayer.HasAudio}");
+        // 開始位置シーク（ミリ秒単位）
         if (_pendingStartSec > 0)
-            VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
-        VideoPlayer.Play();
-        VideoPlayer.Opacity    = 1.0;
-        VideoPlayer.Visibility = Visibility.Visible;
-        Debug.WriteLine("[MovieWindow]   Play() called, Visibility=Visible");
+            _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
+
+        VideoView.Visibility = Visibility.Visible;
+        _videoVisible = true;
+        Debug.WriteLine("[MovieWindow] Playing: VideoView visible");
     }
 
-    private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+    private void OnMediaEnded()
     {
+        Debug.WriteLine($"[MovieWindow] EndReached, AfterPlayback={_afterPlayback}");
         switch (_afterPlayback)
         {
             case AfterPlaybackBehavior.FreezeLastFrame:
-                VideoPlayer.Pause();
+                // 最終フレームで停止（Pause は EndReached 後では効かないことがあるため、
+                // 直前に Stop しないまま保持するだけでフリーズ状態になる）
+                _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                VideoPlayer.Position = TimeSpan.FromSeconds(_pendingStartSec);
-                VideoPlayer.Play();
+                _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
+                _mediaPlayer.Play();
                 break;
             default:
                 ShowStandby();
@@ -167,11 +194,10 @@ public partial class MovieWindow : Window
         }
     }
 
-    private void VideoPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    private void OnMediaError()
     {
-        Debug.WriteLine($"[MovieWindow] MediaFailed: {e.ErrorException?.Message}");
-        Debug.WriteLine($"[MovieWindow]   HResult=0x{e.ErrorException?.HResult:X8}, Type={e.ErrorException?.GetType().Name}");
-        Dispatcher.BeginInvoke(ShowStandby);
+        Debug.WriteLine("[MovieWindow] EncounteredError: VLC media player error");
+        ShowStandby();
     }
 
     public void SetFullScreen(bool full)
@@ -212,7 +238,7 @@ public partial class MovieWindow : Window
     private void Window_Closing(object sender, CancelEventArgs e)
     {
         StopFadeTimer();
-        VideoPlayer.Stop();
+        _mediaPlayer.Stop();
 
         double saveLeft   = _isFullScreen ? _savedLeft   : Left;
         double saveTop    = _isFullScreen ? _savedTop    : Top;
@@ -223,5 +249,8 @@ public partial class MovieWindow : Window
         _settings.MovieWindowY      = saveTop;
         _settings.MovieWindowWidth  = saveWidth;
         _settings.MovieWindowHeight = saveHeight;
+
+        _mediaPlayer.Dispose();
+        _libVLC.Dispose();
     }
 }

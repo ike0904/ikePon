@@ -48,6 +48,10 @@
           "framework": "net9.0-windows7.0",
           "targetAlias": "net9.0-windows",
           "dependencies": {
+            "LibVLCSharp": {
+              "target": "Package",
+              "version": "[3.9.0, )"
+            },
             "LibVLCSharp.WPF": {
               "target": "Package",
               "version": "[3.9.0, )"
