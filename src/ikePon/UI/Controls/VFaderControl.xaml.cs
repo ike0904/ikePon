@@ -17,9 +17,9 @@ public partial class VFaderControl : UserControl
 
     private const double ThumbHalf = 10.0;
 
-    private float?[] _memories = new float?[4];
+    private float?[] _memories = new float?[4]; // slot 3 は未使用（MU button に変更）
     private bool _suppressEvent;
-    private bool _cutMode;
+    private bool _isMuted;
 
     // アニメーション
     private readonly DispatcherTimer _animTimer;
@@ -33,8 +33,7 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushMemText         = new(Color.FromRgb(0x66, 0x66, 0x66));
     private static readonly SolidColorBrush BrushMemTextMatch    = new(Colors.White);
     private static readonly SolidColorBrush BrushMemTextReg      = new(Colors.White);
-    private static readonly SolidColorBrush BrushMemRegistered   = new(Color.FromRgb(0x0E, 0x22, 0x3A));
-    private static readonly SolidColorBrush BrushMemRedReg       = new(Color.FromRgb(0x3A, 0x0E, 0x0E));
+    private static readonly SolidColorBrush BrushMemRegistered   = new(Color.FromRgb(0x0E, 0x22, 0x3A)); // 青
     private static readonly SolidColorBrush BrushMemBorderYellow = new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushMemBorderEmpty  = new(Color.FromRgb(0x44, 0x44, 0x44));
     private static readonly SolidColorBrush BrushScaleGray       = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
@@ -42,8 +41,8 @@ public partial class VFaderControl : UserControl
 
     public event EventHandler<double>? VolumeChanged;
     public event EventHandler<(int slot, bool quick)>? MemoryRecall;
-    // 登録済みスロットへの上書きをMainWindowに確認させるイベント
     public event EventHandler<(int slot, double gain)>? MemoryRegisterRequested;
+    public event EventHandler<bool>? MuteChanged;
 
     public string Label { get => FaderLabel.Text; set => FaderLabel.Text = value; }
     public System.Windows.Media.Brush LabelBrush { get => FaderLabel.Foreground; set => FaderLabel.Foreground = value; }
@@ -162,50 +161,44 @@ public partial class VFaderControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // メモリ操作
+    // メモリ操作（M1-M3 のみ: slot 0-2）
     // ------------------------------------------------------------------
     public void StoreMemory(int slot, double gain)
     {
-        if (slot < 0 || slot >= 4) return;
+        if (slot < 0 || slot >= 3) return;
         _memories[slot] = (float)gain;
-        UpdateMemoryButton(slot, true, _cutMode);
+        UpdateMemoryButton(slot);
     }
 
-    public float? GetMemory(int slot) => slot >= 0 && slot < 4 ? _memories[slot] : null;
+    public float? GetMemory(int slot) => slot >= 0 && slot < 3 ? _memories[slot] : null;
 
-    private void UpdateMemoryButton(int slot, bool stored, bool cutMode = false)
+    private void UpdateMemoryButton(int slot)
     {
-        var btn = slot switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
+        var btn = slot switch { 0 => Mem1, 1 => Mem2, _ => Mem3 };
+        bool stored = _memories[slot].HasValue;
         if (!stored)
         {
             btn.Background  = BrushMemEmpty;
             btn.Foreground  = BrushMemText;
             btn.BorderBrush = BrushMemBorderEmpty;
+            btn.BorderThickness = new Thickness(1);
         }
         else
         {
-            bool match = _memories[slot].HasValue &&
-                         Math.Abs((double)_memories[slot]!.Value - Value) < 0.001;
+            bool match = Math.Abs((double)_memories[slot]!.Value - Value) < 0.001;
             if (match)
             {
-                btn.Background       = BrushMemStored;
-                btn.Foreground       = BrushMemTextMatch;
-                btn.BorderBrush      = BrushMemBorderYellow;
-                btn.BorderThickness  = new Thickness(2.5);
-            }
-            else if (!cutMode)
-            {
-                btn.Background       = BrushMemRegistered;   // FADEモード → 青
-                btn.Foreground       = BrushMemTextReg;
-                btn.BorderBrush      = BrushMemBorderEmpty;
-                btn.BorderThickness  = new Thickness(1);
+                btn.Background      = BrushMemStored;
+                btn.Foreground      = BrushMemTextMatch;
+                btn.BorderBrush     = BrushMemBorderYellow;
+                btn.BorderThickness = new Thickness(2.5);
             }
             else
             {
-                btn.Background       = BrushMemRedReg;       // CUTモード → 赤
-                btn.Foreground       = BrushMemTextReg;
-                btn.BorderBrush      = BrushMemBorderEmpty;
-                btn.BorderThickness  = new Thickness(1);
+                btn.Background      = BrushMemRegistered; // 常時青
+                btn.Foreground      = BrushMemTextReg;
+                btn.BorderBrush     = BrushMemBorderEmpty;
+                btn.BorderThickness = new Thickness(1);
             }
         }
     }
@@ -213,43 +206,35 @@ public partial class VFaderControl : UserControl
     private void UpdateAllMemoryButtons()
     {
         if (Mem1 == null) return;
-        for (int i = 0; i < 4; i++)
-            UpdateMemoryButton(i, _memories[i].HasValue, _cutMode);
-    }
-
-    public void UpdateCutMode(bool cutMode)
-    {
-        _cutMode = cutMode;
-        UpdateAllMemoryButtons();
+        for (int i = 0; i < 3; i++)
+            UpdateMemoryButton(i);
     }
 
     private void Memory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         int slot = Convert.ToInt32(btn.Tag);
+        if (slot >= 3) return;
         if (_memories[slot].HasValue)
-            MemoryRecall?.Invoke(this, (slot, _cutMode));  // CUT=即座, FADE=フェード移動
+            MemoryRecall?.Invoke(this, (slot, false));  // 常時フェード移動
         else
-            StoreMemory(slot, Value);  // 空 → 現在値を登録
+            StoreMemory(slot, Value);
     }
 
     private void Memory_RightClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Button btn) return;
         int slot = Convert.ToInt32(btn.Tag);
-        if (!_memories[slot].HasValue) { e.Handled = true; return; }
+        if (slot >= 3 || !_memories[slot].HasValue) { e.Handled = true; return; }
 
         var cm = new ContextMenu();
         var quick = new MenuItem { Header = "即座に移動" };
-        var slow  = new MenuItem { Header = "フェード" };
         var reReg = new MenuItem { Header = "再登録" };
         var del   = new MenuItem { Header = "削除" };
         quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
-        slow.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
         reReg.Click += (_, _) => RequestStoreMemory(slot);
-        del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot, false); };
+        del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot); };
         cm.Items.Add(quick);
-        cm.Items.Add(slow);
         cm.Items.Add(reReg);
         cm.Items.Add(del);
         cm.IsOpen = true;
@@ -259,7 +244,7 @@ public partial class VFaderControl : UserControl
     private void FaderSlider_RightClick(object sender, MouseButtonEventArgs e)
     {
         var cm = new ContextMenu();
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 3; i++) // M1-M3 のみ（M4廃止）
         {
             int captured = i;
             var item = new MenuItem { Header = $"M{i + 1}に登録" };
@@ -272,9 +257,39 @@ public partial class VFaderControl : UserControl
 
     private void RequestStoreMemory(int slot)
     {
+        if (slot >= 3) return;
         if (_memories[slot].HasValue)
-            MemoryRegisterRequested?.Invoke(this, (slot, Value));  // 上書き確認をMainWindowに依頼
+            MemoryRegisterRequested?.Invoke(this, (slot, Value));
         else
             StoreMemory(slot, Value);
+    }
+
+    // ------------------------------------------------------------------
+    // ミュートボタン
+    // ------------------------------------------------------------------
+    private void Mute_Click(object sender, RoutedEventArgs e)
+    {
+        _isMuted = !_isMuted;
+        UpdateMuteButton();
+        MuteChanged?.Invoke(this, _isMuted);
+    }
+
+    private void UpdateMuteButton()
+    {
+        if (MuteBtn == null) return;
+        if (_isMuted)
+        {
+            MuteBtn.Background      = BrushMemStored;
+            MuteBtn.Foreground      = BrushMemTextMatch;
+            MuteBtn.BorderBrush     = BrushMemBorderYellow;
+            MuteBtn.BorderThickness = new Thickness(2.5);
+        }
+        else
+        {
+            MuteBtn.Background      = BrushMemEmpty;
+            MuteBtn.Foreground      = BrushMemText;
+            MuteBtn.BorderBrush     = BrushMemBorderEmpty;
+            MuteBtn.BorderThickness = new Thickness(1);
+        }
     }
 }

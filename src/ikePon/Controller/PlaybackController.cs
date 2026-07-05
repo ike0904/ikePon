@@ -1,5 +1,6 @@
 using ikePon.Audio;
 using ikePon.Model;
+using TapBehavior = ikePon.Model.TapBehavior;
 
 namespace ikePon.Controller;
 
@@ -21,7 +22,6 @@ public sealed class PlaybackController
 
     private ProjectData? _project;
 
-    public bool CutMode { get; set; }
 
     public PlaybackController(AudioEngine engine, AppSettings settings, FileGainDatabase gainDb)
     {
@@ -118,12 +118,12 @@ public sealed class PlaybackController
 
         _activePad[catIdx] = padIndex;
 
-        // MOVIE/BGM: 同パッドを再押しした場合はフェード or 即停止（CUTモードによる）
+        // MOVIE/BGM: 同パッドを再押しした場合はフェード or 即停止（TapBehaviorによる）
         bool isSamePad = prev == padIndex;
         bool isMovieBgm = pad.Category == AudioCategory.Movie || pad.Category == AudioCategory.BGM;
         if (isSamePad && isMovieBgm && src.State != PadPlayState.Idle)
         {
-            if (CutMode) src.StopImmediate();
+            if (pad.TapBehavior == TapBehavior.CutOut) src.StopImmediate();
             else src.Stop(_settings.LongFadeDuration);
             _activePad[catIdx] = -1;
             return;
@@ -206,6 +206,12 @@ public sealed class PlaybackController
     public float BgmVolume    { get => _engine.BgmVolume;    set => _engine.BgmVolume = value; }
     public float SeVolume     { get => _engine.SeVolume;     set => _engine.SeVolume = value; }
     public float MovieVolume  { get => _engine.MovieVolume;  set => _engine.MovieVolume = value; }
+
+    // ミュート
+    public bool MuteMaster { get => _engine.MuteMaster; set => _engine.MuteMaster = value; }
+    public bool MuteBgm    { get => _engine.MuteBgm;    set => _engine.MuteBgm    = value; }
+    public bool MuteSe     { get => _engine.MuteSe;     set => _engine.MuteSe     = value; }
+    public bool MuteMovie  { get => _engine.MuteMovie;  set => _engine.MuteMovie  = value; }
 
     // WASAPIバッファを強制フラッシュ（ハードウェアループ解除）
     public void FlushOutput() => _engine.FlushOutput();

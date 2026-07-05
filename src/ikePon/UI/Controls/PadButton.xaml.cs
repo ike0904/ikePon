@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using ikePon.Audio;
 using ikePon.Model;
+using TapBehavior = ikePon.Model.TapBehavior;
 
 namespace ikePon.UI.Controls;
 
@@ -35,7 +36,7 @@ public partial class PadButton : UserControl
     private PadPlayState _state = PadPlayState.Idle;
     private AudioCategory _category = AudioCategory.BGM;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
-    private bool _cutMode;
+    private TapBehavior _tapBehavior = TapBehavior.FadeOut;
     private float _progress;
     private float _fadeGain = 1f;
     private float _totalSec;
@@ -243,17 +244,16 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, bool cutMode, float fadeGain = 1f, float totalSec = 0f)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f)
     {
-        // cutMode変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
-        bool modeAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
         float newStartSec = settings?.StartPositionSec ?? 0f;
         float newEndSec   = settings?.EndPositionSec   ?? -1f;
+        TapBehavior newTap = settings?.TapBehavior ?? TapBehavior.FadeOut;
         bool changed = !_initialized ||
                        _state != state ||
-                       (modeAffectsVisual && _cutMode != cutMode) ||
+                       _tapBehavior != newTap ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
                        Math.Abs(_progress - progress) > 0.001f ||
@@ -264,7 +264,7 @@ public partial class PadButton : UserControl
         _initialized = true;
 
         _state = state;
-        _cutMode = cutMode;
+        _tapBehavior = newTap;
         _fadeGain = fadeGain;
 
         if (settings != null)
@@ -326,13 +326,15 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // デッドゾーン背景色（状態インジケーター）— フェードアウト中は即グレー
-        // BorderRootは常にデフォルト色（ユーザーがカスタマイズできるよう固定）
+        // デッドゾーン背景色（TapBehavior常時表示）
+        // SE=グレー, FadeOut=青, CutOut=赤
         bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
-        DeadZone.Background = (state == PadPlayState.FadingOut) ? BrushPadDefault :
-            (playing && isMovieBgm)
-                ? (cutMode ? BrushCtrl : BrushShift)
-                : BrushPadDefault;
+        if (!isMovieBgm)
+            DeadZone.Background = BrushPadDefault;
+        else if (_tapBehavior == TapBehavior.CutOut)
+            DeadZone.Background = BrushCtrl;
+        else
+            DeadZone.Background = BrushShift;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
         if (state == PadPlayState.FadingOut)

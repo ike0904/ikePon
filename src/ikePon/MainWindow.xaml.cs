@@ -13,6 +13,7 @@ using ikePon.Model;
 using ikePon.UI.Controls;
 using ikePon.UI.Dialogs;
 using ikePon.UI.Windows;
+using TapBehavior = ikePon.Model.TapBehavior;
 
 namespace ikePon;
 
@@ -24,7 +25,6 @@ public partial class MainWindow : Window
     private readonly PlaybackController _playback;
     private readonly BankManager _bankManager;
     private readonly KeyboardMapper _keyMapper;
-    private readonly PanicController _panic;
     private readonly MovieController _movieCtrl;
     private ProjectData _project;
     private string? _projectFilePath;
@@ -53,20 +53,12 @@ public partial class MainWindow : Window
     private int _imageDisplayingPadIndex = -1;
 
     private readonly DispatcherTimer _uiTimer;
-    private bool _cutMode;
-
-    // PANICボタンのテンプレートパーツ（遅延キャッシュ）
-    private System.Windows.Controls.Border? _panicBd;
-    private System.Windows.Controls.TextBlock? _panicText;
-    private bool _prevPanicFading;
 
     // FULL/DISP/FADE-CUTボタンのテンプレートパーツ（遅延キャッシュ）
     private System.Windows.Controls.Border? _fullBd;
     private System.Windows.Controls.TextBlock? _fullText;
     private System.Windows.Controls.Border? _dispBd;
     private System.Windows.Controls.TextBlock? _dispText;
-    private System.Windows.Controls.Border? _fadeCutBd;
-    private System.Windows.Controls.TextBlock? _fadeCutText;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -91,7 +83,6 @@ public partial class MainWindow : Window
         _playback = new PlaybackController(_engine, _settings, _gainDb);
         _bankManager = new BankManager(_playback);
         _keyMapper = new KeyboardMapper();
-        _panic     = new PanicController(_playback);
         _movieCtrl = new MovieController(_settings);
         _project   = new ProjectData();
 
@@ -291,6 +282,7 @@ public partial class MainWindow : Window
             int captured = i;
             fader.VolumeChanged += (_, v) => OnFaderChanged(captured, v);
             fader.MemoryRecall += (_, args) => OnMemoryRecall(captured, args.slot, args.quick);
+            fader.MuteChanged += (_, muted) => OnFaderMute(captured, muted);
             fader.MemoryRegisterRequested += (s, args) =>
             {
                 if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
@@ -332,9 +324,6 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
-        float panicMaxGain = 0f;
-        bool panicAnyActive = false;
-
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -342,51 +331,7 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
-            _padButtons[i].UpdateState(state, pos, pad, _cutMode, fadeGain, totalSec);
-
-            if (state != PadPlayState.Idle)
-            {
-                panicAnyActive = true;
-                if (fadeGain > panicMaxGain) panicMaxGain = fadeGain;
-            }
-        }
-
-        for (int i = 0; i < _faders.Length; i++)
-            _faders[i].UpdateCutMode(_cutMode);
-
-        // PANICボタン色更新（フェード中は黄色→通常色にアニメーション）
-        bool isFading = _panic.IsFading;
-        if (isFading)
-        {
-            if (!panicAnyActive) { _panic.ClearFadeState(); UpdatePanicButtonColor(-1f); }
-            else UpdatePanicButtonColor(panicMaxGain);
-        }
-        else if (_prevPanicFading)
-        {
-            UpdatePanicButtonColor(-1f);
-        }
-        _prevPanicFading = isFading;
-    }
-
-    private void UpdatePanicButtonColor(float gain)
-    {
-        _panicBd   ??= PanicButton.Template.FindName("Bd",        PanicButton) as System.Windows.Controls.Border;
-        _panicText ??= PanicButton.Template.FindName("PanicText", PanicButton) as System.Windows.Controls.TextBlock;
-        if (_panicBd == null || _panicText == null) return;
-
-        if (gain < 0f)
-        {
-            _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x44, 0x44));
-            _panicText.Foreground = new SolidColorBrush(Colors.White);
-        }
-        else
-        {
-            float g = Math.Clamp(gain, 0f, 1f);
-            // ボーダー: g=1→黄(FFD700), g=0→赤(FF4444)
-            byte bg = (byte)(0x44 + (0xD7 - 0x44) * g);
-            byte bb = (byte)(0x44 * (1f - g));
-            _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, bg, bb));
-            _panicText.Foreground = new SolidColorBrush(Colors.White);
+            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec);
         }
     }
 
@@ -476,11 +421,11 @@ public partial class MainWindow : Window
             return true;
         }
 
-        // FADE/CUT モード切り替え（Spaceキー）
+        // ALL FADE（Spaceキー）
         if (key == Key.Space)
         {
             if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
-            ToggleCutMode();
+            ExecuteAllFade();
             return true;
         }
 
@@ -497,15 +442,6 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            _playback.CutMode = _cutMode;
-            if (_panic.IsFading || _panic.IsActivated)
-            {
-                _playback.PanicStopAll();
-                _panic.ClearAllState();
-                UpdatePanicButtonColor(-1f);
-                _movieCtrl.StopVideo();
-                _imageDisplayingPadIndex = -1;
-            }
             TriggerPadWithMovie(padIdx.Value);
             return true;
         }
@@ -583,7 +519,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void TriggerPadWithMovie(int padIndex, bool fadeOut = false, bool stopImmediate = false)
     {
-        Logger.Log($"[MW] TriggerPad idx={padIndex} fadeOut={fadeOut} stopImmediate={stopImmediate} cutMode={_cutMode}");
+        Logger.Log($"[MW] TriggerPad idx={padIndex} fadeOut={fadeOut} stopImmediate={stopImmediate}");
         var pad = _playback.GetPadSettings(padIndex);
         bool isMoviePad = pad?.Category == AudioCategory.Movie;
         bool isImagePad = isMoviePad && IsImageFile(pad?.FilePath);
@@ -636,8 +572,9 @@ public partial class MainWindow : Window
         }
         else if (wasActive)
         {
-            // 同パッド再押し → 音声停止済み → 映像も同様に停止
-            if (_cutMode)
+            // 同パッド再押し → 音声停止済み → 映像も同様に停止（TapBehavior準拠）
+            bool cutOut = pad?.TapBehavior == TapBehavior.CutOut;
+            if (cutOut)
                 _movieCtrl.StopVideo();
             else
                 _movieCtrl.FadeVideo(_settings.LongFadeDuration);
@@ -723,6 +660,7 @@ public partial class MainWindow : Window
         pad.EndPositionSec       = dlg.ResultEndSec;
         pad.AfterPlayback        = dlg.ResultAfterPlayback;
         pad.PadBackgroundColor   = dlg.ResultPadBackgroundColor;
+        pad.TapBehavior          = dlg.ResultTapBehavior;
 
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
@@ -800,6 +738,17 @@ public partial class MainWindow : Window
         if (!mem.HasValue) return;
         double duration = quick ? 0.0 : _settings.LongFadeDuration;
         _faders[faderIndex].SmoothMoveTo(mem.Value, duration);
+    }
+
+    private void OnFaderMute(int faderIndex, bool muted)
+    {
+        switch (faderIndex)
+        {
+            case 0: _playback.MuteMovie  = muted; break;
+            case 1: _playback.MuteBgm    = muted; break;
+            case 2: _playback.MuteSe     = muted; break;
+            case 3: _playback.MuteMaster = muted; break;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -885,50 +834,27 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     // FADE/CUTモードボタン
     // ------------------------------------------------------------------
-    private void FadeCutButton_Click(object sender, RoutedEventArgs e) => ToggleCutMode();
+    // ALL FADEボタン
+    private void FadeCutButton_Click(object sender, RoutedEventArgs e) => ExecuteAllFade();
 
-    private void ToggleCutMode()
+    private void ExecuteAllFade()
     {
-        _cutMode = !_cutMode;
-        _playback.CutMode = _cutMode;
-        UpdateFadeCutButton();
-    }
-
-    private void UpdateFadeCutButton()
-    {
-        _fadeCutBd   ??= FadeCutButton.Template.FindName("FadeCutBd",   FadeCutButton) as System.Windows.Controls.Border;
-        _fadeCutText ??= FadeCutButton.Template.FindName("FadeCutText", FadeCutButton) as System.Windows.Controls.TextBlock;
-        if (_fadeCutBd == null || _fadeCutText == null) return;
-
-        if (_cutMode)
-        {
-            _fadeCutBd.Background      = new SolidColorBrush(Color.FromRgb(0x3D, 0x1C, 0x1C));
-            _fadeCutBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
-            _fadeCutBd.BorderThickness = new Thickness(2.5);
-            _fadeCutText.Text          = "CUT";
-        }
-        else
-        {
-            _fadeCutBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x3D));
-            _fadeCutBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x66));
-            _fadeCutBd.BorderThickness = new Thickness(2);
-            _fadeCutText.Text          = "FADE";
-        }
+        _imageDisplayingPadIndex = -1;
+        _playback.PanicFadeAll();
+        _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
 
     // ------------------------------------------------------------------
-    // パニックボタン
+    // ALL CUTボタン（即停止）
     // ------------------------------------------------------------------
     private void PanicButton_Click(object sender, RoutedEventArgs e) => ExecutePanic();
 
     private void ExecutePanic()
     {
         _imageDisplayingPadIndex = -1;
-        bool wasImmediateStop = _panic.Trigger();
-        if (wasImmediateStop)
-            _movieCtrl.PanicStop();
-        else
-            _movieCtrl.PanicFade(_settings.LongFadeDuration);
+        _playback.PanicStopAll();
+        _playback.FlushOutput();
+        _movieCtrl.PanicStop();
     }
 
     // ------------------------------------------------------------------
@@ -1151,7 +1077,11 @@ public partial class MainWindow : Window
 
     private void Menu_Open(object sender, RoutedEventArgs e)
     {
-        if (!ConfirmDiscard()) return;
+        // 初期状態（未変更・未保存）なら確認なしで開く
+        if (_projectDirty || _projectFilePath != null)
+        {
+            if (!ConfirmDiscard()) return;
+        }
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = "プロジェクトを開く",
@@ -1339,7 +1269,7 @@ public partial class MainWindow : Window
             _faders[i].Value = _project.FaderPositions[i];
 
         for (int f = 0; f < 4; f++)
-            for (int m = 0; m < 4; m++)
+            for (int m = 0; m < 3; m++) // M1-M3 のみ（M4廃止）
                 if (_project.FaderMemories[f][m].HasValue)
                     _faders[f].StoreMemory(m, _project.FaderMemories[f][m]!.Value);
 
@@ -1356,7 +1286,7 @@ public partial class MainWindow : Window
             _project.FaderPositions[i] = (float)_faders[i].Value;
 
         for (int f = 0; f < 4; f++)
-            for (int m = 0; m < 4; m++)
+            for (int m = 0; m < 3; m++) // M1-M3 のみ（M4廃止）
                 _project.FaderMemories[f][m] = _faders[f].GetMemory(m);
     }
 
@@ -1366,7 +1296,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.58{fname}{dirty}";
+        Title = $"ikéPon v1.0.59{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

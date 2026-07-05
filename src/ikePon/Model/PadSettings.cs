@@ -10,6 +10,7 @@ public class PadSettings
     public float EndPositionSec { get; set; } = -1f; // -1 = end of file
     public AfterPlaybackBehavior AfterPlayback { get; set; } = AfterPlaybackBehavior.Stop;
     public string? PadBackgroundColor { get; set; }  // null = default (#3C3C3C)
+    public TapBehavior TapBehavior { get; set; } = TapBehavior.FadeOut;
 
     public PadSettings Clone() => new()
     {
@@ -21,5 +22,6 @@ public class PadSettings
         EndPositionSec = EndPositionSec,
         AfterPlayback = AfterPlayback,
         PadBackgroundColor = PadBackgroundColor,
+        TapBehavior = TapBehavior,
     };
 }

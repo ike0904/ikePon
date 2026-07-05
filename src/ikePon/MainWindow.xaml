@@ -115,17 +115,17 @@
             <Grid Margin="8,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="130"/>
-                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="130"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- PANIC ボタン（左側） -->
+                <!-- ALL CUT ボタン（左側） -->
                 <Grid Grid.Column="0">
                     <Button x:Name="PanicButton"
                             Height="44"
-                            Margin="0,0,6,0"
+                            Margin="0,0,2,0"
                             Cursor="Hand"
                             Focusable="False"
                             Click="PanicButton_Click">
@@ -138,8 +138,8 @@
                                                     BorderBrush="#FF4444" BorderThickness="2" CornerRadius="6">
                                                 <Grid>
                                                     <TextBlock x:Name="PanicText"
-                                                               Text="PANIC"
-                                                               FontSize="18" FontWeight="Bold"
+                                                               Text="ALL CUT"
+                                                               FontSize="14" FontWeight="Bold"
                                                                Foreground="White"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                Margin="0"
@@ -176,11 +176,11 @@
                     </Button>
                 </Grid>
 
-                <!-- FADE/CUTモードボタン（FULLの左隣） -->
+                <!-- ALL FADEボタン（ALL CUTの右隣） -->
                 <Button x:Name="FadeCutButton"
-                        Grid.Column="2"
+                        Grid.Column="1"
                         Height="44"
-                        Margin="0,0,0,0"
+                        Margin="2,0,0,0"
                         Cursor="Hand"
                         Focusable="False"
                         Click="FadeCutButton_Click">
@@ -189,12 +189,12 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="FadeCutBd" Background="#1C1C3D"
-                                                BorderBrush="#333366" BorderThickness="2" CornerRadius="6">
+                                        <Border x:Name="FadeCutBd" Background="#1133BB"
+                                                BorderBrush="#4488FF" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="FadeCutText"
-                                                           Text="FADE"
-                                                           FontSize="15" FontWeight="Bold"
+                                                           Text="ALL FADE"
+                                                           FontSize="13" FontWeight="Bold"
                                                            Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
@@ -327,8 +327,8 @@
                     </Button.Style>
                 </Button>
 
-                <!-- インフォメーションエリア（右側） -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <!-- インフォメーションエリア（中央） -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
                     <Border x:Name="InfoLine2Border" Background="Transparent"
                             CornerRadius="3" Padding="4,2">
                         <Grid>

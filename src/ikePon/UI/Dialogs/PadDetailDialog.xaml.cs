@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ikePon.Model;
+using TapBehavior = ikePon.Model.TapBehavior;
 
 namespace ikePon.UI.Dialogs;
 
@@ -21,6 +22,7 @@ public partial class PadDetailDialog : Window
     public float               ResultEndSec            { get; private set; }
     public AfterPlaybackBehavior ResultAfterPlayback   { get; private set; }
     public string?             ResultPadBackgroundColor { get; private set; }
+    public TapBehavior         ResultTapBehavior       { get; private set; }
 
     private string? _selectedBgColor;
 
@@ -90,6 +92,7 @@ public partial class PadDetailDialog : Window
             AfterPlaybackBehavior.Loop            => 2,
             _                                     => 0
         };
+        CbTapBehavior.SelectedIndex = _padSettings.TapBehavior == TapBehavior.CutOut ? 1 : 0;
         UpdateAfterPlaybackItemStates();
 
         string defaultName = string.IsNullOrEmpty(_padSettings.FilePath)
@@ -196,6 +199,9 @@ public partial class PadDetailDialog : Window
             _ => AfterPlaybackBehavior.Stop
         };
         ResultPadBackgroundColor = _selectedBgColor;
+        var isSE = cat == AudioCategory.SE;
+        ResultTapBehavior = (!isSE && CbTapBehavior.SelectedIndex == 1)
+            ? TapBehavior.CutOut : TapBehavior.FadeOut;
 
         DialogResult = true;
     }
@@ -203,7 +209,10 @@ public partial class PadDetailDialog : Window
     private void BtnCancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void CbCategory_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => UpdateAfterPlaybackItemStates();
+    {
+        UpdateAfterPlaybackItemStates();
+        UpdateTapBehaviorState();
+    }
 
     private void CbAfterPlayback_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
 
@@ -218,6 +227,14 @@ public partial class PadDetailDialog : Window
             CbAfterPlayback.SelectedIndex = 0;
         if (!CbAfterLoop.IsEnabled && CbAfterPlayback.SelectedIndex == 2)
             CbAfterPlayback.SelectedIndex = 0;
+    }
+
+    private void UpdateTapBehaviorState()
+    {
+        if (CbTapBehavior == null) return;
+        bool isSE = CbCategory.SelectedIndex == 2;
+        CbTapBehavior.IsEnabled = !isSE;
+        if (isSE) CbTapBehavior.SelectedIndex = 0;
     }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)

@@ -28,6 +28,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     private volatile float _seVol = 1f;
     private volatile float _movieVol = 1f;
     private volatile bool _paSeparate;
+    private volatile bool _muteMaster;
+    private volatile bool _muteBgm;
+    private volatile bool _muteSe;
+    private volatile bool _muteMovie;
 
     private readonly float[] _tempBuf = new float[65536];
 
@@ -116,6 +120,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     public float SeVolume     { get => _seVol;     set => _seVol     = ClampVol(value); }
     public float MovieVolume  { get => _movieVol;  set => _movieVol  = ClampVol(value); }
     public bool  PaSeparate   { get => _paSeparate; set => _paSeparate = value; }
+    public bool  MuteMaster   { get => _muteMaster; set => _muteMaster = value; }
+    public bool  MuteBgm      { get => _muteBgm;    set => _muteBgm    = value; }
+    public bool  MuteSe       { get => _muteSe;     set => _muteSe     = value; }
+    public bool  MuteMovie    { get => _muteMovie;  set => _muteMovie  = value; }
 
     private static float ClampVol(float v) => v < 0f ? 0f : v > 4f ? 4f : v;
 
@@ -132,7 +140,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
                 count = _tempBuf.Length;
 
             int bank = _activeBank;
-            float mstr = _masterVol;
+            float mstr = _muteMaster ? 0f : _masterVol;
             bool separate = _paSeparate;
 
             for (int pad = 0; pad < PadCount; pad++)
@@ -143,9 +151,9 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
                 var cat = _padCategories[bank, pad];
                 float catVol = cat switch
                 {
-                    AudioCategory.BGM   => _bgmVol,
-                    AudioCategory.SE    => _seVol,
-                    _                   => _movieVol
+                    AudioCategory.BGM   => _muteBgm   ? 0f : _bgmVol,
+                    AudioCategory.SE    => _muteSe    ? 0f : _seVol,
+                    _                   => _muteMovie ? 0f : _movieVol
                 };
 
                 Array.Clear(_tempBuf, 0, count);
