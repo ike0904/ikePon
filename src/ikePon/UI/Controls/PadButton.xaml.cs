@@ -39,6 +39,8 @@ public partial class PadButton : UserControl
     private float _progress;
     private float _fadeGain = 1f;
     private float _totalSec;
+    private float _startSec;
+    private float _endSec = -1f;
     private double _padWidth;
     private bool _initialized;
     private string? _padBgColor;
@@ -247,13 +249,17 @@ public partial class PadButton : UserControl
         bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
+        float newStartSec = settings?.StartPositionSec ?? 0f;
+        float newEndSec   = settings?.EndPositionSec   ?? -1f;
         bool changed = !_initialized ||
                        _state != state ||
                        (modifierAffectsVisual && _modifier != modifier) ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
-                       Math.Abs(_progress - progress) > 0.005f ||
+                       Math.Abs(_progress - progress) > 0.001f ||
                        Math.Abs(_totalSec - totalSec) > 0.5f ||
+                       Math.Abs(_startSec - newStartSec) > 0.05f ||
+                       Math.Abs(_endSec   - newEndSec)   > 0.05f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
         _initialized = true;
 
@@ -315,6 +321,8 @@ public partial class PadButton : UserControl
         if (!changed) return;
         _progress  = progress;
         _totalSec  = totalSec;
+        _startSec  = newStartSec;
+        _endSec    = newEndSec;
 
         bool playing = state != PadPlayState.Idle;
 
@@ -353,32 +361,29 @@ public partial class PadButton : UserControl
 
         UpdateProgress();
         UpdateAfterPlaybackIcon();
-        UpdateTimeLabel(state, progress, totalSec);
+        UpdateTimeLabel(state, progress, totalSec, newStartSec, newEndSec);
     }
 
-    private static string FormatTime(float secs)
+    private static string FormatTime01(float secs)
     {
-        int m = (int)(secs / 60);
-        int s = (int)(secs % 60);
-        return $"{m}:{s:00}";
+        if (secs < 0) secs = 0;
+        int m   = (int)(secs / 60);
+        float r = secs % 60;
+        int s   = (int)r;
+        int t   = (int)((r - s) * 10);
+        return $"{m}:{s:00}.{t}";
     }
 
-    private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec)
+    private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec, float startSec, float endSec)
     {
-        if (totalSec <= 0f)
-        {
-            TimeLabel.Text = "";
-            return;
-        }
-        if (state == PadPlayState.Idle)
-        {
-            TimeLabel.Text = FormatTime(totalSec);
-        }
-        else
-        {
-            float currentSec = Math.Clamp(progress * totalSec, 0f, totalSec);
-            TimeLabel.Text = $"{FormatTime(currentSec)}/{FormatTime(totalSec)}";
-        }
+        float displayEnd = endSec > 0f ? endSec : totalSec;
+        if (displayEnd <= 0f) { TimeLabel.Text = ""; return; }
+
+        float displayCurrent = state == PadPlayState.Idle
+            ? startSec
+            : Math.Clamp(progress * totalSec, 0f, displayEnd);
+
+        TimeLabel.Text = $"{FormatTime01(displayCurrent)}/{FormatTime01(displayEnd)}";
     }
 
     private void UpdateProgress()

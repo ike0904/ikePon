@@ -308,20 +308,27 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
 
-        if (_fadeOverlay != null) { _fadeOverlay.Close(); _fadeOverlay = null; }
-
-        // VideoView を先に非表示にしてから VLC を停止（白フレーム防止）
+        // VideoViewをCollapsedに → VLC ForegroundWindowが0×0になり非表示
         _videoVisible        = false;
-        VideoView.Visibility = Visibility.Hidden;
+        VideoView.Visibility = Visibility.Collapsed;
 
+        // スタンバイをオーバーレイの背後でセットアップ（非表示状態）
         LoadStandbyImage(_settings.MovieStandbyImagePath);
-        StandbyLayer.Opacity    = 0;
+        StandbyLayer.Opacity    = 0.0;
         StandbyLayer.Visibility = Visibility.Visible;
-        Debug.WriteLine("[MW] FadeOut complete → StandbyFadeIn start");
 
+        // VLC停止（非同期）
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch (Exception ex) { Debug.WriteLine($"[MW] Stop error: {ex.Message}"); } });
 
-        StartStandbyFadeIn();
+        // オーバーレイをBackground優先度で閉じる（VLC FGW縮小後にフェードイン開始）
+        var overlay = _fadeOverlay;
+        _fadeOverlay = null;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            overlay?.Close();
+            Debug.WriteLine("[MW] FadeOut complete → StandbyFadeIn start");
+            StartStandbyFadeIn();
+        }));
     }
 
     private void StopFadeTimer()

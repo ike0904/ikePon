@@ -49,6 +49,30 @@ public partial class PadDetailDialog : Window
         InitializeComponent();
         Loaded += (_, _) => App.SetLightTitleBar(this);
         LoadValues();
+
+        SetResetMenu(TbDisplayName, () =>
+            string.IsNullOrEmpty(TbFilePath.Text) ? "" : Path.GetFileNameWithoutExtension(TbFilePath.Text));
+        SetResetMenu(TbPadGain,  "100");
+        SetResetMenu(TbStartPos, "0:00.0");
+        SetResetMenu(TbEndPos,   "");
+    }
+
+    private static void SetResetMenu(TextBox tb, string defaultValue)
+    {
+        var cm   = new ContextMenu();
+        var item = new MenuItem { Header = "初期値に戻す" };
+        item.Click += (_, _) => tb.Text = defaultValue;
+        cm.Items.Add(item);
+        tb.ContextMenu = cm;
+    }
+
+    private static void SetResetMenu(TextBox tb, Func<string> getDefault)
+    {
+        var cm   = new ContextMenu();
+        var item = new MenuItem { Header = "初期値に戻す" };
+        item.Click += (_, _) => tb.Text = getDefault();
+        cm.Items.Add(item);
+        tb.ContextMenu = cm;
     }
 
     private void LoadValues()

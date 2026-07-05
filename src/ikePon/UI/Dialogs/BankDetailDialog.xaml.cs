@@ -33,6 +33,12 @@ public partial class BankDetailDialog : Window
         BuildBgColorSwatches();
         TbDisplayName.Focus();
         TbDisplayName.SelectAll();
+
+        var cm   = new ContextMenu();
+        var item = new MenuItem { Header = "初期値に戻す" };
+        item.Click += (_, _) => TbDisplayName.Text = "";
+        cm.Items.Add(item);
+        TbDisplayName.ContextMenu = cm;
     }
 
     private void BuildBgColorSwatches()

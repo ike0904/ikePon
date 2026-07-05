@@ -33,6 +33,22 @@ public partial class SettingsDialog : Window
         TbMovieStandby.Text = string.IsNullOrEmpty(settings.MovieStandbyImagePath)
             ? StandbyHint
             : settings.MovieStandbyImagePath;
+
+        SetResetMenu(TbStandbyFadeIn, "1.0");
+        SetResetMenu(TbLongFade,      "3.0");
+        SetResetMenu(TbInterlock,     "500");
+        SetResetMenu(TbLatency,       "30");
+        SetResetMenu(TbPreload,       "10");
+        SetResetMenu(TbMovieStandby,  StandbyHint);
+    }
+
+    private static void SetResetMenu(TextBox tb, string defaultValue)
+    {
+        var cm   = new ContextMenu();
+        var item = new MenuItem { Header = "初期値に戻す" };
+        item.Click += (_, _) => tb.Text = defaultValue;
+        cm.Items.Add(item);
+        tb.ContextMenu = cm;
     }
 
     private void TbMovieStandby_PreviewDragOver(object sender, System.Windows.DragEventArgs e)

@@ -25,8 +25,9 @@ public sealed class MovieController : IDisposable
 
     public MovieController(AppSettings settings)
     {
-        _settings = settings;
+        _settings     = settings;
         DisplayActive = settings.DisplayOutputActive;
+        _pendingOpen  = settings.DisplayOutputActive;  // 前回DISPがONなら自動で再開
 
         // バックグラウンドでVLC初期化（初回DISP押下の待ち時間を解消）
         Task.Run(() =>
