@@ -10,9 +10,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>1.0.0</Version>
     <AssemblyName>ikePon</AssemblyName>
+    <ApplicationIcon>Assets\ikepon_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\ikepon_icon.png"/>
+    <Resource Include="Assets\ikepon_icon.ico"/>
     <PackageReference Include="LibVLCSharp" Version="3.9.0" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />

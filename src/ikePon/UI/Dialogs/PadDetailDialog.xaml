@@ -5,7 +5,7 @@
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#212121" Foreground="White"
-        MouseDown="Window_MouseDown">
+        PreviewMouseDown="Window_MouseDown">
 
     <Window.Resources>
         <Style TargetType="TextBlock">
@@ -215,7 +215,7 @@
         </Grid>
 
         <!-- 再生終了位置 -->
-        <Grid Margin="0,0,0,4">
+        <Grid Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="130"/>
                 <ColumnDefinition Width="80"/>

@@ -57,7 +57,7 @@ public partial class PadDetailDialog : Window
             string.IsNullOrEmpty(TbFilePath.Text) ? "" : Path.GetFileNameWithoutExtension(TbFilePath.Text));
         SetResetMenu(TbPadGain,  "100");
         SetResetMenu(TbStartPos, "0:00.0");
-        SetResetMenu(TbEndPos,   () => _fileTotalSec > 0 ? SecsToTimestamp(_fileTotalSec) : "");
+        SetResetMenu(TbEndPos,   "");
     }
 
     private static void SetResetMenu(TextBox tb, string defaultValue)
@@ -261,8 +261,9 @@ public partial class PadDetailDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource is not TextBox)
-            FocusManager.SetFocusedElement(this, null);
+        if (e.OriginalSource is TextBox) return;
+        Mouse.Capture(null);
+        Keyboard.ClearFocus();
     }
 
     // ------------------------------------------------------------------

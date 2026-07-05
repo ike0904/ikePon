@@ -228,13 +228,16 @@ public partial class VFaderControl : UserControl
         int slot = Convert.ToInt32(btn.Tag);
         if (slot >= 3 || !_memories[slot].HasValue) { e.Handled = true; return; }
 
-        var cm = new ContextMenu();
+        var cm    = new ContextMenu();
+        var fade  = new MenuItem { Header = "フェード移動" };
         var quick = new MenuItem { Header = "即座に移動" };
         var reReg = new MenuItem { Header = "再登録" };
         var del   = new MenuItem { Header = "削除" };
+        fade.Click  += (_, _) => MemoryRecall?.Invoke(this, (slot, false));
         quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));
         reReg.Click += (_, _) => RequestStoreMemory(slot);
         del.Click   += (_, _) => { _memories[slot] = null; UpdateMemoryButton(slot); };
+        cm.Items.Add(fade);
         cm.Items.Add(quick);
         cm.Items.Add(reReg);
         cm.Items.Add(del);

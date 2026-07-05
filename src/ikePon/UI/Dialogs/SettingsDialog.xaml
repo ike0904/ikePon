@@ -5,7 +5,7 @@
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E" Foreground="#CCCCCC"
-        MouseDown="Window_MouseDown">
+        PreviewMouseDown="Window_MouseDown">
 
     <Window.Resources>
         <Style TargetType="TextBlock">

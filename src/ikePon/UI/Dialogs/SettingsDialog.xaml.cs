@@ -101,8 +101,9 @@ public partial class SettingsDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource is not TextBox)
-            FocusManager.SetFocusedElement(this, null);
+        if (e.OriginalSource is TextBox) return;
+        Mouse.Capture(null);
+        Keyboard.ClearFocus();
     }
 
     // ──────────────────────────── テキストボックス共通 ────────────────────────────

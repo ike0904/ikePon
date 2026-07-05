@@ -146,16 +146,15 @@ public partial class MainWindow : Window
             pad.SeekRequested += (_, fraction) => SeekPad(captured, fraction);
             pad.PadVolumeChanged += (_, gainInt) =>
             {
-                Keyboard.ClearFocus();
                 var padSettings = _playback.GetPadSettings(captured);
                 if (padSettings == null) return;
                 padSettings.PadGain = gainInt / 100.0f;
                 _playback.UpdatePadGain(captured, padSettings.PadGain);
                 MarkDirty();
             };
+            pad.PreviewMouseDown += (_, _) => Keyboard.ClearFocus();
             pad.MouseLeftButtonDown += (_, e) =>
             {
-                Keyboard.ClearFocus();
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
                 bool ctrl  = Keyboard.IsKeyDown(Key.LeftCtrl)  || Keyboard.IsKeyDown(Key.RightCtrl);
                 TriggerPadWithMovie(captured, shift, ctrl);
@@ -473,10 +472,10 @@ public partial class MainWindow : Window
         {
             var fadeOut = new MenuItem { Header = "フェードアウト" };
             fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
-            var stopNow = new MenuItem { Header = "即座に停止" };
-            stopNow.Click += (_, _) => TriggerPadWithMovie(padIndex, stopImmediate: true);
+            var cutOut = new MenuItem { Header = "カットアウト" };
+            cutOut.Click += (_, _) => TriggerPadWithMovie(padIndex, stopImmediate: true);
             cm.Items.Add(fadeOut);
-            cm.Items.Add(stopNow);
+            cm.Items.Add(cutOut);
         }
         else
         {
