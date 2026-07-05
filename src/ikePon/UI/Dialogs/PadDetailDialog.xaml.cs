@@ -261,8 +261,8 @@ public partial class PadDetailDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource is TextBox) return;
-        Mouse.Capture(null);
+        Mouse.Capture(null);  // 前の TextBox によるキャプチャを即時解放
+        if (e.OriginalSource is TextBox tb) { tb.Focus(); return; }
         Keyboard.ClearFocus();
     }
 

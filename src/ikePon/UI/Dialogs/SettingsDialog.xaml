@@ -107,6 +107,23 @@
     <!-- SharedSizeScope で入力欄・単位列の横位置を全行で揃える -->
     <StackPanel Margin="16" Grid.IsSharedSizeScope="True">
 
+        <!-- フェードアウト時間（最重要パラメータのため先頭に配置） -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="フェードアウト時間" Grid.Column="0"/>
+            <TextBox  x:Name="TbLongFade" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
+                      PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
+            <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
+        </Grid>
+
+        <Separator Background="#383838" Margin="0,0,0,12"/>
+
         <!-- ムービー画面設定 -->
         <TextBlock Text="ムービー画面設定" FontWeight="Bold" FontSize="12"
                    Foreground="#AAAAAA" Margin="0,0,0,8"/>
@@ -147,7 +164,7 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="スタンバイ画像フェードイン" Grid.Column="0"/>
+            <TextBlock Text="スタンバイ画像フェードイン時間" Grid.Column="0"/>
             <TextBox x:Name="TbStandbyFadeIn" Grid.Column="1"
                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                      PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
@@ -170,22 +187,6 @@
                 <ComboBoxItem Content="ON"/>
             </ComboBox>
             <!-- 単位列は空（他の行と横位置を合わせるためのプレースホルダ） -->
-        </Grid>
-
-        <Separator Background="#383838" Margin="0,4,0,8"/>
-
-        <Grid Margin="0,0,0,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="フェードアウト時間" Grid.Column="0"/>
-            <TextBox  x:Name="TbLongFade" Grid.Column="1"
-                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
-                      PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
-                      PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
-            <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
         <Separator Background="#383838" Margin="0,8"/>

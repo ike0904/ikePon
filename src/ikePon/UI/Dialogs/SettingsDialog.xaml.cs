@@ -35,7 +35,7 @@ public partial class SettingsDialog : Window
             : settings.MovieStandbyImagePath;
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
-        SetResetMenu(TbLongFade,      "3.0");
+        SetResetMenu(TbLongFade,      "2.0");
         SetResetMenu(TbInterlock,     "500");
         SetResetMenu(TbLatency,       "30");
         SetResetMenu(TbPreload,       "10");
@@ -101,8 +101,8 @@ public partial class SettingsDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource is TextBox) return;
-        Mouse.Capture(null);
+        Mouse.Capture(null);  // 前の TextBox によるキャプチャを即時解放
+        if (e.OriginalSource is TextBox tb) { tb.Focus(); return; }
         Keyboard.ClearFocus();
     }
 

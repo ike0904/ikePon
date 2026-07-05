@@ -233,7 +233,7 @@
         </Grid>
 
         <!-- ループ再生開始位置 -->
-        <Grid x:Name="LoopStartRow" Margin="0,0,0,4">
+        <Grid x:Name="LoopStartRow" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="130"/>
                 <ColumnDefinition Width="80"/>

@@ -9,7 +9,7 @@ public class AppSettings
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ikePon", "settings.json");
 
-    public float LongFadeDuration { get; set; } = 3.0f;
+    public float LongFadeDuration { get; set; } = 2.0f;
     public int WasapiLatencyMs { get; set; } = 30;
     public int PreloadThresholdSeconds { get; set; } = 10;
     public bool PaSeparateMode { get; set; } = false;

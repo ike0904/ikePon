@@ -11,6 +11,7 @@
         KeyDown="Window_KeyDown"
         KeyUp="Window_KeyUp"
         Closing="Window_Closing"
+        PreviewMouseDown="MainWindow_PreviewMouseDown"
         AllowDrop="True"
         DragOver="Window_DragOver"
         Drop="Window_Drop">

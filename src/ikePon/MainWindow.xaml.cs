@@ -339,6 +339,12 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     // キーボードイベント
     // ------------------------------------------------------------------
+    private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // メインウィンドウ内の任意のクリックでミキサースライダーのキーボードフォーカスをリセット
+        Keyboard.ClearFocus();
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.IsRepeat) return;
