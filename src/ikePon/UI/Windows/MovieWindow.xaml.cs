@@ -39,6 +39,8 @@ public partial class MovieWindow : Window
     private bool _videoVisible;
     private int  _playSession;
 
+    public bool IsBuffering { get; private set; }
+
     // WH_MOUSE_LL フック（ダブルクリック検出）
     private IntPtr _mouseHook = IntPtr.Zero;
     private LowLevelMouseProc? _mouseProcDelegate;
@@ -198,13 +200,14 @@ public partial class MovieWindow : Window
     private void PrepareForPlay()
     {
         _playSession++;
+        IsBuffering          = true;
         _videoVisible        = false;
-        VideoView.Visibility = Visibility.Hidden;
+        VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でバッファリング中の黒画面を隠す
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
         StandbyImage.Source     = null; // 黒（スタンバイ画像なし）
         StandbyLayer.Opacity    = 1.0;
         StandbyLayer.Visibility = Visibility.Visible;
-        Debug.WriteLine("[MW] PrepareForPlay: black screen");
+        Logger.Log("[MW] PrepareForPlay: buffering start (VideoView=Collapsed)");
     }
 
     public void PlayVideo(string filePath, double startSec,
@@ -217,7 +220,7 @@ public partial class MovieWindow : Window
         string ext     = System.IO.Path.GetExtension(filePath);
         bool   isVideo = VideoExts.Contains(ext);
         bool   isImage = ImageExts.Contains(ext);
-        Debug.WriteLine($"[MW] PlayVideo ext={ext} video={isVideo} image={isImage} start={startSec:F2}");
+        Logger.Log($"[MW] PlayVideo ext={ext} video={isVideo} image={isImage} start={startSec:F2}");
 
         if (isImage)
         {
@@ -259,7 +262,7 @@ public partial class MovieWindow : Window
             Debug.WriteLine("[MW] FadeVideo: skip (_videoVisible=false)");
             return;
         }
-        Debug.WriteLine($"[MW] FadeVideo: {durationSec:F2}s");
+        Logger.Log($"[MW] FadeVideo: {durationSec:F2}s session={_playSession}");
 
         StopFadeTimer();
         StopStandbyFadeIn();
@@ -328,7 +331,7 @@ public partial class MovieWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             overlay?.Close();
-            Debug.WriteLine("[MW] FadeOut complete → StandbyFadeIn start");
+            Logger.Log("[MW] FadeOut complete → StandbyFadeIn start");
             StartStandbyFadeIn();
         }));
     }
@@ -382,15 +385,19 @@ public partial class MovieWindow : Window
     // 映像を停止してスタンバイ画像を表示する（MovieController からも呼び出し可）
     public void ShowStandby()
     {
-        Debug.WriteLine($"[MW] ShowStandby (videoVisible={_videoVisible})");
+        Logger.Log($"[MW] ShowStandby (videoVisible={_videoVisible})");
+        IsBuffering = false;
+        StopFadeTimer();      // フェード中でも正しく停止（FADEモード時のスタンバイ不表示を防ぐ）
+        StopStandbyFadeIn();
         _playSession++;
         _videoVisible        = false;
-        VideoView.Visibility = Visibility.Hidden;
+        VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でスタンバイを正しく見せる
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
 
-        StandbyLayer.Opacity    = 1.0;
         LoadStandbyImage(_settings.MovieStandbyImagePath);
+        StandbyLayer.Opacity    = 0.0;
         StandbyLayer.Visibility = Visibility.Visible;
+        StartStandbyFadeIn();  // CUT/FADEモードどちらでもフェードイン
     }
 
     public void SeekVideo(float fraction)
@@ -405,7 +412,7 @@ public partial class MovieWindow : Window
 
     private void OnMediaPlaying()
     {
-        Debug.WriteLine($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2}");
+        Logger.Log($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2} session={_playSession}");
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
@@ -415,18 +422,23 @@ public partial class MovieWindow : Window
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            if (_playSession != capturedSession) return; // セッションが変わった（停止・別再生）なら無視
+            IsBuffering = false;
+            if (_playSession != capturedSession)
+            {
+                Logger.Log($"[MW] OnMediaPlaying timer: session mismatch ({capturedSession}!={_playSession}), skip");
+                return;
+            }
             StandbyLayer.Visibility = Visibility.Collapsed;
             VideoView.Visibility    = Visibility.Visible;
             _videoVisible = true;
-            Debug.WriteLine("[MW] OnMediaPlaying (300ms): VideoView=Visible, StandbyLayer=Collapsed");
+            Logger.Log("[MW] OnMediaPlaying (300ms): VideoView=Visible, StandbyLayer=Collapsed");
         };
         timer.Start();
     }
 
     private void OnMediaEnded()
     {
-        Debug.WriteLine($"[MW] EndReached AfterPlayback={_afterPlayback}");
+        Logger.Log($"[MW] EndReached AfterPlayback={_afterPlayback}");
         switch (_afterPlayback)
         {
             case AfterPlaybackBehavior.FreezeLastFrame:

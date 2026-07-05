@@ -280,8 +280,10 @@ public partial class PadDetailDialog : Window
         bool isGain = (tb == TbPadGain);
         if (isGain)
             _dragStartVal = TryParseGainInt(tb.Text, out int v) ? v : 100.0;
+        else if (TryParseTimestampLenient(tb.Text, out float v))
+            _dragStartVal = v;
         else
-            _dragStartVal = TryParseTimestampLenient(tb.Text, out float v) ? v : 0.0;
+            _dragStartVal = (tb == TbEndPos && _fileTotalSec > 0) ? _fileTotalSec : 0.0;
     }
 
     private void NumericBox_MouseMove(object sender, MouseEventArgs e)
@@ -341,7 +343,9 @@ public partial class PadDetailDialog : Window
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         float step = e.Delta > 0 ? (shift ? 1.0f : 0.1f) : (shift ? -1.0f : -0.1f);
 
-        if (!TryParseTimestampLenient(tb.Text, out float val)) val = 0;
+        float val;
+        if (!TryParseTimestampLenient(tb.Text, out val))
+            val = (tb == TbEndPos && _fileTotalSec > 0) ? _fileTotalSec : 0f;
         val = (float)Math.Max(0, val + step);
         if (_fileTotalSec > 0) val = Math.Min(val, _fileTotalSec);
         tb.Text = SecsToTimestamp(val);

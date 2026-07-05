@@ -235,7 +235,7 @@ public partial class MainWindow : Window
                 Tag = new object?[] { content.Children[0] as TextBlock, badge }
             };
             btn.Style = CreateBankButtonStyle();
-            btn.Click += (_, _) => _bankManager.RequestSwitch(captured);
+            btn.Click += (_, _) => RequestBankSwitch(captured);
             btn.MouseRightButtonUp += (_, e) => BankRightClick(captured, e);
 
             _bankButtons[i] = btn;
@@ -487,6 +487,15 @@ public partial class MainWindow : Window
         var padIdx = _keyMapper.GetPadIndex(key);
         if (padIdx.HasValue)
         {
+            // 動画バッファリング中はMOVIEカテゴリパッドの操作を無視
+            var padCat = _playback.GetPadSettings(padIdx.Value)?.Category;
+            if (padCat == AudioCategory.Movie && _movieCtrl.IsBuffering)
+            {
+                Logger.Log($"[MW] Pad{padIdx.Value + 1} blocked: buffering");
+                SetInfo2("バッファリング中...");
+                return true;
+            }
+
             _playback.CutMode = _cutMode;
             if (_panic.IsFading || _panic.IsActivated)
             {
@@ -504,7 +513,7 @@ public partial class MainWindow : Window
         var bankIdx = _keyMapper.GetBankIndex(key);
         if (bankIdx.HasValue)
         {
-            _bankManager.RequestSwitch(bankIdx.Value);
+            RequestBankSwitch(bankIdx.Value);
             return true;
         }
 
@@ -573,6 +582,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void TriggerPadWithMovie(int padIndex, bool fadeOut = false, bool stopImmediate = false)
     {
+        Logger.Log($"[MW] TriggerPad idx={padIndex} fadeOut={fadeOut} stopImmediate={stopImmediate} cutMode={_cutMode}");
         var pad = _playback.GetPadSettings(padIndex);
         bool isMoviePad = pad?.Category == AudioCategory.Movie;
         bool isImagePad = isMoviePad && IsImageFile(pad?.FilePath);
@@ -919,6 +929,30 @@ public partial class MainWindow : Window
         else
             _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
+
+    // ------------------------------------------------------------------
+    // バンク切り替えリクエスト
+    // ------------------------------------------------------------------
+    private void RequestBankSwitch(int bankIndex)
+    {
+        // 同じバンクへの切り替えかつ確認待ちでなければ無視
+        if (bankIndex == _playback.ActiveBank && !_bankManager.IsPendingConfirmation) return;
+        // 確認待ち中、またはアクティブパッドがある場合は確認ダイアログへ
+        if (_bankManager.IsPendingConfirmation || IsAnyPadActive())
+        {
+            _bankManager.RequestSwitch(bankIndex);
+        }
+        else
+        {
+            // 全パッドがアイドル → 即座に切り替え（確認なし）
+            _playback.SwitchBank(bankIndex);
+            UpdateBankHighlight();
+            SetInfo2($"Bank {BankNames[bankIndex]} に切り替えました");
+        }
+    }
+
+    private bool IsAnyPadActive() =>
+        Enumerable.Range(0, BankData.PadCount).Any(i => _playback.GetPadState(i) != PadPlayState.Idle);
 
     // ------------------------------------------------------------------
     // バンクハイライト更新
@@ -1307,7 +1341,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.57{fname}{dirty}";
+        Title = $"ikéPon v1.0.58{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

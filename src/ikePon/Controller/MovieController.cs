@@ -17,7 +17,8 @@ public sealed class MovieController : IDisposable
     private bool _pendingOpen;
 
     public bool DisplayActive { get; private set; }
-    public bool IsFullScreen => _settings.MovieMode == MovieDisplayMode.FullScreen;
+    public bool IsFullScreen  => _settings.MovieMode == MovieDisplayMode.FullScreen;
+    public bool IsBuffering   => _window?.IsBuffering ?? false;
 
     public event Action<bool>? DisplayActiveChanged;
     public event Action<bool>? FullScreenChanged;
