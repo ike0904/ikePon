@@ -1,7 +1,7 @@
 # ikePon 仕様書
 
-**現在バージョン: v1.0.47**
-**最終更新: 2026-07-05（v1.0.47）**
+**現在バージョン: v1.0.48**
+**最終更新: 2026-07-05（v1.0.48）**
 
 ---
 
@@ -431,4 +431,5 @@ src/ikePon/
 | v1.0.44 | **静止画対応**（MOV カテゴリ）：jpg/png 等の静止画ファイルを映像ウィンドウに表示・フェードアウト可。音量・時間表示は非表示。**動画・画像ファイルの自動 MOV カテゴリ設定**（D&D 時・ダイアログ D&D 時）。**BANK 詳細設定の背景色を 1 行配置**（ウィンドウ幅拡大、7+1 の 2 行から 8 色 1 行に）。 |
 | v1.0.45 | **MOV パッド再押しでフェードアウト**（映像も同時フェード、最初から再生しない）。**DISP 開き直し時に映像を再開**（動画再生中に DISP を OFF→ON すると現在位置から映像が再スタート）。 |
 | v1.0.46 | **映像/静止画フェードアウト修正**：Window.Opacity 方式を廃止し、黒いオーバーレイウィンドウを使用（VLC DirectX レンダリング環境でも確実にフェード）。**PANIC 2 回押しで DISP 解除**：音声フェード完了後に 2 回目を押した場合も正しく DISP を閉じるよう修正（_panicActivated フラグを追加）。**MovieWindow フォーカス時でもショートカット有効**：ComponentDispatcher.ThreadPreprocessMessage でキー割り込みを実装。同一モニターのフルスクリーン時も [0] キー/[-] キー/ESC が動作。**フルスクリーン遷移時の白画面修正**：遷移前にフェードタイマーを停止しオーバーレイを閉じる。 |
-| v1.0.47 | **初回 DISP 高速化**：LibVLC をアプリ起動時にバックグラウンドで事前初期化（MovieController）。初期化中に DISP を押した場合はインフォメーションに「映像エンジン初期化中...」を表示し、完了次第自動で開く。**FULL 切り替え白画面修正**：WindowState 変更中に VideoView を Hidden にして VLC HWND フラッシュを防止し、Render 優先度で再表示。**動画再生中のダブルクリック FULL 切り替え**：ComponentDispatcher.ThreadPreprocessMessage で VLC 子 HWND の WM_LBUTTONDBLCLK を捕捉してフルスクリーンをトグル（GetAncestor でウィンドウを特定）。**白画面バグ修正（フェードなし停止）**：ShowStandby() で _videoVisible=true かつ _fadeOverlay=null の場合に即座に黒カバーウィンドウを表示してから StandbyLayer に切り替える（AfterPlayback=Stop 時・StopVideo 時の白フラッシュを解消）。 |
+| v1.0.47 | **初回 DISP 高速化**：LibVLC をアプリ起動時にバックグラウンドで事前初期化（MovieController）。初期化中に DISP を押した場合はインフォメーションに「映像エンジン初期化中...」を表示し、完了次第自動で開く。 |
+| v1.0.48 | **映像表示の根本的な見直し**：LibVLCSharp.WPF の VideoView は内部に独立した Topmost の ForegroundWindow を使うため WPF オーバーレイで覆えない（Airspace 問題）。VideoView.Visibility=Hidden にすると ForegroundWindow も非表示になる性質を利用して全問題を解決。**フェードアウト修正**：FadeVideo() で VideoView を Hidden にしてから StandbyLayer の Opacity を 0→1 でフェードイン（映像が消えてからスタンバイ画像がフェードイン）。**ShowStandby() 修正**：VideoView を Hidden にしてから StandbyLayer を表示（白フラッシュなし）。**OnMediaPlaying() 修正**：VideoView を Visible に戻す処理を追加。**FULL 切り替え白画面修正**：VideoView Hidden + 黒カバーウィンドウの二重対策。**ダブルクリック FULL 切り替え修正**：GetAncestor ではなくスクリーン座標で MovieWindow 矩形内かを判定（ForegroundWindow 上でも動作）。**Debug ログ強化**：[MW] プレフィックスで主要な状態変化を Debug.WriteLine 出力（VS の Output ウィンドウで確認可能）。 |
