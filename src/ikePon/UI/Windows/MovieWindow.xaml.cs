@@ -265,7 +265,11 @@ public partial class MovieWindow : Window
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
 
-        // 全仮想スクリーンを覆う黒 Topmost オーバーレイウィンドウを生成
+        // MovieWindow の表示範囲のみを覆う黒 Topmost オーバーレイウィンドウを生成
+        double overlayLeft   = Left;
+        double overlayTop    = Top;
+        double overlayWidth  = ActualWidth > 0 ? ActualWidth : Width;
+        double overlayHeight = ActualHeight > 0 ? ActualHeight : Height;
         _fadeOverlay = new Window
         {
             WindowStyle   = WindowStyle.None,
@@ -275,10 +279,10 @@ public partial class MovieWindow : Window
             Topmost       = true,
             ShowInTaskbar = false,
             ShowActivated = false,
-            Left   = SystemParameters.VirtualScreenLeft,
-            Top    = SystemParameters.VirtualScreenTop,
-            Width  = SystemParameters.VirtualScreenWidth,
-            Height = SystemParameters.VirtualScreenHeight
+            Left   = overlayLeft,
+            Top    = overlayTop,
+            Width  = overlayWidth,
+            Height = overlayHeight
         };
         _fadeOverlay.Show();
         // オーバーレイを最前面（VLC ForegroundWindow の上）に強制配置

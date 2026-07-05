@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private ProjectData _project;
     private string? _projectFilePath;
     private bool _projectDirty;
+    private bool _initComplete;
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -125,6 +126,7 @@ public partial class MainWindow : Window
         UpdateFullButton(_movieCtrl.IsFullScreen);
         UpdateDispButton(_movieCtrl.DisplayActive);
         SetInfo2("準備完了");
+        _initComplete = true;
     }
 
     // ------------------------------------------------------------------
@@ -208,7 +210,7 @@ public partial class MainWindow : Window
             var badge = new Border
             {
                 Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(2),
                 Padding = new Thickness(4, 1, 4, 1),
@@ -785,6 +787,7 @@ public partial class MainWindow : Window
 
     private void MarkDirty()
     {
+        if (!_initComplete) return;
         if (_projectDirty) return;
         _projectDirty = true;
         UpdateTitle();
@@ -794,7 +797,7 @@ public partial class MainWindow : Window
     {
         var mem = _faders[faderIndex].GetMemory(slot);
         if (!mem.HasValue) return;
-        double duration = quick ? _settings.ShortFadeDuration : _settings.LongFadeDuration;
+        double duration = quick ? 0.0 : _settings.LongFadeDuration;
         _faders[faderIndex].SmoothMoveTo(mem.Value, duration);
     }
 
@@ -916,7 +919,7 @@ public partial class MainWindow : Window
                     tb.Foreground = new SolidColorBrush(Colors.White);
                 if (g.Children[1] is Border badge)
                 {
-                    badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
+                    badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                     if (badge.Child is TextBlock badgeTb)
                         badgeTb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                 }
@@ -1280,7 +1283,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.54{fname}{dirty}";
+        Title = $"ikePon v1.0.55{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

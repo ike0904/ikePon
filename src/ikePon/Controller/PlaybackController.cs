@@ -93,7 +93,7 @@ public sealed class PlaybackController
         // Ctrl: 即座に停止
         if (stopImmediate)
         {
-            src.Stop(_settings.ShortFadeDuration);
+            src.StopImmediate();
             return;
         }
 
@@ -106,12 +106,12 @@ public sealed class PlaybackController
 
         int catIdx = (int)pad.Category;
 
-        // 同カテゴリの別パッドが再生中なら短いフェードアウトで停止
+        // 同カテゴリの別パッドが再生中なら即座に停止
         int prev = _activePad[catIdx];
         if (prev >= 0 && prev != padIndex)
         {
             var prevSrc = _engine.GetSource(bank, prev);
-            prevSrc.Stop(_settings.ShortFadeDuration);
+            prevSrc.StopImmediate();
         }
 
         _activePad[catIdx] = padIndex;
@@ -128,7 +128,7 @@ public sealed class PlaybackController
 
         bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop
                        && pad.Category != AudioCategory.SE;
-        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, _settings.ShortFadeDuration, shouldLoop);
+        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, 0.0f, shouldLoop);
     }
 
     // ------------------------------------------------------------------
@@ -172,7 +172,7 @@ public sealed class PlaybackController
     {
         int bank = _engine.ActiveBank;
         for (int p = 0; p < BankData.PadCount; p++)
-            _engine.GetSource(bank, p).Stop(_settings.ShortFadeDuration);
+            _engine.GetSource(bank, p).StopImmediate();
     }
 
     // ------------------------------------------------------------------

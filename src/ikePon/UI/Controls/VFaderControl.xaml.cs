@@ -241,7 +241,7 @@ public partial class VFaderControl : UserControl
 
         var cm = new ContextMenu();
         var quick = new MenuItem { Header = "即座に移動" };
-        var slow  = new MenuItem { Header = "ゆっくり移動" };
+        var slow  = new MenuItem { Header = "フェード" };
         var reReg = new MenuItem { Header = "再登録" };
         var del   = new MenuItem { Header = "削除" };
         quick.Click += (_, _) => MemoryRecall?.Invoke(this, (slot, true));

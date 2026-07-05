@@ -25,7 +25,6 @@ public partial class SettingsDialog : Window
         InitializeComponent();
         CbPaSeparate.SelectedIndex = settings.PaSeparateMode ? 1 : 0;
         TbStandbyFadeIn.Text = settings.StandbyFadeInDuration.ToString("F1");
-        TbShortFade.Text = settings.ShortFadeDuration.ToString("F1");
         TbLongFade.Text  = settings.LongFadeDuration.ToString("F1");
         TbInterlock.Text = settings.InterLockMs.ToString();
         TbLatency.Text   = settings.WasapiLatencyMs.ToString();
@@ -63,7 +62,6 @@ public partial class SettingsDialog : Window
     private void BtnOk_Click(object sender, RoutedEventArgs e)
     {
         if (!TryParsePositive(TbStandbyFadeIn.Text, 0f, 9.9f, out float standbyFadeIn)) { ShowError(TbStandbyFadeIn, "0.0〜9.9"); return; }
-        if (!TryParsePositive(TbShortFade.Text, 0f, 9.9f, out float shortFade)) { ShowError(TbShortFade, "0.0〜9.9"); return; }
         if (!TryParsePositive(TbLongFade.Text,  0f, 9.9f, out float longFade))  { ShowError(TbLongFade,  "0.0〜9.9"); return; }
         if (!TryParseInt(TbInterlock.Text, 0, 5000, out int interlock))         { ShowError(TbInterlock, "0〜5000");  return; }
         if (!TryParseInt(TbLatency.Text,   1, 500,  out int latency))           { ShowError(TbLatency,   "1〜500");   return; }
@@ -71,7 +69,6 @@ public partial class SettingsDialog : Window
 
         _settings.PaSeparateMode          = CbPaSeparate.SelectedIndex == 1;
         _settings.StandbyFadeInDuration   = standbyFadeIn;
-        _settings.ShortFadeDuration       = shortFade;
         _settings.LongFadeDuration        = longFade;
         _settings.InterLockMs             = interlock;
         _settings.WasapiLatencyMs         = latency;
@@ -98,7 +95,6 @@ public partial class SettingsDialog : Window
     private (double min, double max, bool isFloat) GetBoxParams(TextBox tb)
     {
         if (tb == TbStandbyFadeIn) return (0.0, 9.9, true);
-        if (tb == TbShortFade)     return (0.0, 9.9, true);
         if (tb == TbLongFade)      return (0.0, 9.9, true);
         if (tb == TbInterlock)     return (0.0, 5000.0, false);
         if (tb == TbLatency)       return (1.0, 500.0, false);
@@ -163,18 +159,12 @@ public partial class SettingsDialog : Window
 
     private void NumericBox_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_dragBox == null) return;
+        if (_dragBox == null || sender is not TextBox tb || tb != _dragBox) return;
         if (e.LeftButton != MouseButtonState.Pressed) { _dragBox = null; return; }
-        if (sender is not TextBox tb || tb != _dragBox) return;
 
         double deltaY = _dragStartY - e.GetPosition(this).Y; // 上→増加
-        if (!_isDragging && Math.Abs(deltaY) < 3) return;
-
-        if (!_isDragging)
-        {
-            _isDragging = true;
-            tb.CaptureMouse(); // ドラッグ開始時にマウスをキャプチャ
-        }
+        if (Math.Abs(deltaY) < 3) return;
+        _isDragging = true;
 
         var (min, max, isFloat) = GetBoxParams(tb);
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -188,8 +178,6 @@ public partial class SettingsDialog : Window
 
     private void NumericBox_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (_dragBox != null && Mouse.Captured == _dragBox)
-            _dragBox.ReleaseMouseCapture();
         if (_isDragging) e.Handled = true;
         _dragBox    = null;
         _isDragging = false;
