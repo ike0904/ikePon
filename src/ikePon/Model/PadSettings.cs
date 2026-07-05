@@ -11,6 +11,7 @@ public class PadSettings
     public AfterPlaybackBehavior AfterPlayback { get; set; } = AfterPlaybackBehavior.Stop;
     public string? PadBackgroundColor { get; set; }  // null = default (#3C3C3C)
     public TapBehavior TapBehavior { get; set; } = TapBehavior.FadeOut;
+    public float LoopStartSec { get; set; } = -1f; // -1 = loop from StartPositionSec
 
     public PadSettings Clone() => new()
     {
@@ -23,5 +24,6 @@ public class PadSettings
         AfterPlayback = AfterPlayback,
         PadBackgroundColor = PadBackgroundColor,
         TapBehavior = TapBehavior,
+        LoopStartSec = LoopStartSec,
     };
 }

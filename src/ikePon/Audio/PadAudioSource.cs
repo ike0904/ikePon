@@ -28,10 +28,11 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private float _padGain  = 1f;
 
     // Playback range
-    private float _startSec = 0f;
-    private float _endSec   = -1f; // -1 = end of file
+    private float _startSec     = 0f;
+    private float _endSec       = -1f; // -1 = end of file
+    private float _loopStartSec = -1f; // -1 = loop from _startSec
     private float _shortFadeSec = 0.5f;
-    private bool  _shouldLoop = false;
+    private bool  _shouldLoop   = false;
 
     public WaveFormat WaveFormat => _format;
     public PadPlayState State    => (PadPlayState)_stateInt;
@@ -102,7 +103,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     /// <summary>
     /// パッドをトリガー。再生中・フェード中問わず即座に startSec から再生開始。
     /// </summary>
-    public void Trigger(float startSec, float endSec, float shortFadeSec, bool shouldLoop = false)
+    public void Trigger(float startSec, float endSec, float shortFadeSec, bool shouldLoop = false, float loopStartSec = -1f)
     {
         lock (_lock)
         {
@@ -110,6 +111,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
             _startSec     = Math.Max(0f, startSec);
             _endSec       = endSec;
+            _loopStartSec = loopStartSec;
             _shortFadeSec = shortFadeSec;
             _shouldLoop   = shouldLoop;
 
@@ -219,7 +221,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 if (currentSec >= _endSec)
                 {
                     if (_shouldLoop)
-                        _readPos = Math.Clamp((int)(_startSec * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                    {
+                        float loopTo = _loopStartSec >= 0 ? _loopStartSec : _startSec;
+                        _readPos = Math.Clamp((int)(loopTo * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                    }
                     else
                         TriggerEndFade();
                 }
@@ -232,7 +237,8 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 {
                     if (_shouldLoop)
                     {
-                        _readPos = Math.Clamp((int)(_startSec * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                        float loopTo = _loopStartSec >= 0 ? _loopStartSec : _startSec;
+                        _readPos = Math.Clamp((int)(loopTo * _format.SampleRate * _format.Channels), 0, _preloadTotal);
                         PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
                     }
                     else

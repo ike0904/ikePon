@@ -131,7 +131,7 @@ public sealed class PlaybackController
 
         bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop
                        && pad.Category != AudioCategory.SE;
-        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, 0.0f, shouldLoop);
+        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, 0.0f, shouldLoop, pad.LoopStartSec);
     }
 
     // ------------------------------------------------------------------

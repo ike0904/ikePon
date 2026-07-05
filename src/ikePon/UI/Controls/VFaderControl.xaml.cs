@@ -31,6 +31,8 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushMemStored       = new(Color.FromRgb(0xFF, 0xAA, 0x00));
     private static readonly SolidColorBrush BrushMemEmpty        = new(Color.FromRgb(0x2E, 0x2E, 0x2E));
     private static readonly SolidColorBrush BrushMemText         = new(Color.FromRgb(0x66, 0x66, 0x66));
+    private static readonly SolidColorBrush BrushMuteInactive    = new(Color.FromRgb(0x3A, 0x0E, 0x0E)); // CutOut と同じ暗赤
+    private static readonly SolidColorBrush BrushMuteInactiveBd  = new(Color.FromRgb(0x7A, 0x2A, 0x2A));
     private static readonly SolidColorBrush BrushMemTextMatch    = new(Colors.White);
     private static readonly SolidColorBrush BrushMemTextReg      = new(Colors.White);
     private static readonly SolidColorBrush BrushMemRegistered   = new(Color.FromRgb(0x0E, 0x22, 0x3A)); // 青
@@ -61,11 +63,10 @@ public partial class VFaderControl : UserControl
     public VFaderControl()
     {
         InitializeComponent();
-        Loaded += (_, _) => DrawScale();
-
         _animTimer = new DispatcherTimer(DispatcherPriority.Render)
             { Interval = TimeSpan.FromMilliseconds(16) };
         _animTimer.Tick += AnimTimer_Tick;
+        Loaded += (_, _) => { DrawScale(); UpdateMuteButton(); };
     }
 
     // ------------------------------------------------------------------
@@ -279,16 +280,16 @@ public partial class VFaderControl : UserControl
         if (MuteBtn == null) return;
         if (_isMuted)
         {
-            MuteBtn.Background      = BrushMemStored;
-            MuteBtn.Foreground      = BrushMemTextMatch;
+            MuteBtn.Background      = BrushMemStored;        // 黄色（ミュート中）
+            MuteBtn.Foreground      = BrushMemTextMatch;     // 白
             MuteBtn.BorderBrush     = BrushMemBorderYellow;
             MuteBtn.BorderThickness = new Thickness(2.5);
         }
         else
         {
-            MuteBtn.Background      = BrushMemEmpty;
-            MuteBtn.Foreground      = BrushMemText;
-            MuteBtn.BorderBrush     = BrushMemBorderEmpty;
+            MuteBtn.Background      = BrushMuteInactive;     // 暗赤（常時有効色）
+            MuteBtn.Foreground      = BrushMemTextMatch;     // 白
+            MuteBtn.BorderBrush     = BrushMuteInactiveBd;
             MuteBtn.BorderThickness = new Thickness(1);
         }
     }

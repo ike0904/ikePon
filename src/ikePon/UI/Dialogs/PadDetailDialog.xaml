@@ -232,6 +232,24 @@
             <Label Content="（空欄＝ファイル終端）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
+        <!-- ループ再生開始位置 -->
+        <Grid x:Name="LoopStartRow" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="LblLoopStart" Text="ループ再生開始位置" Grid.Column="0"/>
+            <TextBox x:Name="TbLoopStart" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown"
+                     LostFocus="PosBox_LostFocus"
+                     PreviewMouseDown="NumericBox_MouseDown"
+                     PreviewMouseMove="NumericBox_MouseMove"
+                     PreviewMouseUp="NumericBox_MouseUp"
+                     PreviewMouseWheel="PosBox_MouseWheel"/>
+            <Label Content="（空欄＝先頭から）" Grid.Column="2" Margin="8,0,0,0"/>
+        </Grid>
+
         <Separator Background="#383838" Margin="0,0,0,12"/>
 
         <!-- 最後まで再生した後 -->

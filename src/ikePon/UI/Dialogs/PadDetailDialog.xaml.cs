@@ -23,6 +23,7 @@ public partial class PadDetailDialog : Window
     public AfterPlaybackBehavior ResultAfterPlayback   { get; private set; }
     public string?             ResultPadBackgroundColor { get; private set; }
     public TapBehavior         ResultTapBehavior       { get; private set; }
+    public float               ResultLoopStartSec      { get; private set; }
 
     private string? _selectedBgColor;
 
@@ -105,10 +106,10 @@ public partial class PadDetailDialog : Window
 
         TbStartPos.Text = SecsToTimestamp(_padSettings.StartPositionSec);
 
-        if (_padSettings.EndPositionSec < 0)
-            TbEndPos.Text = _fileTotalSec > 0 ? SecsToTimestamp(_fileTotalSec) : "";
-        else
-            TbEndPos.Text = SecsToTimestamp(_padSettings.EndPositionSec);
+        TbEndPos.Text = _padSettings.EndPositionSec >= 0 ? SecsToTimestamp(_padSettings.EndPositionSec) : "";
+
+        TbLoopStart.Text = _padSettings.LoopStartSec >= 0 ? SecsToTimestamp(_padSettings.LoopStartSec) : "";
+        UpdateLoopStartState();
 
         if (_fileTotalSec > 0)
             LblTotalTime.Content = $"/ {SecsToTimestamp(_fileTotalSec)}  （総時間）";
@@ -171,6 +172,7 @@ public partial class PadDetailDialog : Window
 
         CommitPosBox(TbStartPos);
         CommitPosBox(TbEndPos);
+        CommitPosBox(TbLoopStart);
 
         float startSec = 0f;
         if (!string.IsNullOrWhiteSpace(TbStartPos.Text))
@@ -184,6 +186,14 @@ public partial class PadDetailDialog : Window
         {
             if (!TryParseTimestampLenient(TbEndPos.Text, out endSec) || endSec <= startSec)
             { ShowError(TbEndPos, "開始位置より後の時刻を入力してください"); return; }
+        }
+
+        float loopStartSec = -1f;
+        bool isLoop = CbAfterPlayback.SelectedIndex == 2;
+        if (isLoop && !string.IsNullOrWhiteSpace(TbLoopStart.Text))
+        {
+            if (!TryParseTimestampLenient(TbLoopStart.Text, out loopStartSec) || loopStartSec < 0)
+                loopStartSec = -1f;
         }
 
         ResultCategory           = cat;
@@ -200,8 +210,9 @@ public partial class PadDetailDialog : Window
         };
         ResultPadBackgroundColor = _selectedBgColor;
         var isSE = cat == AudioCategory.SE;
-        ResultTapBehavior = (!isSE && CbTapBehavior.SelectedIndex == 1)
+        ResultTapBehavior   = (!isSE && CbTapBehavior.SelectedIndex == 1)
             ? TapBehavior.CutOut : TapBehavior.FadeOut;
+        ResultLoopStartSec  = loopStartSec;
 
         DialogResult = true;
     }
@@ -214,7 +225,10 @@ public partial class PadDetailDialog : Window
         UpdateTapBehaviorState();
     }
 
-    private void CbAfterPlayback_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void CbAfterPlayback_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateLoopStartState();
+    }
 
     private void UpdateAfterPlaybackItemStates()
     {
@@ -235,6 +249,14 @@ public partial class PadDetailDialog : Window
         bool isSE = CbCategory.SelectedIndex == 2;
         CbTapBehavior.IsEnabled = !isSE;
         if (isSE) CbTapBehavior.SelectedIndex = 0;
+    }
+
+    private void UpdateLoopStartState()
+    {
+        if (TbLoopStart == null) return;
+        bool isLoop = CbAfterPlayback.SelectedIndex == 2;
+        TbLoopStart.IsEnabled = isLoop;
+        TbLoopStart.Opacity   = isLoop ? 1.0 : 0.4;
     }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)

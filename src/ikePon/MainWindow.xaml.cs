@@ -146,6 +146,7 @@ public partial class MainWindow : Window
             pad.SeekRequested += (_, fraction) => SeekPad(captured, fraction);
             pad.PadVolumeChanged += (_, gainInt) =>
             {
+                Keyboard.ClearFocus();
                 var padSettings = _playback.GetPadSettings(captured);
                 if (padSettings == null) return;
                 padSettings.PadGain = gainInt / 100.0f;
@@ -154,6 +155,7 @@ public partial class MainWindow : Window
             };
             pad.MouseLeftButtonDown += (_, e) =>
             {
+                Keyboard.ClearFocus();
                 bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
                 bool ctrl  = Keyboard.IsKeyDown(Key.LeftCtrl)  || Keyboard.IsKeyDown(Key.RightCtrl);
                 TriggerPadWithMovie(captured, shift, ctrl);
@@ -462,6 +464,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void PadRightClick(int padIndex, MouseButtonEventArgs e)
     {
+        Keyboard.ClearFocus();
         var state = _playback.GetPadState(padIndex);
         bool imageActive = _imageDisplayingPadIndex == padIndex;
         var cm = new ContextMenu();
@@ -661,6 +664,7 @@ public partial class MainWindow : Window
         pad.AfterPlayback        = dlg.ResultAfterPlayback;
         pad.PadBackgroundColor   = dlg.ResultPadBackgroundColor;
         pad.TapBehavior          = dlg.ResultTapBehavior;
+        pad.LoopStartSec         = dlg.ResultLoopStartSec;
 
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
@@ -854,7 +858,7 @@ public partial class MainWindow : Window
         _imageDisplayingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
-        _movieCtrl.PanicStop();
+        _movieCtrl.StopVideo(); // DISPウィンドウは閉じず映像のみ停止
     }
 
     // ------------------------------------------------------------------
