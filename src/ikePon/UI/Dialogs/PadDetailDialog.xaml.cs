@@ -54,7 +54,7 @@ public partial class PadDetailDialog : Window
             string.IsNullOrEmpty(TbFilePath.Text) ? "" : Path.GetFileNameWithoutExtension(TbFilePath.Text));
         SetResetMenu(TbPadGain,  "100");
         SetResetMenu(TbStartPos, "0:00.0");
-        SetResetMenu(TbEndPos,   "");
+        SetResetMenu(TbEndPos,   () => _fileTotalSec > 0 ? SecsToTimestamp(_fileTotalSec) : "");
     }
 
     private static void SetResetMenu(TextBox tb, string defaultValue)
@@ -103,7 +103,7 @@ public partial class PadDetailDialog : Window
         TbStartPos.Text = SecsToTimestamp(_padSettings.StartPositionSec);
 
         if (_padSettings.EndPositionSec < 0)
-            TbEndPos.Text = "";
+            TbEndPos.Text = _fileTotalSec > 0 ? SecsToTimestamp(_fileTotalSec) : "";
         else
             TbEndPos.Text = SecsToTimestamp(_padSettings.EndPositionSec);
 

@@ -35,7 +35,7 @@ public partial class PadButton : UserControl
     private PadPlayState _state = PadPlayState.Idle;
     private AudioCategory _category = AudioCategory.BGM;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
-    private ModifierState _modifier = ModifierState.None;
+    private bool _cutMode;
     private float _progress;
     private float _fadeGain = 1f;
     private float _totalSec;
@@ -243,17 +243,17 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, ModifierState modifier, float fadeGain = 1f, float totalSec = 0f)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, bool cutMode, float fadeGain = 1f, float totalSec = 0f)
     {
-        // modifier変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
-        bool modifierAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
+        // cutMode変化はIdle以外の時のみ再描画トリガー（全Idleパッドの同時更新でレイアウトが揺れるのを防ぐ）
+        bool modeAffectsVisual = state != PadPlayState.Idle || _state != PadPlayState.Idle;
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
         float newStartSec = settings?.StartPositionSec ?? 0f;
         float newEndSec   = settings?.EndPositionSec   ?? -1f;
         bool changed = !_initialized ||
                        _state != state ||
-                       (modifierAffectsVisual && _modifier != modifier) ||
+                       (modeAffectsVisual && _cutMode != cutMode) ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
                        Math.Abs(_progress - progress) > 0.001f ||
@@ -264,7 +264,7 @@ public partial class PadButton : UserControl
         _initialized = true;
 
         _state = state;
-        _modifier = modifier;
+        _cutMode = cutMode;
         _fadeGain = fadeGain;
 
         if (settings != null)
@@ -330,12 +330,9 @@ public partial class PadButton : UserControl
         // BorderRootは常にデフォルト色（ユーザーがカスタマイズできるよう固定）
         bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
         DeadZone.Background = (state == PadPlayState.FadingOut) ? BrushPadDefault :
-            modifier switch
-            {
-                ModifierState.Shift => playing ? BrushShift    : BrushPadDefault,
-                ModifierState.Ctrl  => playing ? BrushCtrl     : BrushPadDefault,
-                _                   => (playing && isMovieBgm) ? BrushShift : BrushPadDefault
-            };
+            (playing && isMovieBgm)
+                ? (cutMode ? BrushCtrl : BrushShift)
+                : BrushPadDefault;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
         if (state == PadPlayState.FadingOut)
@@ -412,4 +409,3 @@ public partial class PadButton : UserControl
     }
 }
 
-public enum ModifierState { None, Shift, Ctrl }

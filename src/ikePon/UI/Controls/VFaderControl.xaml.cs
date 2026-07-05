@@ -19,7 +19,7 @@ public partial class VFaderControl : UserControl
 
     private float?[] _memories = new float?[4];
     private bool _suppressEvent;
-    private ModifierState _currentModifier = ModifierState.None;
+    private bool _cutMode;
 
     // アニメーション
     private readonly DispatcherTimer _animTimer;
@@ -168,12 +168,12 @@ public partial class VFaderControl : UserControl
     {
         if (slot < 0 || slot >= 4) return;
         _memories[slot] = (float)gain;
-        UpdateMemoryButton(slot, true, _currentModifier);
+        UpdateMemoryButton(slot, true, _cutMode);
     }
 
     public float? GetMemory(int slot) => slot >= 0 && slot < 4 ? _memories[slot] : null;
 
-    private void UpdateMemoryButton(int slot, bool stored, ModifierState modifier = ModifierState.None)
+    private void UpdateMemoryButton(int slot, bool stored, bool cutMode = false)
     {
         var btn = slot switch { 0 => Mem1, 1 => Mem2, 2 => Mem3, _ => Mem4 };
         if (!stored)
@@ -193,16 +193,16 @@ public partial class VFaderControl : UserControl
                 btn.BorderBrush      = BrushMemBorderYellow;
                 btn.BorderThickness  = new Thickness(2.5);
             }
-            else if (modifier == ModifierState.Shift)
+            else if (!cutMode)
             {
-                btn.Background       = BrushMemRegistered;
+                btn.Background       = BrushMemRegistered;   // FADEモード → 青
                 btn.Foreground       = BrushMemTextReg;
                 btn.BorderBrush      = BrushMemBorderEmpty;
                 btn.BorderThickness  = new Thickness(1);
             }
             else
             {
-                btn.Background       = BrushMemRedReg;
+                btn.Background       = BrushMemRedReg;       // CUTモード → 赤
                 btn.Foreground       = BrushMemTextReg;
                 btn.BorderBrush      = BrushMemBorderEmpty;
                 btn.BorderThickness  = new Thickness(1);
@@ -214,12 +214,12 @@ public partial class VFaderControl : UserControl
     {
         if (Mem1 == null) return;
         for (int i = 0; i < 4; i++)
-            UpdateMemoryButton(i, _memories[i].HasValue, _currentModifier);
+            UpdateMemoryButton(i, _memories[i].HasValue, _cutMode);
     }
 
-    public void UpdateModifierState(ModifierState modifier)
+    public void UpdateCutMode(bool cutMode)
     {
-        _currentModifier = modifier;
+        _cutMode = cutMode;
         UpdateAllMemoryButtons();
     }
 
@@ -228,7 +228,7 @@ public partial class VFaderControl : UserControl
         if (sender is not Button btn) return;
         int slot = Convert.ToInt32(btn.Tag);
         if (_memories[slot].HasValue)
-            MemoryRecall?.Invoke(this, (slot, true));  // 登録済 → 即座に移動
+            MemoryRecall?.Invoke(this, (slot, _cutMode));  // CUT=即座, FADE=フェード移動
         else
             StoreMemory(slot, Value);  // 空 → 現在値を登録
     }

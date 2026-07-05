@@ -53,18 +53,20 @@ public partial class MainWindow : Window
     private int _imageDisplayingPadIndex = -1;
 
     private readonly DispatcherTimer _uiTimer;
-    private ModifierState _modifier = ModifierState.None;
+    private bool _cutMode;
 
     // PANICボタンのテンプレートパーツ（遅延キャッシュ）
     private System.Windows.Controls.Border? _panicBd;
     private System.Windows.Controls.TextBlock? _panicText;
     private bool _prevPanicFading;
 
-    // FULL/DISPボタンのテンプレートパーツ（遅延キャッシュ）
+    // FULL/DISP/FADE-CUTボタンのテンプレートパーツ（遅延キャッシュ）
     private System.Windows.Controls.Border? _fullBd;
     private System.Windows.Controls.TextBlock? _fullText;
     private System.Windows.Controls.Border? _dispBd;
     private System.Windows.Controls.TextBlock? _dispText;
+    private System.Windows.Controls.Border? _fadeCutBd;
+    private System.Windows.Controls.TextBlock? _fadeCutText;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -80,10 +82,6 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushInfoWarnText = new(Color.FromRgb(0xFF, 0xDD, 0x00));
     private static readonly SolidColorBrush BrushInfoNormal   = new(Colors.White);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
-    private static extern short GetKeyState(int keyCode);
-    private static bool IsShiftDown() => (GetKeyState(0x10) & 0x8000) != 0;
-    private static bool IsCtrlDown()  => (GetKeyState(0x11) & 0x8000) != 0;
 
     public MainWindow()
     {
@@ -343,7 +341,7 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
-            _padButtons[i].UpdateState(state, pos, pad, _modifier, fadeGain, totalSec);
+            _padButtons[i].UpdateState(state, pos, pad, _cutMode, fadeGain, totalSec);
 
             if (state != PadPlayState.Idle)
             {
@@ -353,7 +351,7 @@ public partial class MainWindow : Window
         }
 
         for (int i = 0; i < _faders.Length; i++)
-            _faders[i].UpdateModifierState(_modifier);
+            _faders[i].UpdateCutMode(_cutMode);
 
         // PANICボタン色更新（フェード中は黄色→通常色にアニメーション）
         bool isFading = _panic.IsFading;
@@ -400,14 +398,7 @@ public partial class MainWindow : Window
         if (HandleKeyDown(e.Key)) e.Handled = true;
     }
 
-    private void Window_KeyUp(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.LeftShift || e.Key == Key.RightShift ||
-            e.Key == Key.LeftCtrl  || e.Key == Key.RightCtrl)
-        {
-            _modifier = ModifierState.None;
-        }
-    }
+    private void Window_KeyUp(object sender, KeyEventArgs e) { }
 
     // MovieWindowがフォーカスを持つときでもショートカットを動作させる
     private void OnGlobalKey(ref MSG msg, ref bool handled)
@@ -424,11 +415,8 @@ public partial class MainWindow : Window
 
         var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
 
-        // 修飾キー更新（グローバルハンドラでもShift/Ctrl追跡）
-        if (key == Key.LeftShift || key == Key.RightShift) { _modifier = ModifierState.Shift; return; }
-        if (key == Key.LeftCtrl  || key == Key.RightCtrl)  { _modifier = ModifierState.Ctrl;  return; }
-
         bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
+                        key == Key.Space ||
                         _keyMapper.GetPadIndex(key).HasValue ||
                         _keyMapper.GetBankIndex(key).HasValue;
         if (!isOurKey) return;
@@ -439,12 +427,6 @@ public partial class MainWindow : Window
     // true を返した場合は e.Handled = true にする
     private bool HandleKeyDown(Key key)
     {
-        // 修飾キー状態更新
-        if (key == Key.LeftShift || key == Key.RightShift)
-        { _modifier = ModifierState.Shift; return false; }
-        if (key == Key.LeftCtrl || key == Key.RightCtrl)
-        { _modifier = ModifierState.Ctrl; return false; }
-
         // バンク確認中は Y/N のみ受け付け
         if (_pendingBankConfirm)
         {
@@ -493,15 +475,20 @@ public partial class MainWindow : Window
             return true;
         }
 
+        // FADE/CUT モード切り替え（Spaceキー）
+        if (key == Key.Space)
+        {
+            if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
+            ToggleCutMode();
+            return true;
+        }
+
         // パッドキー
         var padIdx = _keyMapper.GetPadIndex(key);
         if (padIdx.HasValue)
         {
-            // Win32 GetKeyState で正確な修飾キー状態を取得（グローバル呼び出し対応）
-            bool shift = IsShiftDown() || _modifier == ModifierState.Shift;
-            bool ctrl  = IsCtrlDown()  || _modifier == ModifierState.Ctrl;
-            // 通常再生トリガーの場合、PANICフェードを中断して即座停止
-            if (!shift && !ctrl && (_panic.IsFading || _panic.IsActivated))
+            _playback.CutMode = _cutMode;
+            if (_panic.IsFading || _panic.IsActivated)
             {
                 _playback.PanicStopAll();
                 _panic.ClearAllState();
@@ -509,7 +496,7 @@ public partial class MainWindow : Window
                 _movieCtrl.StopVideo();
                 _imageDisplayingPadIndex = -1;
             }
-            TriggerPadWithMovie(padIdx.Value, shift, ctrl);
+            TriggerPadWithMovie(padIdx.Value);
             return true;
         }
 
@@ -638,8 +625,11 @@ public partial class MainWindow : Window
         }
         else if (wasActive)
         {
-            // 同パッド再押し → 音声フェード開始済み → 映像もフェード
-            _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+            // 同パッド再押し → 音声停止済み → 映像も同様に停止
+            if (_cutMode)
+                _movieCtrl.StopVideo();
+            else
+                _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
         }
         else if (!string.IsNullOrEmpty(pad!.FilePath))
@@ -878,6 +868,40 @@ public partial class MainWindow : Window
             _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
             _dispBd.BorderThickness = new Thickness(2);
             _dispText.Foreground    = new SolidColorBrush(Colors.White);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // FADE/CUTモードボタン
+    // ------------------------------------------------------------------
+    private void FadeCutButton_Click(object sender, RoutedEventArgs e) => ToggleCutMode();
+
+    private void ToggleCutMode()
+    {
+        _cutMode = !_cutMode;
+        _playback.CutMode = _cutMode;
+        UpdateFadeCutButton();
+    }
+
+    private void UpdateFadeCutButton()
+    {
+        _fadeCutBd   ??= FadeCutButton.Template.FindName("FadeCutBd",   FadeCutButton) as System.Windows.Controls.Border;
+        _fadeCutText ??= FadeCutButton.Template.FindName("FadeCutText", FadeCutButton) as System.Windows.Controls.TextBlock;
+        if (_fadeCutBd == null || _fadeCutText == null) return;
+
+        if (_cutMode)
+        {
+            _fadeCutBd.Background      = new SolidColorBrush(Color.FromRgb(0x3D, 0x1C, 0x1C));
+            _fadeCutBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _fadeCutBd.BorderThickness = new Thickness(2.5);
+            _fadeCutText.Text          = "CUT";
+        }
+        else
+        {
+            _fadeCutBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x3D));
+            _fadeCutBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x66));
+            _fadeCutBd.BorderThickness = new Thickness(2);
+            _fadeCutText.Text          = "FADE";
         }
     }
 
@@ -1283,7 +1307,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.56{fname}{dirty}";
+        Title = $"ikePon v1.0.57{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

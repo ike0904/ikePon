@@ -118,6 +118,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="130"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- PANIC ボタン（左側） -->
@@ -174,11 +175,63 @@
                     </Button>
                 </Grid>
 
-                <!-- FULLボタン（右端から2番目） -->
-                <Button x:Name="FullButton"
+                <!-- FADE/CUTモードボタン（FULLの左隣） -->
+                <Button x:Name="FadeCutButton"
                         Grid.Column="2"
                         Height="44"
-                        Margin="6,0,0,0"
+                        Margin="0,0,0,0"
+                        Cursor="Hand"
+                        Click="FadeCutButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="FadeCutBd" Background="#1C1C3D"
+                                                BorderBrush="#333366" BorderThickness="2" CornerRadius="6">
+                                            <Grid>
+                                                <TextBlock x:Name="FadeCutText"
+                                                           Text="FADE"
+                                                           FontSize="15" FontWeight="Bold"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Panel.ZIndex="1"/>
+                                                <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
+                                                        BorderThickness="1" CornerRadius="2"
+                                                        Padding="4,1"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                        Margin="0,0,4,3"
+                                                        RenderTransformOrigin="1,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform ScaleX="0.7" ScaleY="1.0"/>
+                                                    </Border.RenderTransform>
+                                                    <TextBlock Text="SPC"
+                                                               FontSize="16" FontWeight="Bold"
+                                                               FontFamily="Consolas"
+                                                               Foreground="#AAAAAA"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="FadeCutBd" Property="Opacity" Value="0.85"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="FadeCutBd" Property="Opacity" Value="0.7"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- FULLボタン（右端から2番目） -->
+                <Button x:Name="FullButton"
+                        Grid.Column="3"
+                        Height="44"
+                        Margin="16,0,0,0"
                         Cursor="Hand"
                         Click="FullButton_Click">
                     <Button.Style>
@@ -224,7 +277,7 @@
 
                 <!-- DISPLAYボタン（右端） -->
                 <Button x:Name="DispButton"
-                        Grid.Column="3"
+                        Grid.Column="4"
                         Height="44"
                         Margin="4,0,0,0"
                         Cursor="Hand"

@@ -37,6 +37,7 @@ public partial class MovieWindow : Window
     private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private bool _videoVisible;
+    private int  _playSession;
 
     // WH_MOUSE_LL フック（ダブルクリック検出）
     private IntPtr _mouseHook = IntPtr.Zero;
@@ -196,6 +197,7 @@ public partial class MovieWindow : Window
     // 動画再生開始前の準備：スタンバイ画像は表示せず黒のみ（フラッシュ防止）
     private void PrepareForPlay()
     {
+        _playSession++;
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
@@ -381,6 +383,7 @@ public partial class MovieWindow : Window
     public void ShowStandby()
     {
         Debug.WriteLine($"[MW] ShowStandby (videoVisible={_videoVisible})");
+        _playSession++;
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
@@ -406,10 +409,19 @@ public partial class MovieWindow : Window
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        StandbyLayer.Visibility = Visibility.Collapsed;
-        VideoView.Visibility    = Visibility.Visible;
-        _videoVisible = true;
-        Debug.WriteLine("[MW] OnMediaPlaying: VideoView=Visible, StandbyLayer=Collapsed");
+        // 300ms待ってからVideoViewを表示（バッファリング完了待ち・黒画面防止）
+        int capturedSession = _playSession;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (_playSession != capturedSession) return; // セッションが変わった（停止・別再生）なら無視
+            StandbyLayer.Visibility = Visibility.Collapsed;
+            VideoView.Visibility    = Visibility.Visible;
+            _videoVisible = true;
+            Debug.WriteLine("[MW] OnMediaPlaying (300ms): VideoView=Visible, StandbyLayer=Collapsed");
+        };
+        timer.Start();
     }
 
     private void OnMediaEnded()

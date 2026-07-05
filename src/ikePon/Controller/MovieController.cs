@@ -35,7 +35,7 @@ public sealed class MovieController : IDisposable
             try
             {
                 Core.Initialize();
-                _libVLC = new LibVLC("--no-audio", "--no-video-title-show");
+                _libVLC = new LibVLC("--no-audio", "--aout=none", "--no-video-title-show");
                 _vlcReady = true;
 
                 if (_pendingOpen)
