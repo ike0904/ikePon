@@ -408,6 +408,8 @@ public partial class MainWindow : Window
         if (msg.message != WM_KEYDOWN || handled) return;
         if (IsActive) return;                    // メインウィンドウが既にアクティブなら通常処理
         if (!_movieCtrl.DisplayActive) return;   // DISPが開いていない場合は不要
+        // ダイアログが開いている場合はショートカット無効（ダイアログの操作を妨げない）
+        if (OwnedWindows.OfType<Window>().Any(w => w.IsVisible)) return;
 
         int lParam = msg.lParam.ToInt32();
         if ((lParam & 0x40000000) != 0) return;  // リピートキーは無視
@@ -1272,7 +1274,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.50{fname}{dirty}";
+        Title = $"ikePon v1.0.51{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
