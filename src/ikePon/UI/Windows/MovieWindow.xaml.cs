@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -21,7 +23,7 @@ public partial class MovieWindow : Window
     private DispatcherTimer? _fadeTimer;
     private long _fadeStartTick;
     private double _fadeDurationSec;
-    private Window? _fadeOverlay; // 黒オーバーレイウィンドウ（フェード用）
+    private Window? _fadeOverlay;
 
     private bool _isFullScreen;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
@@ -35,28 +37,29 @@ public partial class MovieWindow : Window
     private static readonly HashSet<string> ImageExts =
         new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+    private const uint GA_ROOT = 2;
+
     public bool IsFullScreen => _isFullScreen;
 
     public event Action<bool>? FullScreenChanged;
 
-    public MovieWindow(AppSettings settings)
+    // LibVLC はMovieControllerが管理するため、ここでは参照のみ保持してDisposeしない
+    public MovieWindow(AppSettings settings, LibVLC libVLC)
     {
         _settings = settings;
-
-        Core.Initialize();
-        _libVLC      = new LibVLC("--no-audio", "--no-video-title-show");
+        _libVLC = libVLC;
         _mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
 
         InitializeComponent();
 
-        // VideoView の HWND 確保後に MediaPlayer を割り当てる
         Loaded += (_, _) =>
         {
             VideoView.MediaPlayer = _mediaPlayer;
             Debug.WriteLine("[MovieWindow] Loaded: MediaPlayer assigned to VideoView");
         };
 
-        // イベント（別スレッドから発火するため Dispatcher 経由）
         _mediaPlayer.Playing          += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
         _mediaPlayer.EndReached       += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
         _mediaPlayer.EncounteredError += (_, _) => Dispatcher.BeginInvoke(OnMediaError);
@@ -73,6 +76,27 @@ public partial class MovieWindow : Window
         }
 
         LoadStandbyImage(_settings.MovieStandbyImagePath);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        // VLC子HWNDのダブルクリックをフックして全画面切り替えに使う（問題3対策）
+        ComponentDispatcher.ThreadPreprocessMessage += OnThreadPreprocessMessage;
+    }
+
+    private void OnThreadPreprocessMessage(ref MSG msg, ref bool handled)
+    {
+        const int WM_LBUTTONDBLCLK = 0x0203;
+        if (msg.message != WM_LBUTTONDBLCLK || handled) return;
+
+        // このウィンドウ（またはVLC子HWND）でのダブルクリックかを確認
+        var myHwnd = new WindowInteropHelper(this).Handle;
+        var rootHwnd = GetAncestor(msg.hwnd, GA_ROOT);
+        if (rootHwnd != myHwnd) return;
+
+        SetFullScreen(!_isFullScreen);
+        handled = true;
     }
 
     public void LoadStandbyImage(string? path)
@@ -131,7 +155,6 @@ public partial class MovieWindow : Window
         ShowStandby();
     }
 
-    // 黒オーバーレイウィンドウをフェードインさせて映像を隠す（VLC DirectX レンダリング対応）
     public void FadeVideo(double durationSec)
     {
         if (!_videoVisible) return;
@@ -139,44 +162,7 @@ public partial class MovieWindow : Window
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
 
-        // 黒オーバーレイウィンドウを作成（VLC HWNDの上に重ねる）
-        var overlay = new Window
-        {
-            WindowStyle   = WindowStyle.None,
-            ResizeMode    = ResizeMode.NoResize,
-            Background    = Brushes.Black,
-            Opacity       = 0,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            Topmost       = true,
-        };
-
-        if (_isFullScreen)
-        {
-            // フルスクリーン: 同じモニターを全画面で覆う
-            overlay.Left = _savedLeft;
-            overlay.Top  = _savedTop;
-            overlay.Show();
-            overlay.WindowState = WindowState.Maximized;
-        }
-        else if (WindowState == WindowState.Maximized)
-        {
-            overlay.Left   = Left;
-            overlay.Top    = Top;
-            overlay.Width  = ActualWidth;
-            overlay.Height = ActualHeight;
-            overlay.Show();
-        }
-        else
-        {
-            overlay.Left   = Left;
-            overlay.Top    = Top;
-            overlay.Width  = ActualWidth;
-            overlay.Height = ActualHeight;
-            overlay.Show();
-        }
-
-        _fadeOverlay = overlay;
+        _fadeOverlay = MakeCoverWindow(opacity: 0);
 
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _fadeTimer.Tick += FadeTimer_Tick;
@@ -189,7 +175,6 @@ public partial class MovieWindow : Window
         double progress = elapsed / _fadeDurationSec;
         if (progress >= 1.0)
         {
-            // タイマーを止め、オーバーレイは ShowStandby で閉じる（フラッシュ防止）
             if (_fadeTimer != null)
             {
                 _fadeTimer.Stop();
@@ -202,7 +187,7 @@ public partial class MovieWindow : Window
         else
         {
             if (_fadeOverlay != null)
-                _fadeOverlay.Opacity = progress; // 0→1（透明→黒）
+                _fadeOverlay.Opacity = progress;
         }
     }
 
@@ -214,7 +199,7 @@ public partial class MovieWindow : Window
             _fadeTimer.Tick -= FadeTimer_Tick;
             _fadeTimer = null;
         }
-        CloseFadeOverlay(); // 中断時は即座に閉じる
+        CloseFadeOverlay();
     }
 
     private void CloseFadeOverlay()
@@ -224,20 +209,59 @@ public partial class MovieWindow : Window
         _fadeOverlay = null;
     }
 
+    // フェードなしで停止する場合も黒カバーで白フラッシュを防ぐ（問題4対策）
     private void ShowStandby()
     {
+        if (_videoVisible && _fadeOverlay == null)
+        {
+            var cover = MakeCoverWindow(opacity: 1.0);
+            _fadeOverlay = cover;
+        }
+
         _mediaPlayer.Stop();
+        _videoVisible = false;
         StandbyLayer.Opacity    = 1.0;
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Visibility = Visibility.Visible;
-        _videoVisible = false;
-        // スタンバイが描画された後にオーバーレイを閉じる（白フラッシュ防止）
+
         if (_fadeOverlay != null)
         {
             var overlay = _fadeOverlay;
             _fadeOverlay = null;
             Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(overlay.Close));
         }
+    }
+
+    // 黒カバーウィンドウを作成（フェード用・フラッシュ防止用）
+    private Window MakeCoverWindow(double opacity)
+    {
+        var w = new Window
+        {
+            WindowStyle   = WindowStyle.None,
+            ResizeMode    = ResizeMode.NoResize,
+            Background    = Brushes.Black,
+            Opacity       = opacity,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost       = true,
+        };
+
+        if (_isFullScreen)
+        {
+            w.Left = _savedLeft;
+            w.Top  = _savedTop;
+            w.Show();
+            w.WindowState = WindowState.Maximized;
+        }
+        else
+        {
+            w.Left   = Left;
+            w.Top    = Top;
+            w.Width  = ActualWidth;
+            w.Height = ActualHeight;
+            w.Show();
+        }
+        return w;
     }
 
     public void SeekVideo(float fraction)
@@ -288,10 +312,11 @@ public partial class MovieWindow : Window
     {
         if (full == _isFullScreen) return;
 
-        // フルスクリーン遷移前にフェードを中断してオーバーレイを閉じる（白画面防止）
         StopFadeTimer();
-
         _isFullScreen = full;
+
+        // WindowState変更中にVLC HWNDが白くなるのを防ぐ（問題2対策）
+        VideoView.Visibility = Visibility.Hidden;
 
         if (full)
         {
@@ -314,17 +339,26 @@ public partial class MovieWindow : Window
             Height = _savedHeight;
         }
 
+        // レンダリング後に VideoView を復元
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+        {
+            VideoView.Visibility = Visibility.Visible;
+        }));
+
         FullScreenChanged?.Invoke(_isFullScreen);
     }
 
     private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // StandbyLayer（WPF）上のダブルクリックはここで処理される
+        // VideoView（VLC HWND）上はOnThreadPreprocessMessageで処理
         if (e.ChangedButton != MouseButton.Left) return;
         SetFullScreen(!_isFullScreen);
     }
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
+        ComponentDispatcher.ThreadPreprocessMessage -= OnThreadPreprocessMessage;
         StopFadeTimer();
         _mediaPlayer.Stop();
 
@@ -338,7 +372,7 @@ public partial class MovieWindow : Window
         _settings.MovieWindowWidth  = saveWidth;
         _settings.MovieWindowHeight = saveHeight;
 
+        // _libVLCはMovieControllerが管理するためDisposeしない
         _mediaPlayer.Dispose();
-        _libVLC.Dispose();
     }
 }

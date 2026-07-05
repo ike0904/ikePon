@@ -1,35 +1,71 @@
 using System;
+using System.Threading.Tasks;
+using System.Windows;
 using ikePon.Model;
 using ikePon.UI.Windows;
+using LibVLCSharp.Shared;
 
 namespace ikePon.Controller;
 
-public sealed class MovieController
+public sealed class MovieController : IDisposable
 {
     private readonly AppSettings _settings;
     private MovieWindow? _window;
+
+    private LibVLC? _libVLC;
+    private volatile bool _vlcReady;
+    private bool _pendingOpen;
 
     public bool DisplayActive { get; private set; }
     public bool IsFullScreen => _settings.MovieMode == MovieDisplayMode.FullScreen;
 
     public event Action<bool>? DisplayActiveChanged;
     public event Action<bool>? FullScreenChanged;
+    public event Action<string>? StatusMessage;
 
     public MovieController(AppSettings settings)
     {
         _settings = settings;
         DisplayActive = settings.DisplayOutputActive;
+
+        // バックグラウンドでVLC初期化（初回DISP押下の待ち時間を解消）
+        Task.Run(() =>
+        {
+            try
+            {
+                Core.Initialize();
+                _libVLC = new LibVLC("--no-audio", "--no-video-title-show");
+                _vlcReady = true;
+
+                if (_pendingOpen)
+                {
+                    _pendingOpen = false;
+                    Application.Current?.Dispatcher.BeginInvoke(new Action(OpenDisplay));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MovieController] VLC init error: {ex}");
+            }
+        });
     }
 
     public void OpenDisplay()
     {
+        if (!_vlcReady)
+        {
+            StatusMessage?.Invoke("映像エンジン初期化中...");
+            _pendingOpen = true;
+            return;
+        }
+
         if (DisplayActive && _window != null && _window.IsVisible) return;
         DisplayActive = true;
         _settings.DisplayOutputActive = true;
 
         if (_window == null || !_window.IsVisible)
         {
-            _window = new MovieWindow(_settings);
+            _window = new MovieWindow(_settings, _libVLC!);
             _window.FullScreenChanged += OnWindowFullScreenChanged;
             _window.Closed += OnWindowClosed;
             _window.Show();
@@ -43,6 +79,7 @@ public sealed class MovieController
 
     public void CloseDisplay()
     {
+        _pendingOpen = false;
         DisplayActive = false;
         _settings.DisplayOutputActive = false;
 
@@ -89,13 +126,11 @@ public sealed class MovieController
         _window?.FadeVideo(durationSec);
     }
 
-    // PANIC 1回押し：動画フェード
     public void PanicFade(double durationSec)
     {
         _window?.FadeVideo(durationSec);
     }
 
-    // PANIC 2回押し：動画停止 + DISPLAY OFF
     public void PanicStop()
     {
         CloseDisplay();
@@ -114,6 +149,13 @@ public sealed class MovieController
     public void ReloadStandbyImage()
     {
         _window?.LoadStandbyImage(_settings.MovieStandbyImagePath);
+    }
+
+    public void Dispose()
+    {
+        CloseDisplay();
+        _libVLC?.Dispose();
+        _libVLC = null;
     }
 
     private void OnWindowFullScreenChanged(bool isFullScreen)

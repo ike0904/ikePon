@@ -116,6 +116,7 @@ public partial class MainWindow : Window
 
         _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() => UpdateDispButton(on));
         _movieCtrl.FullScreenChanged    += on => Dispatcher.Invoke(() => UpdateFullButton(on));
+        _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
 
         UpdateBankHighlight();
         UpdateTitle();
@@ -1186,7 +1187,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.46{fname}{dirty}";
+        Title = $"ikePon v1.0.47{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -1204,7 +1205,7 @@ public partial class MainWindow : Window
         ComponentDispatcher.ThreadPreprocessMessage -= OnGlobalKey;
         _uiTimer.Stop();
         _engine.Dispose();
-        _movieCtrl.CloseDisplay(); // MovieWindowのポジションを_settingsに保存してから
+        _movieCtrl.Dispose(); // CloseDisplay + LibVLC解放
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
         _settings.Save();
