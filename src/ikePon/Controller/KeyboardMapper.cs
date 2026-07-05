@@ -17,14 +17,20 @@ public sealed class KeyboardMapper
         Key.Z,  Key.X,  Key.C,  Key.V
     ];
 
-    // バンクキー配置: 2×4 グリッド
-    private static readonly Key[] BankKeys =
-    [
-        Key.D7, Key.D8,
-        Key.U,  Key.I,
-        Key.J,  Key.K,
-        Key.M,  Key.OemComma
-    ];
+    // バンクキー: キー → バンクインデックス
+    // グリッド表示順 A/E, B/F, C/G, D/H に合わせ、
+    // キーボードの行（7,8 / U,I / J,K / M,,）がグリッドの行と対応
+    private static readonly Dictionary<Key, int> BankKeyMap = new()
+    {
+        { Key.D7,       0 },  // A (上段左)
+        { Key.D8,       4 },  // E (上段右)
+        { Key.U,        1 },  // B (2段左)
+        { Key.I,        5 },  // F (2段右)
+        { Key.J,        2 },  // C (3段左)
+        { Key.K,        6 },  // G (3段右)
+        { Key.M,        3 },  // D (下段左)
+        { Key.OemComma, 7 },  // H (下段右)
+    };
 
     // パッドキーの表示ラベル
     public static readonly string[] PadLabels =
@@ -35,13 +41,11 @@ public sealed class KeyboardMapper
         "Z","X","C","V"
     ];
 
-    // バンクキーの表示ラベル
+    // バンクキーの表示ラベル（インデックス = バンク番号 A=0...H=7）
     public static readonly string[] BankLabels =
     [
-        "7","8",
-        "U","I",
-        "J","K",
-        "M",","
+        "7", "U", "J", "M",   // A, B, C, D
+        "8", "I", "K", ","    // E, F, G, H
     ];
 
     public int? GetPadIndex(Key key)
@@ -50,11 +54,8 @@ public sealed class KeyboardMapper
         return idx >= 0 ? idx : null;
     }
 
-    public int? GetBankIndex(Key key)
-    {
-        int idx = Array.IndexOf(BankKeys, key);
-        return idx >= 0 ? idx : null;
-    }
+    public int? GetBankIndex(Key key) =>
+        BankKeyMap.TryGetValue(key, out int idx) ? idx : null;
 
     public string GetPadLabel(int padIndex) =>
         padIndex >= 0 && padIndex < PadLabels.Length ? PadLabels[padIndex] : "";

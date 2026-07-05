@@ -916,9 +916,9 @@ public partial class MainWindow : Window
                     tb.Foreground = new SolidColorBrush(Colors.White);
                 if (g.Children[1] is Border badge)
                 {
-                    badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+                    badge.BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A));
                     if (badge.Child is TextBlock badgeTb)
-                        badgeTb.Foreground = new SolidColorBrush(Colors.White);
+                        badgeTb.Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
                 }
             }
         }
@@ -1280,7 +1280,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.53{fname}{dirty}";
+        Title = $"ikePon v1.0.54{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
