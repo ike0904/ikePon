@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -22,10 +21,11 @@ public partial class MovieWindow : Window
     private readonly LibVLC _libVLC;
     private readonly LibVLCSharp.Shared.MediaPlayer _mediaPlayer;
 
-    // 映像フェードアウトタイマー（ForegroundWindow Opacity 1.0→0.0）
+    // 映像フェードアウトタイマー（黒オーバーレイWindow を Opacity 0→1 でフェードイン）
     private DispatcherTimer? _fadeTimer;
     private long   _fadeStartTick;
     private double _fadeDurationSec;
+    private Window? _fadeOverlay;
 
     // スタンバイ画像フェードインタイマー
     private DispatcherTimer? _standbyFadeInTimer;
@@ -37,9 +37,6 @@ public partial class MovieWindow : Window
     private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private bool _videoVisible;
-
-    // VLC ForegroundWindow（リフレクションで取得、Opacity でフェード）
-    private Window? _fgWindow;
 
     // WH_MOUSE_LL フック（ダブルクリック検出）
     private IntPtr _mouseHook = IntPtr.Zero;
@@ -57,6 +54,10 @@ public partial class MovieWindow : Window
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
     [DllImport("user32.dll")] private static extern int  GetDoubleClickTime();
     [DllImport("user32.dll")] private static extern int  GetSystemMetrics(int nIndex);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
 
     // グローバルマウスフック（ダブルクリック検出）
     [DllImport("user32.dll")] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -114,58 +115,6 @@ public partial class MovieWindow : Window
             Height = Math.Max(_settings.MovieWindowHeight ?? 720, 180);
         }
         // 初期表示は黒（スタンバイ画像は ShowStandby() 呼び出し時にロード）
-    }
-
-    // ───────────────────────── ForegroundWindow（リフレクション）─────────────────────────
-
-    // LibVLCSharp.WPF.VideoView の内部 ForegroundWindow を反射で取得する。
-    // MediaPlayer がセットされ再生が始まった後に呼ばれる想定。
-    private void TryFindForegroundWindow()
-    {
-        try
-        {
-            var type = typeof(LibVLCSharp.WPF.VideoView);
-            foreach (var fi in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (typeof(Window).IsAssignableFrom(fi.FieldType))
-                {
-                    _fgWindow = fi.GetValue(VideoView) as Window;
-                    if (_fgWindow != null)
-                    {
-                        Debug.WriteLine($"[MW] FgWindow found via field '{fi.Name}'");
-                        return;
-                    }
-                }
-            }
-            foreach (var pi in type.GetProperties(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (typeof(Window).IsAssignableFrom(pi.PropertyType))
-                {
-                    _fgWindow = pi.GetValue(VideoView) as Window;
-                    if (_fgWindow != null)
-                    {
-                        Debug.WriteLine($"[MW] FgWindow found via property '{pi.Name}'");
-                        return;
-                    }
-                }
-            }
-            Debug.WriteLine("[MW] FgWindow not found via reflection");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[MW] TryFindForegroundWindow error: {ex.Message}");
-        }
-    }
-
-    // ForegroundWindow の Opacity を設定（1.0=不透明, 0.0=透明）
-    private void SetFgWindowOpacity(double opacity)
-    {
-        if (_fgWindow == null) TryFindForegroundWindow();
-        if (_fgWindow != null)
-        {
-            try { _fgWindow.Opacity = opacity; }
-            catch (Exception ex) { Debug.WriteLine($"[MW] SetFgWindowOpacity error: {ex.Message}"); }
-        }
     }
 
     // ───────────────────────── グローバルマウスフック ─────────────────────────
@@ -250,7 +199,6 @@ public partial class MovieWindow : Window
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-        SetFgWindowOpacity(1.0);
         StandbyImage.Source     = null; // 黒（スタンバイ画像なし）
         StandbyLayer.Opacity    = 1.0;
         StandbyLayer.Visibility = Visibility.Visible;
@@ -301,7 +249,7 @@ public partial class MovieWindow : Window
         ShowStandby();
     }
 
-    // フェードアウト：ForegroundWindow の Opacity を 1.0→0.0 に変化させて映像を透明化する。
+    // フェードアウト：黒いオーバーレイWindowをOpacity 0→1でフェードインして映像を覆う。
     public void FadeVideo(double durationSec)
     {
         if (!_videoVisible)
@@ -317,6 +265,26 @@ public partial class MovieWindow : Window
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
 
+        // 全仮想スクリーンを覆う黒 Topmost オーバーレイウィンドウを生成
+        _fadeOverlay = new Window
+        {
+            WindowStyle   = WindowStyle.None,
+            AllowsTransparency = true,
+            Background    = System.Windows.Media.Brushes.Black,
+            Opacity       = 0.0,
+            Topmost       = true,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Left   = SystemParameters.VirtualScreenLeft,
+            Top    = SystemParameters.VirtualScreenTop,
+            Width  = SystemParameters.VirtualScreenWidth,
+            Height = SystemParameters.VirtualScreenHeight
+        };
+        _fadeOverlay.Show();
+        // オーバーレイを最前面（VLC ForegroundWindow の上）に強制配置
+        var hwnd = new WindowInteropHelper(_fadeOverlay).Handle;
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _fadeTimer.Tick += FadeTimer_Tick;
         _fadeTimer.Start();
@@ -326,7 +294,8 @@ public partial class MovieWindow : Window
     {
         double elapsed  = (Environment.TickCount64 - _fadeStartTick) / 1000.0;
         double progress = elapsed / _fadeDurationSec;
-        SetFgWindowOpacity(Math.Clamp(1.0 - progress, 0.0, 1.0));
+        if (_fadeOverlay != null)
+            _fadeOverlay.Opacity = Math.Clamp(progress, 0.0, 1.0);
 
         if (progress < 1.0) return;
 
@@ -335,10 +304,11 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
 
+        if (_fadeOverlay != null) { _fadeOverlay.Close(); _fadeOverlay = null; }
+
         // VideoView を先に非表示にしてから VLC を停止（白フレーム防止）
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
-        SetFgWindowOpacity(1.0); // 次回表示のために Opacity をリセット
 
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Opacity    = 0;
@@ -356,9 +326,9 @@ public partial class MovieWindow : Window
         _fadeTimer.Stop();
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
-        SetFgWindowOpacity(1.0);
+        if (_fadeOverlay != null) { _fadeOverlay.Close(); _fadeOverlay = null; }
         StandbyLayer.Opacity = 1.0;
-        Debug.WriteLine("[MW] StopFadeTimer: interrupted, opacity reset");
+        Debug.WriteLine("[MW] StopFadeTimer: interrupted");
     }
 
     private void StartStandbyFadeIn()
@@ -404,7 +374,6 @@ public partial class MovieWindow : Window
         VideoView.Visibility = Visibility.Hidden;
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
 
-        SetFgWindowOpacity(1.0);
         StandbyLayer.Opacity    = 1.0;
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Visibility = Visibility.Visible;
@@ -426,8 +395,6 @@ public partial class MovieWindow : Window
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        if (_fgWindow == null) TryFindForegroundWindow();
-        SetFgWindowOpacity(1.0);
         StandbyLayer.Visibility = Visibility.Collapsed;
         VideoView.Visibility    = Visibility.Visible;
         _videoVisible = true;

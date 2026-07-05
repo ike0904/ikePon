@@ -163,12 +163,18 @@ public partial class SettingsDialog : Window
 
     private void NumericBox_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_dragBox == null || sender is not TextBox tb || tb != _dragBox) return;
+        if (_dragBox == null) return;
         if (e.LeftButton != MouseButtonState.Pressed) { _dragBox = null; return; }
+        if (sender is not TextBox tb || tb != _dragBox) return;
 
         double deltaY = _dragStartY - e.GetPosition(this).Y; // 上→増加
-        if (Math.Abs(deltaY) < 3) return;
-        _isDragging = true;
+        if (!_isDragging && Math.Abs(deltaY) < 3) return;
+
+        if (!_isDragging)
+        {
+            _isDragging = true;
+            tb.CaptureMouse(); // ドラッグ開始時にマウスをキャプチャ
+        }
 
         var (min, max, isFloat) = GetBoxParams(tb);
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -182,6 +188,8 @@ public partial class SettingsDialog : Window
 
     private void NumericBox_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_dragBox != null && Mouse.Captured == _dragBox)
+            _dragBox.ReleaseMouseCapture();
         if (_isDragging) e.Handled = true;
         _dragBox    = null;
         _isDragging = false;

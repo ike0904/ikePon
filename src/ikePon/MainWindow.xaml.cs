@@ -185,6 +185,9 @@ public partial class MainWindow : Window
 
     private static readonly string[] BankNames = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
+    // 表示順：A/E, B/F, C/G, D/H（ショートカットは元の位置を維持）
+    private static readonly int[] BankVisualOrder = [0, 4, 1, 5, 2, 6, 3, 7];
+
     private void BuildBankGrid()
     {
         BankGrid.Children.Clear();
@@ -236,8 +239,11 @@ public partial class MainWindow : Window
             btn.MouseRightButtonUp += (_, e) => BankRightClick(captured, e);
 
             _bankButtons[i] = btn;
-            BankGrid.Children.Add(btn);
         }
+
+        // A/E, B/F, C/G, D/H の表示順でグリッドに追加
+        foreach (int idx in BankVisualOrder)
+            BankGrid.Children.Add(_bankButtons[idx]);
     }
 
     private Style CreateBankButtonStyle()
@@ -1274,7 +1280,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.52{fname}{dirty}";
+        Title = $"ikePon v1.0.53{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
