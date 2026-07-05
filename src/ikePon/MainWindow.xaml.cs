@@ -69,6 +69,8 @@ public partial class MainWindow : Window
     private bool _pendingBankConfirm;
     // 確認待ち（フェーダーメモリ上書き）
     private (VFaderControl fader, int slot, double gain)? _pendingMemOverwrite;
+    // 確認待ち（ikpファイルD&D読み込み）
+    private string? _pendingIkpPath;
 
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
@@ -445,6 +447,13 @@ public partial class MainWindow : Window
         {
             if (key == Key.Y) { ConfirmMemOverwrite(); return true; }
             if (key == Key.N) { CancelMemOverwrite();  return true; }
+        }
+
+        // ikpファイル読み込み確認中
+        if (_pendingIkpPath != null)
+        {
+            if (key == Key.Y) { ConfirmIkpLoad(); return true; }
+            if (key == Key.N) { CancelIkpLoad();  return true; }
         }
 
         // パニック
@@ -915,13 +924,15 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void BankYesBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm) _bankManager.Confirm();
+        if (_pendingBankConfirm)         _bankManager.Confirm();
         else if (_pendingMemOverwrite.HasValue) ConfirmMemOverwrite();
+        else if (_pendingIkpPath != null)      ConfirmIkpLoad();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm) _bankManager.Cancel();
+        if (_pendingBankConfirm)         _bankManager.Cancel();
         else if (_pendingMemOverwrite.HasValue) CancelMemOverwrite();
+        else if (_pendingIkpPath != null)      CancelIkpLoad();
     }
 
     private void ConfirmMemOverwrite()
@@ -936,6 +947,80 @@ public partial class MainWindow : Window
     private void CancelMemOverwrite()
     {
         _pendingMemOverwrite = null;
+        SetInfo2("");
+    }
+
+    // ikpファイル D&D 読み込み
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) &&
+            e.Data.GetData(DataFormats.FileDrop) is string[] files &&
+            files.Length > 0 &&
+            System.IO.Path.GetExtension(files[0]).Equals(".ikp", StringComparison.OrdinalIgnoreCase))
+        {
+            e.Effects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
+        string? ikp = null;
+        foreach (var f in files)
+        {
+            if (System.IO.Path.GetExtension(f).Equals(".ikp", StringComparison.OrdinalIgnoreCase))
+            { ikp = f; break; }
+        }
+        if (ikp == null) return;
+
+        // 既存の確認が進行中なら ikp D&D を無視
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
+
+        _pendingIkpPath = ikp;
+        string fname = System.IO.Path.GetFileName(ikp);
+        SetInfo2Warning($"{fname} を読み込みますか？  [Y] 確定  /  [N] キャンセル");
+        e.Handled = true;
+    }
+
+    private void ConfirmIkpLoad()
+    {
+        if (_pendingIkpPath == null) return;
+        string path = _pendingIkpPath;
+        _pendingIkpPath = null;
+
+        if (_projectDirty)
+        {
+            var r = MessageBox.Show("変更が保存されていません。続けますか？", "ikePon",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (r != MessageBoxResult.Yes) { SetInfo2(""); return; }
+        }
+
+        var loaded = ProjectData.Load(path);
+        if (loaded == null)
+        {
+            SetInfo2("読み込みに失敗しました。");
+            return;
+        }
+        _project         = loaded;
+        _projectFilePath = path;
+        _projectDirty    = false;
+        _playback.SetProject(_project);
+        SyncFadersFromProject();
+        RefreshAllBankLabels();
+        UpdateBankHighlight();
+        UpdateTitle();
+        SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(path)}");
+    }
+
+    private void CancelIkpLoad()
+    {
+        _pendingIkpPath = null;
         SetInfo2("");
     }
 
@@ -1187,7 +1272,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.49{fname}{dirty}";
+        Title = $"ikePon v1.0.50{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

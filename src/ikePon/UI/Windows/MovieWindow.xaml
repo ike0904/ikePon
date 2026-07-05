@@ -8,8 +8,7 @@
         Width="1280" Height="720"
         ShowInTaskbar="True"
         ShowActivated="False"
-        Closing="Window_Closing"
-        MouseDoubleClick="Window_MouseDoubleClick">
+        Closing="Window_Closing">
     <Grid Background="Black">
         <!-- 動画（LibVLCSharp、常に表示して HWND を確保） -->
         <vlc:VideoView x:Name="VideoView"/>

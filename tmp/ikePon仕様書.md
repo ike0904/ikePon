@@ -1,7 +1,7 @@
 # ikePon 仕様書
 
-**現在バージョン: v1.0.49**
-**最終更新: 2026-07-05（v1.0.49）**
+**現在バージョン: v1.0.50**
+**最終更新: 2026-07-05（v1.0.50）**
 
 ---
 
@@ -434,3 +434,4 @@ src/ikePon/
 | v1.0.47 | **初回 DISP 高速化**：LibVLC をアプリ起動時にバックグラウンドで事前初期化（MovieController）。初期化中に DISP を押した場合はインフォメーションに「映像エンジン初期化中...」を表示し、完了次第自動で開く。 |
 | v1.0.48 | **映像表示の根本的な見直し**：LibVLCSharp.WPF の VideoView は内部に独立した Topmost の ForegroundWindow を使うため WPF オーバーレイで覆えない（Airspace 問題）。VideoView.Visibility=Hidden にすると ForegroundWindow も非表示になる性質を利用して全問題を解決。**フェードアウト修正**：FadeVideo() で VideoView を Hidden にしてから StandbyLayer の Opacity を 0→1 でフェードイン（映像が消えてからスタンバイ画像がフェードイン）。**ShowStandby() 修正**：VideoView を Hidden にしてから StandbyLayer を表示（白フラッシュなし）。**OnMediaPlaying() 修正**：VideoView を Visible に戻す処理を追加。**FULL 切り替え白画面修正**：VideoView Hidden + 黒カバーウィンドウの二重対策。**ダブルクリック FULL 切り替え修正**：GetAncestor ではなくスクリーン座標で MovieWindow 矩形内かを判定（ForegroundWindow 上でも動作）。**Debug ログ強化**：[MW] プレフィックスで主要な状態変化を Debug.WriteLine 出力（VS の Output ウィンドウで確認可能）。 |
 | v1.0.49 | **フェードアウト根本修正**：VLC adjust フィルタ（libvlc P/Invoke）で映像の brightness を 1.0→0.0 にアニメーションし、VLC 内部レンダラで映像を徐々に暗くする（Airspace 問題を回避した本来のフェード）。**スタンバイ画像フェードイン時間設定**：設定ダイアログの「スタンバイ画像」と「PAセパレートモード」の間に追加（デフォルト 1.0 秒）。フェードアウト完了後にスタンバイ画像を設定時間でフェードイン。**SetFullScreen 白画面バグ修正**：旧コードで _savedLeft/Top/Width/Height の保存がカバーウィンドウ生成より後だったため誤位置に展開していたバグを修正（保存を先に実行）。**ダブルクリック FULL 切り替え改善**：WM_LBUTTONDBLCLK に加えて WM_LBUTTONDOWN を手動追跡するダブルクリック検出を追加（VLC が DBLCLK を横取りする動画再生中でも動作）。 |
+| v1.0.50 | **フェードアウトクラッシュ修正**：VLC libvlc P/Invoke（brightness 操作）を廃止し、Win32 SetLayeredWindowAttributes（WS_EX_LAYERED アルファ）で ForegroundWindow 自体の透明度を制御するフェードに変更。映像が徐々に透明になり黒背景が透けて見える本来のフェード効果を実現。**VideoView を Stop より先に非表示化**：VLC が Stop 時に白フレームを描画するのを防ぐ（Hidden → 非同期 Stop の順）。Stop() を Task.Run に移動してUIスレッドブロックを回避。**ダブルクリック FULL 切り替え修正**：ComponentDispatcher.ThreadPreprocessMessage（同一スレッドのみ有効）を廃止し、WH_MOUSE_LL グローバルマウスフックに切り替え。VLC が別スレッドで動作する場合も含め、全マウスイベントを低レベルで受信してダブルクリックを検出。**ikpファイル D&D 対応**：MainWindow へ .ikp ファイルをドラッグ＆ドロップするとインフォメーションに「△△△.ikp を読み込みますか？」を表示（YES=読み込み/NO=キャンセル、キーボード Y/N も有効）。 |

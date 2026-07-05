@@ -4,9 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ikePon.Model;
@@ -17,15 +15,15 @@ namespace ikePon.UI.Windows;
 // LibVLCSharp.WPF の VideoView は内部に ForegroundWindow（独立した Topmost WPF Window）を持つ。
 // WPF Airspace 問題により、WPF オーバーレイで ForegroundWindow を覆えない。
 // → VideoView.Visibility = Hidden で ForegroundWindow も非表示になる性質を利用。
-// → フェードアウトは VLC adjust フィルタ（libvlc P/Invoke）で brightness を 1.0→0.0 に変化させ、
-//    VLC 内部レンダラで映像を暗くする（Airspace 問題を回避）。
+// → フェードアウトは Win32 SetLayeredWindowAttributes で ForegroundWindow 自体のアルファを変化させる。
+// → ダブルクリックは WH_MOUSE_LL グローバルフックで検出（VLC が別スレッドでも動作）。
 public partial class MovieWindow : Window
 {
     private readonly AppSettings _settings;
     private readonly LibVLC _libVLC;
     private readonly LibVLCSharp.Shared.MediaPlayer _mediaPlayer;
 
-    // 映像フェードアウトタイマー（brightness 1.0 → 0.0）
+    // 映像フェードアウトタイマー（ForegroundWindow alpha 255→0）
     private DispatcherTimer? _fadeTimer;
     private long   _fadeStartTick;
     private double _fadeDurationSec;
@@ -37,11 +35,16 @@ public partial class MovieWindow : Window
     private bool   _isFullScreen;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
 
-    private double              _pendingStartSec;
+    private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private bool _videoVisible;
 
-    // WM_LBUTTONDOWN 手動ダブルクリック追跡用
+    // VLC ForegroundWindow HWND（フェード用にキャッシュ）
+    private IntPtr _fgWindowHwnd = IntPtr.Zero;
+
+    // WH_MOUSE_LL フック（ダブルクリック検出）
+    private IntPtr _mouseHook = IntPtr.Zero;
+    private LowLevelMouseProc? _mouseProcDelegate;
     private long _lastLBtnDownTick;
     private int  _lastLBtnDownX, _lastLBtnDownY;
 
@@ -50,25 +53,48 @@ public partial class MovieWindow : Window
     private static readonly HashSet<string> ImageExts =
         new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
 
-    // Win32 P/Invoke
+    // ───────────────────────── Win32 P/Invoke ─────────────────────────
+
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
-    [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr hwnd, ref POINT lpPoint);
     [DllImport("user32.dll")] private static extern int  GetDoubleClickTime();
     [DllImport("user32.dll")] private static extern int  GetSystemMetrics(int nIndex);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool EnumThreadWindows(uint dwThreadId, EnumWindowsProc lpfn, IntPtr lParam);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+
+    // Layered window（ForegroundWindow フェード用）
+    [DllImport("user32.dll")] private static extern int  GetWindowLong(IntPtr hwnd, int nIndex);
+    [DllImport("user32.dll")] private static extern int  SetWindowLong(IntPtr hwnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+    private const int  GWL_EXSTYLE  = -20;
+    private const int  WS_EX_TOPMOST  = 0x00000008;
+    private const int  WS_EX_LAYERED  = 0x00080000;
+    private const uint LWA_ALPHA      = 0x00000002;
+
+    // グローバルマウスフック（ダブルクリック検出）
+    [DllImport("user32.dll")] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("user32.dll")] private static extern bool   UnhookWindowsHookEx(IntPtr hhk);
+    [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll")] private static extern IntPtr GetModuleHandle(string? lpModuleName);
+    private const int WH_MOUSE_LL    = 14;
+    private const int WM_LBUTTONDOWN = 0x0201;
     private const int SM_CXDOUBLECLK = 36;
     private const int SM_CYDOUBLECLK = 37;
 
-    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int x, y; }
-    [StructLayout(LayoutKind.Sequential)] private struct RECT  { public int left, top, right, bottom; }
+    private delegate bool   EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+    private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-    // VLC adjust フィルタ P/Invoke
-    // Core.Initialize() が DLL サーチパスを設定済みのため "libvlc" で解決される
-    [DllImport("libvlc", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void libvlc_video_set_adjust_int(IntPtr p_mi, uint option, int value);
-    [DllImport("libvlc", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void libvlc_video_set_adjust_float(IntPtr p_mi, uint option, float value);
-    private const uint VlcAdjustEnable     = 0;
-    private const uint VlcAdjustBrightness = 2;
+    [StructLayout(LayoutKind.Sequential)] private struct RECT  { public int left, top, right, bottom; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MSLLHOOKSTRUCT
+    {
+        public POINT pt;
+        public uint mouseData, flags, time;
+        public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int x, y; }
+
+    // ───────────────────────── Public API ─────────────────────────
 
     public bool IsFullScreen => _isFullScreen;
     public event Action<bool>? FullScreenChanged;
@@ -106,78 +132,115 @@ public partial class MovieWindow : Window
         LoadStandbyImage(_settings.MovieStandbyImagePath);
     }
 
-    // VLC adjust フィルタで brightness を設定（0.0=黒, 1.0=通常）
-    private void SetVlcBrightness(float brightness)
+    // ───────────────────────── ForegroundWindow 操作 ─────────────────────────
+
+    // スレッド上の Topmost ウィンドウを列挙して VLC ForegroundWindow の HWND を取得（キャッシュ付き）
+    private IntPtr GetOrFindForegroundWindowHwnd()
     {
+        if (_fgWindowHwnd != IntPtr.Zero) return _fgWindowHwnd;
+
+        var myHwnd = new WindowInteropHelper(this).Handle;
+        IntPtr found = IntPtr.Zero;
+
+        var enumProc = new EnumWindowsProc((hwnd, _) =>
+        {
+            if (hwnd == myHwnd || !IsWindowVisible(hwnd)) return true;
+            if ((GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0)
+            {
+                found = hwnd;
+                return false;
+            }
+            return true;
+        });
+        EnumThreadWindows(GetCurrentThreadId(), enumProc, IntPtr.Zero);
+        GC.KeepAlive(enumProc);
+
+        _fgWindowHwnd = found;
+        Debug.WriteLine($"[MW] FgWindowHwnd={_fgWindowHwnd} (found={found != IntPtr.Zero})");
+        return _fgWindowHwnd;
+    }
+
+    // ForegroundWindow のアルファ値を設定（255=不透明, 0=透明）
+    private void SetFgWindowAlpha(byte alpha)
+    {
+        var hwnd = GetOrFindForegroundWindowHwnd();
+        if (hwnd == IntPtr.Zero) return;
         try
         {
-            var mp = _mediaPlayer.NativeReference;
-            if (mp == IntPtr.Zero) return;
-            libvlc_video_set_adjust_int(mp, VlcAdjustEnable, 1);
-            libvlc_video_set_adjust_float(mp, VlcAdjustBrightness, brightness);
+            int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            if ((exStyle & WS_EX_LAYERED) == 0)
+                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+            SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[MW] SetVlcBrightness({brightness:F2}) error: {ex.Message}");
+            Debug.WriteLine($"[MW] SetFgWindowAlpha({alpha}) error: {ex.Message}");
         }
     }
+
+    // ───────────────────────── グローバルマウスフック ─────────────────────────
 
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        ComponentDispatcher.ThreadPreprocessMessage += OnThreadPreprocessMessage;
+        InstallGlobalMouseHook();
     }
 
-    // ForegroundWindow（LibVLC の独立 Topmost Window）上のクリックをスクリーン座標で判定する。
-    // WM_LBUTTONDBLCLK: VLC が横取りしない場合（スタンバイ中など）はこちらが先に処理される。
-    // WM_LBUTTONDOWN: VLC が DBLCLK を横取りする場合（動画再生中）の手動ダブルクリック追跡。
-    private void OnThreadPreprocessMessage(ref MSG msg, ref bool handled)
+    private void InstallGlobalMouseHook()
     {
-        const int WM_LBUTTONDOWN   = 0x0201;
-        const int WM_LBUTTONDBLCLK = 0x0203;
-        if ((msg.message != WM_LBUTTONDOWN && msg.message != WM_LBUTTONDBLCLK) || handled || !IsVisible) return;
-
-        var pt = new POINT
-        {
-            x = (short)(msg.lParam.ToInt32() & 0xFFFF),
-            y = (short)(msg.lParam.ToInt32() >> 16)
-        };
-        if (!ClientToScreen(msg.hwnd, ref pt)) return;
-
-        var myHwnd = new WindowInteropHelper(this).Handle;
-        if (!GetWindowRect(myHwnd, out var rc)) return;
-        if (pt.x < rc.left || pt.x > rc.right || pt.y < rc.top || pt.y > rc.bottom) return;
-
-        Debug.WriteLine($"[MW] msg={msg.message:X4} at ({pt.x},{pt.y})");
-
-        if (msg.message == WM_LBUTTONDBLCLK)
-        {
-            Debug.WriteLine("[MW] WM_LBUTTONDBLCLK → toggle fullscreen");
-            _lastLBtnDownTick = 0;
-            SetFullScreen(!_isFullScreen);
-            handled = true;
-            return;
-        }
-
-        // WM_LBUTTONDOWN: 手動ダブルクリック追跡
-        long now = Environment.TickCount64;
-        if (_lastLBtnDownTick > 0 &&
-            now - _lastLBtnDownTick <= GetDoubleClickTime() &&
-            Math.Abs(pt.x - _lastLBtnDownX) <= GetSystemMetrics(SM_CXDOUBLECLK) &&
-            Math.Abs(pt.y - _lastLBtnDownY) <= GetSystemMetrics(SM_CYDOUBLECLK))
-        {
-            Debug.WriteLine("[MW] Manual DoubleClick (LBUTTONDOWN×2) → toggle fullscreen");
-            _lastLBtnDownTick = 0;
-            SetFullScreen(!_isFullScreen);
-            handled = true;
-        }
-        else
-        {
-            _lastLBtnDownTick = now;
-            _lastLBtnDownX    = pt.x;
-            _lastLBtnDownY    = pt.y;
-        }
+        _mouseProcDelegate = GlobalMouseProc;
+        using var proc = System.Diagnostics.Process.GetCurrentProcess();
+        using var mod  = proc.MainModule!;
+        _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProcDelegate, GetModuleHandle(mod.ModuleName), 0);
+        Debug.WriteLine($"[MW] WH_MOUSE_LL hook installed: {_mouseHook}");
     }
+
+    private void UninstallGlobalMouseHook()
+    {
+        if (_mouseHook == IntPtr.Zero) return;
+        UnhookWindowsHookEx(_mouseHook);
+        _mouseHook         = IntPtr.Zero;
+        _mouseProcDelegate = null;
+    }
+
+    // WH_MOUSE_LL コールバック：WM_LBUTTONDOWN を手動追跡してダブルクリックを検出する。
+    // VLC が DBLCLK を横取りしてもこちらには届く（全スレッドの低レベルイベントを受信）。
+    private IntPtr GlobalMouseProc(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && (int)wParam == WM_LBUTTONDOWN && IsVisible)
+        {
+            var hook  = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            var myHwnd = new WindowInteropHelper(this).Handle;
+            if (myHwnd != IntPtr.Zero && GetWindowRect(myHwnd, out var rc) &&
+                hook.pt.x >= rc.left && hook.pt.x <= rc.right &&
+                hook.pt.y >= rc.top  && hook.pt.y <= rc.bottom)
+            {
+                long now = Environment.TickCount64;
+                if (_lastLBtnDownTick > 0 &&
+                    now - _lastLBtnDownTick <= GetDoubleClickTime() &&
+                    Math.Abs(hook.pt.x - _lastLBtnDownX) <= GetSystemMetrics(SM_CXDOUBLECLK) &&
+                    Math.Abs(hook.pt.y - _lastLBtnDownY) <= GetSystemMetrics(SM_CYDOUBLECLK))
+                {
+                    _lastLBtnDownTick = 0;
+                    // フック中は UI 操作を避け BeginInvoke で遅延実行
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        Debug.WriteLine("[MW] GlobalMouseHook: DoubleClick → toggle fullscreen");
+                        SetFullScreen(!_isFullScreen);
+                    });
+                }
+                else
+                {
+                    _lastLBtnDownTick = now;
+                    _lastLBtnDownX    = hook.pt.x;
+                    _lastLBtnDownY    = hook.pt.y;
+                }
+            }
+        }
+        return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    // ───────────────────────── 映像制御 ─────────────────────────
 
     public void LoadStandbyImage(string? path)
     {
@@ -237,8 +300,9 @@ public partial class MovieWindow : Window
         ShowStandby();
     }
 
-    // フェードアウト: VLC adjust フィルタで brightness 1.0→0.0 にして映像を内部から暗くする。
-    // brightness=0 到達後に VideoView を非表示→スタンバイ画像フェードインへ移行する。
+    // フェードアウト:
+    //   ForegroundWindow の WS_EX_LAYERED アルファを 255→0 にして映像を徐々に透明化する。
+    //   0 到達後に VideoView を Hidden にし、スタンバイ画像フェードインへ移行する。
     public void FadeVideo(double durationSec)
     {
         if (!_videoVisible)
@@ -261,10 +325,10 @@ public partial class MovieWindow : Window
 
     private void FadeTimer_Tick(object? sender, EventArgs e)
     {
-        double elapsed    = (Environment.TickCount64 - _fadeStartTick) / 1000.0;
-        double progress   = elapsed / _fadeDurationSec;
-        float  brightness = (float)Math.Clamp(1.0 - progress, 0.0, 1.0);
-        SetVlcBrightness(brightness);
+        double elapsed  = (Environment.TickCount64 - _fadeStartTick) / 1000.0;
+        double progress = elapsed / _fadeDurationSec;
+        byte   alpha    = (byte)(Math.Clamp(1.0 - progress, 0.0, 1.0) * 255);
+        SetFgWindowAlpha(alpha);
 
         if (progress < 1.0) return;
 
@@ -273,13 +337,19 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
 
-        _mediaPlayer.Stop();
+        // VideoView を先に非表示（ForegroundWindow も非表示）にしてから VLC を停止する。
+        // Stop() より先に Hidden にすることで VLC の白フレームが表示されるのを防ぐ。
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
+        SetFgWindowAlpha(255); // 次回表示のためにアルファをリセット
+
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Opacity    = 0;
         StandbyLayer.Visibility = Visibility.Visible;
         Debug.WriteLine("[MW] FadeOut complete → StandbyFadeIn start");
+
+        // VLC 停止を非同期で実行（UIスレッドのブロック回避・クラッシュ防止）
+        Task.Run(() => { try { _mediaPlayer.Stop(); } catch (Exception ex) { Debug.WriteLine($"[MW] Stop error: {ex.Message}"); } });
 
         StartStandbyFadeIn();
     }
@@ -290,9 +360,9 @@ public partial class MovieWindow : Window
         _fadeTimer.Stop();
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
-        SetVlcBrightness(1.0f);    // フェード中断時に brightness をリセット
+        SetFgWindowAlpha(255); // フェード中断時にアルファをリセット
         StandbyLayer.Opacity = 1.0;
-        Debug.WriteLine("[MW] StopFadeTimer: interrupted, brightness reset");
+        Debug.WriteLine("[MW] StopFadeTimer: interrupted, alpha reset");
     }
 
     private void StartStandbyFadeIn()
@@ -333,9 +403,12 @@ public partial class MovieWindow : Window
     private void ShowStandby()
     {
         Debug.WriteLine($"[MW] ShowStandby (videoVisible={_videoVisible})");
-        _mediaPlayer.Stop();
+        // VideoView を先に非表示にしてから Stop（白フレームを見せない）
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Hidden;
+        Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+
+        SetFgWindowAlpha(255);
         StandbyLayer.Opacity    = 1.0;
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         StandbyLayer.Visibility = Visibility.Visible;
@@ -357,7 +430,7 @@ public partial class MovieWindow : Window
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        SetVlcBrightness(1.0f);         // フェード中断後の復帰時に brightness をリセット
+        SetFgWindowAlpha(255); // フェード中断後にアルファをリセット
         StandbyLayer.Visibility = Visibility.Collapsed;
         VideoView.Visibility    = Visibility.Visible;
         _videoVisible = true;
@@ -388,6 +461,8 @@ public partial class MovieWindow : Window
         ShowStandby();
     }
 
+    // ───────────────────────── フルスクリーン ─────────────────────────
+
     public void SetFullScreen(bool full)
     {
         if (full == _isFullScreen) return;
@@ -400,7 +475,7 @@ public partial class MovieWindow : Window
         Window cover;
         if (full)
         {
-            // 座標をカバー生成より先に保存（旧バグ：カバー後に保存していたため cover が誤位置に出ていた）
+            // 座標をカバー生成より先に保存
             _savedLeft   = Left;
             _savedTop    = Top;
             _savedWidth  = Width;
@@ -408,8 +483,9 @@ public partial class MovieWindow : Window
 
             cover = new Window
             {
-                WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
-                Background = Brushes.Black, ShowInTaskbar = false, ShowActivated = false, Topmost = true,
+                WindowStyle = WindowStyle.None, ResizeMode = System.Windows.ResizeMode.NoResize,
+                Background = System.Windows.Media.Brushes.Black,
+                ShowInTaskbar = false, ShowActivated = false, Topmost = true,
                 Left = _savedLeft, Top = _savedTop, Width = 1, Height = 1
             };
             cover.Show();
@@ -417,15 +493,16 @@ public partial class MovieWindow : Window
 
             _isFullScreen = true;
             WindowStyle   = WindowStyle.None;
-            ResizeMode    = ResizeMode.NoResize;
+            ResizeMode    = System.Windows.ResizeMode.NoResize;
             WindowState   = WindowState.Maximized;
         }
         else
         {
             cover = new Window
             {
-                WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
-                Background = Brushes.Black, ShowInTaskbar = false, ShowActivated = false, Topmost = true,
+                WindowStyle = WindowStyle.None, ResizeMode = System.Windows.ResizeMode.NoResize,
+                Background = System.Windows.Media.Brushes.Black,
+                ShowInTaskbar = false, ShowActivated = false, Topmost = true,
                 Left = Left, Top = Top, Width = 1, Height = 1
             };
             cover.Show();
@@ -434,12 +511,16 @@ public partial class MovieWindow : Window
             _isFullScreen = false;
             WindowState = WindowState.Normal;
             WindowStyle = WindowStyle.SingleBorderWindow;
-            ResizeMode  = ResizeMode.CanResize;
+            ResizeMode  = System.Windows.ResizeMode.CanResize;
             Left   = _savedLeft;
             Top    = _savedTop;
             Width  = _savedWidth;
             Height = _savedHeight;
         }
+
+        // カバーウィンドウが表示されている間に ForegroundWindow HWND キャッシュが汚染されないよう
+        // ForegroundWindow の検索は SetFullScreen が完了してから行う
+        _fgWindowHwnd = IntPtr.Zero;
 
         Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
@@ -452,19 +533,13 @@ public partial class MovieWindow : Window
         FullScreenChanged?.Invoke(_isFullScreen);
     }
 
-    private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        // StandbyLayer（WPF）上のダブルクリック（動画再生中でない場合）
-        if (e.ChangedButton != MouseButton.Left) return;
-        SetFullScreen(!_isFullScreen);
-    }
+    // ───────────────────────── ウィンドウイベント ─────────────────────────
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
-        ComponentDispatcher.ThreadPreprocessMessage -= OnThreadPreprocessMessage;
+        UninstallGlobalMouseHook();
         StopFadeTimer();
         StopStandbyFadeIn();
-        _mediaPlayer.Stop();
 
         double saveLeft   = _isFullScreen ? _savedLeft   : Left;
         double saveTop    = _isFullScreen ? _savedTop    : Top;
@@ -477,6 +552,7 @@ public partial class MovieWindow : Window
         _settings.MovieWindowHeight = saveHeight;
 
         // _libVLC は MovieController が管理するため Dispose しない
+        try { _mediaPlayer.Stop(); } catch { }
         _mediaPlayer.Dispose();
     }
 }
