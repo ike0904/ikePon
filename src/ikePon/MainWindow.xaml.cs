@@ -232,7 +232,8 @@ public partial class MainWindow : Window
                 Cursor = Cursors.Hand,
                 Background = BrushBankNormal,
                 BorderBrush = BrushBankBorderN,
-                Tag = new object?[] { content.Children[0] as TextBlock, badge }
+                Tag = new object?[] { content.Children[0] as TextBlock, badge },
+                Focusable = false
             };
             btn.Style = CreateBankButtonStyle();
             btn.Click += (_, _) => RequestBankSwitch(captured);
@@ -1050,6 +1051,30 @@ public partial class MainWindow : Window
 
         // 既存の確認が進行中なら ikp D&D を無視
         if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
+
+        // 初期状態（未変更・未保存）なら確認なしで即読み込み
+        if (!_projectDirty && _projectFilePath == null)
+        {
+            var loaded = ProjectData.Load(ikp);
+            if (loaded != null)
+            {
+                _project         = loaded;
+                _projectFilePath = ikp;
+                _projectDirty    = false;
+                _playback.SetProject(_project);
+                SyncFadersFromProject();
+                RefreshAllBankLabels();
+                UpdateBankHighlight();
+                UpdateTitle();
+                SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(ikp)}");
+            }
+            else
+            {
+                SetInfo2Warning("読み込みに失敗しました。");
+            }
+            e.Handled = true;
+            return;
+        }
 
         _pendingIkpPath = ikp;
         string fname = System.IO.Path.GetFileName(ikp);

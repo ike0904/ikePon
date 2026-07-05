@@ -131,6 +131,7 @@
                         <Setter Property="BorderBrush" Value="#444"/>
                         <Setter Property="BorderThickness" Value="1"/>
                         <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Focusable" Value="False"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="Button">

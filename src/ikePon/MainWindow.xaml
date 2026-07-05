@@ -127,6 +127,7 @@
                             Height="44"
                             Margin="0,0,6,0"
                             Cursor="Hand"
+                            Focusable="False"
                             Click="PanicButton_Click">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -181,6 +182,7 @@
                         Height="44"
                         Margin="0,0,0,0"
                         Cursor="Hand"
+                        Focusable="False"
                         Click="FadeCutButton_Click">
                     <Button.Style>
                         <Style TargetType="Button">
@@ -233,6 +235,7 @@
                         Height="44"
                         Margin="16,0,0,0"
                         Cursor="Hand"
+                        Focusable="False"
                         Click="FullButton_Click">
                     <Button.Style>
                         <Style TargetType="Button">
@@ -281,6 +284,7 @@
                         Height="44"
                         Margin="4,0,0,0"
                         Cursor="Hand"
+                        Focusable="False"
                         Click="DispButton_Click">
                     <Button.Style>
                         <Style TargetType="Button">
@@ -351,6 +355,7 @@
                                         FontSize="11" FontWeight="Bold"
                                         Foreground="White"
                                         Cursor="Hand"
+                                        Focusable="False"
                                         Click="BankYesBtn_Click">
                                     <Button.Style>
                                         <Style TargetType="Button">
@@ -381,6 +386,7 @@
                                         FontSize="11" FontWeight="Bold"
                                         Foreground="White"
                                         Cursor="Hand"
+                                        Focusable="False"
                                         Click="BankNoBtn_Click">
                                     <Button.Style>
                                         <Style TargetType="Button">
