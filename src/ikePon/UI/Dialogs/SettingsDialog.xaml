@@ -4,7 +4,8 @@
         Title="設定" Width="480" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="#1E1E1E" Foreground="#CCCCCC">
+        Background="#1E1E1E" Foreground="#CCCCCC"
+        MouseDown="Window_MouseDown">
 
     <Window.Resources>
         <Style TargetType="TextBlock">
@@ -147,7 +148,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="スタンバイ画像フェードイン" Grid.Column="0"/>
-            <TextBox x:Name="TbStandbyFadeIn" Grid.Column="1"/>
+            <TextBox x:Name="TbStandbyFadeIn" Grid.Column="1"
+                     KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                     MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                     MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
@@ -181,7 +185,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="短いフェード（即時停止）" Grid.Column="0"/>
-            <TextBox  x:Name="TbShortFade" Grid.Column="1"/>
+            <TextBox  x:Name="TbShortFade" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                      MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
@@ -192,7 +199,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="長いフェードアウト" Grid.Column="0"/>
-            <TextBox  x:Name="TbLongFade" Grid.Column="1"/>
+            <TextBox  x:Name="TbLongFade" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                      MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
@@ -209,7 +219,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="連打防止時間" Grid.Column="0"/>
-            <TextBox  x:Name="TbInterlock" Grid.Column="1"/>
+            <TextBox  x:Name="TbInterlock" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                      MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label    Content="ms" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
@@ -226,7 +239,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="WASAPIレイテンシ" Grid.Column="0"/>
-            <TextBox  x:Name="TbLatency" Grid.Column="1"/>
+            <TextBox  x:Name="TbLatency" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                      MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label    Content="ms" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
@@ -237,7 +253,10 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="プリロード上限" Grid.Column="0"/>
-            <TextBox  x:Name="TbPreload" Grid.Column="1"/>
+            <TextBox  x:Name="TbPreload" Grid.Column="1"
+                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
+                      MouseDown="NumericBox_MouseDown" MouseMove="NumericBox_MouseMove"
+                      MouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
             <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 

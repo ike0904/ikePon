@@ -1,6 +1,8 @@
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using ikePon.Model;
 
 namespace ikePon.UI.Dialogs;
@@ -10,6 +12,12 @@ public partial class SettingsDialog : Window
     private readonly AppSettings _settings;
 
     private const string StandbyHint = "別ファイルに変更：ここへドラッグ＆ドロップ";
+
+    // マウスドラッグ状態
+    private TextBox? _dragBox;
+    private double _dragStartY;
+    private double _dragStartVal;
+    private bool _isDragging;
 
     public SettingsDialog(AppSettings settings)
     {
@@ -75,6 +83,126 @@ public partial class SettingsDialog : Window
     }
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    // ──────────────────────────── ウィンドウイベント ────────────────────────────
+
+    private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not TextBox)
+            FocusManager.SetFocusedElement(this, null);
+    }
+
+    // ──────────────────────────── テキストボックス共通 ────────────────────────────
+
+    // TextBox ごとの設定（min, max, isFloat）
+    private (double min, double max, bool isFloat) GetBoxParams(TextBox tb)
+    {
+        if (tb == TbStandbyFadeIn) return (0.0, 9.9, true);
+        if (tb == TbShortFade)     return (0.0, 9.9, true);
+        if (tb == TbLongFade)      return (0.0, 9.9, true);
+        if (tb == TbInterlock)     return (0.0, 5000.0, false);
+        if (tb == TbLatency)       return (1.0, 500.0, false);
+        if (tb == TbPreload)       return (1.0, 600.0, false);
+        return (0.0, 9999.0, false);
+    }
+
+    private static double GetBoxCurrentValue(TextBox tb, bool isFloat)
+    {
+        if (isFloat)
+        {
+            return float.TryParse(tb.Text.Trim(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out float f) ? f : 0.0;
+        }
+        return int.TryParse(tb.Text.Trim(), out int i) ? i : 0.0;
+    }
+
+    private static void SetBoxValue(TextBox tb, bool isFloat, double value)
+    {
+        tb.Text = isFloat
+            ? ((float)value).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)
+            : ((int)Math.Round(value)).ToString();
+    }
+
+    private void CommitBox(TextBox tb)
+    {
+        var (min, max, isFloat) = GetBoxParams(tb);
+        double val = GetBoxCurrentValue(tb, isFloat);
+        SetBoxValue(tb, isFloat, Math.Clamp(val, min, max));
+    }
+
+    // ENTER キーで確定
+    private void NumericBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Return or Key.Enter)) return;
+        if (sender is TextBox tb)
+        {
+            CommitBox(tb);
+            tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        }
+        e.Handled = true;
+    }
+
+    // フォーカスアウトで確定
+    private void NumericBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb) CommitBox(tb);
+    }
+
+    // ──────────────────────────── マウスドラッグ ────────────────────────────
+
+    private void NumericBox_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TextBox tb || e.LeftButton != MouseButtonState.Pressed) return;
+        var (_, _, isFloat) = GetBoxParams(tb);
+        _dragBox      = tb;
+        _dragStartY   = e.GetPosition(this).Y;
+        _dragStartVal = GetBoxCurrentValue(tb, isFloat);
+        _isDragging   = false;
+    }
+
+    private void NumericBox_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragBox == null || sender is not TextBox tb || tb != _dragBox) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { _dragBox = null; return; }
+
+        double deltaY = _dragStartY - e.GetPosition(this).Y; // 上→増加
+        if (Math.Abs(deltaY) < 3) return;
+        _isDragging = true;
+
+        var (min, max, isFloat) = GetBoxParams(tb);
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        int steps = (int)(deltaY / 5.0);
+        double stepSize = isFloat ? (shift ? 1.0 : 0.1) : (shift ? 10.0 : 1.0);
+
+        double newVal = Math.Clamp(_dragStartVal + steps * stepSize, min, max);
+        SetBoxValue(tb, isFloat, newVal);
+        e.Handled = true;
+    }
+
+    private void NumericBox_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDragging) e.Handled = true;
+        _dragBox    = null;
+        _isDragging = false;
+    }
+
+    // ──────────────────────────── マウスホイール ────────────────────────────
+
+    private void NumericBox_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is not TextBox tb) return;
+        var (min, max, isFloat) = GetBoxParams(tb);
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        double stepSize = isFloat ? (shift ? 1.0 : 0.1) : (shift ? 10.0 : 1.0);
+        double delta    = e.Delta > 0 ? stepSize : -stepSize;
+
+        double val = GetBoxCurrentValue(tb, isFloat);
+        SetBoxValue(tb, isFloat, Math.Clamp(val + delta, min, max));
+        e.Handled = true;
+    }
+
+    // ──────────────────────────── ヘルパー ────────────────────────────
 
     private static void ShowError(System.Windows.Controls.TextBox tb, string range)
     {

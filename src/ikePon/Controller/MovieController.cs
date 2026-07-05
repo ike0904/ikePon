@@ -69,6 +69,7 @@ public sealed class MovieController : IDisposable
             _window.FullScreenChanged += OnWindowFullScreenChanged;
             _window.Closed += OnWindowClosed;
             _window.Show();
+            _window.ShowStandby(); // 初期スタンバイ画像表示（映像再生時はすぐ上書きされる）
 
             if (_settings.MovieMode == MovieDisplayMode.FullScreen)
                 _window.SetFullScreen(true);
