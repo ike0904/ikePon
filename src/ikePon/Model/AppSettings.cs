@@ -20,6 +20,7 @@ public class AppSettings
     public int MovieMonitorIndex { get; set; } = 1;
     public bool DisplayOutputActive { get; set; } = false;
     public string MovieStandbyImagePath { get; set; } = "";
+    public float StandbyFadeInDuration { get; set; } = 1.0f;
     public double? MovieWindowX { get; set; }
     public double? MovieWindowY { get; set; }
     public double? MovieWindowWidth { get; set; }

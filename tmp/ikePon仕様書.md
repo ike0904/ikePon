@@ -1,7 +1,7 @@
 # ikePon 仕様書
 
-**現在バージョン: v1.0.48**
-**最終更新: 2026-07-05（v1.0.48）**
+**現在バージョン: v1.0.49**
+**最終更新: 2026-07-05（v1.0.49）**
 
 ---
 
@@ -433,3 +433,4 @@ src/ikePon/
 | v1.0.46 | **映像/静止画フェードアウト修正**：Window.Opacity 方式を廃止し、黒いオーバーレイウィンドウを使用（VLC DirectX レンダリング環境でも確実にフェード）。**PANIC 2 回押しで DISP 解除**：音声フェード完了後に 2 回目を押した場合も正しく DISP を閉じるよう修正（_panicActivated フラグを追加）。**MovieWindow フォーカス時でもショートカット有効**：ComponentDispatcher.ThreadPreprocessMessage でキー割り込みを実装。同一モニターのフルスクリーン時も [0] キー/[-] キー/ESC が動作。**フルスクリーン遷移時の白画面修正**：遷移前にフェードタイマーを停止しオーバーレイを閉じる。 |
 | v1.0.47 | **初回 DISP 高速化**：LibVLC をアプリ起動時にバックグラウンドで事前初期化（MovieController）。初期化中に DISP を押した場合はインフォメーションに「映像エンジン初期化中...」を表示し、完了次第自動で開く。 |
 | v1.0.48 | **映像表示の根本的な見直し**：LibVLCSharp.WPF の VideoView は内部に独立した Topmost の ForegroundWindow を使うため WPF オーバーレイで覆えない（Airspace 問題）。VideoView.Visibility=Hidden にすると ForegroundWindow も非表示になる性質を利用して全問題を解決。**フェードアウト修正**：FadeVideo() で VideoView を Hidden にしてから StandbyLayer の Opacity を 0→1 でフェードイン（映像が消えてからスタンバイ画像がフェードイン）。**ShowStandby() 修正**：VideoView を Hidden にしてから StandbyLayer を表示（白フラッシュなし）。**OnMediaPlaying() 修正**：VideoView を Visible に戻す処理を追加。**FULL 切り替え白画面修正**：VideoView Hidden + 黒カバーウィンドウの二重対策。**ダブルクリック FULL 切り替え修正**：GetAncestor ではなくスクリーン座標で MovieWindow 矩形内かを判定（ForegroundWindow 上でも動作）。**Debug ログ強化**：[MW] プレフィックスで主要な状態変化を Debug.WriteLine 出力（VS の Output ウィンドウで確認可能）。 |
+| v1.0.49 | **フェードアウト根本修正**：VLC adjust フィルタ（libvlc P/Invoke）で映像の brightness を 1.0→0.0 にアニメーションし、VLC 内部レンダラで映像を徐々に暗くする（Airspace 問題を回避した本来のフェード）。**スタンバイ画像フェードイン時間設定**：設定ダイアログの「スタンバイ画像」と「PAセパレートモード」の間に追加（デフォルト 1.0 秒）。フェードアウト完了後にスタンバイ画像を設定時間でフェードイン。**SetFullScreen 白画面バグ修正**：旧コードで _savedLeft/Top/Width/Height の保存がカバーウィンドウ生成より後だったため誤位置に展開していたバグを修正（保存を先に実行）。**ダブルクリック FULL 切り替え改善**：WM_LBUTTONDBLCLK に加えて WM_LBUTTONDOWN を手動追跡するダブルクリック検出を追加（VLC が DBLCLK を横取りする動画再生中でも動作）。 |

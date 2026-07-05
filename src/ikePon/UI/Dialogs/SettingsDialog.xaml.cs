@@ -16,6 +16,7 @@ public partial class SettingsDialog : Window
         _settings = settings;
         InitializeComponent();
         CbPaSeparate.SelectedIndex = settings.PaSeparateMode ? 1 : 0;
+        TbStandbyFadeIn.Text = settings.StandbyFadeInDuration.ToString("F1");
         TbShortFade.Text = settings.ShortFadeDuration.ToString("F1");
         TbLongFade.Text  = settings.LongFadeDuration.ToString("F1");
         TbInterlock.Text = settings.InterLockMs.ToString();
@@ -53,6 +54,7 @@ public partial class SettingsDialog : Window
 
     private void BtnOk_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryParsePositive(TbStandbyFadeIn.Text, 0f, 9.9f, out float standbyFadeIn)) { ShowError(TbStandbyFadeIn, "0.0〜9.9"); return; }
         if (!TryParsePositive(TbShortFade.Text, 0f, 9.9f, out float shortFade)) { ShowError(TbShortFade, "0.0〜9.9"); return; }
         if (!TryParsePositive(TbLongFade.Text,  0f, 9.9f, out float longFade))  { ShowError(TbLongFade,  "0.0〜9.9"); return; }
         if (!TryParseInt(TbInterlock.Text, 0, 5000, out int interlock))         { ShowError(TbInterlock, "0〜5000");  return; }
@@ -60,6 +62,7 @@ public partial class SettingsDialog : Window
         if (!TryParseInt(TbPreload.Text,   1, 600,  out int preload))           { ShowError(TbPreload,   "1〜600");   return; }
 
         _settings.PaSeparateMode          = CbPaSeparate.SelectedIndex == 1;
+        _settings.StandbyFadeInDuration   = standbyFadeIn;
         _settings.ShortFadeDuration       = shortFade;
         _settings.LongFadeDuration        = longFade;
         _settings.InterLockMs             = interlock;

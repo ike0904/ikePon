@@ -140,7 +140,18 @@
         <TextBlock Text="※ 動画非再生時にムービーウィンドウへ表示する静止画。未設定は黒画面。"
                    FontSize="10" Foreground="#666" Margin="0,0,0,6" TextWrapping="Wrap"/>
 
-        <Separator Background="#383838" Margin="0,4,0,8"/>
+        <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="スタンバイ画像フェードイン" Grid.Column="0"/>
+            <TextBox x:Name="TbStandbyFadeIn" Grid.Column="1"/>
+            <Label Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
+        </Grid>
+
+        <Separator Background="#383838" Margin="0,8,0,8"/>
 
         <!-- PAセパレートモード -->
         <Grid Margin="0,0,0,6">
