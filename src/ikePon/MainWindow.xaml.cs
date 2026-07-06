@@ -68,6 +68,11 @@ public partial class MainWindow : Window
     // ALL FADE 黄→青アニメーション用タイマー
     private DispatcherTimer? _fadeAnimTimer;
     private long _fadeAnimStartTick;
+    // PAUSEボタンの一時停止状態（PAUSE ボタン自身でまとめて一時停止したときのみ true）
+    private bool _isPauseAllActive;
+    // UpdateActionButtons 差分キャッシュ（IsEnabled の無駄な更新を防ぐ）
+    private bool _lastAnyPlaying  = true;  // 初期値を true にして初回で必ず更新させる
+    private bool _lastMovieBgmPlay = true;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -350,18 +355,36 @@ public partial class MainWindow : Window
     {
         bool anyPlaying   = _playback.HasAnyPlaying();
         bool movieBgmPlay = _playback.HasMovieBgmPlaying();
-        bool movieBgmPaused = _playback.HasMovieBgmPaused();
 
-        PanicButton.IsEnabled   = anyPlaying;
-        FadeCutButton.IsEnabled = anyPlaying;
-        PauseAllButton.IsEnabled = movieBgmPlay;
+        // IsEnabled は変化があった時だけ設定（無駄な WPF 内部更新を防ぐ）
+        if (anyPlaying != _lastAnyPlaying)
+        {
+            PanicButton.IsEnabled   = anyPlaying;
+            FadeCutButton.IsEnabled = anyPlaying;
+            _lastAnyPlaying = anyPlaying;
+        }
+        if (movieBgmPlay != _lastMovieBgmPlay)
+        {
+            PauseAllButton.IsEnabled = movieBgmPlay;
+            _lastMovieBgmPlay = movieBgmPlay;
+        }
 
         _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
-        if (_pauseBd != null && movieBgmPlay)
+        if (_pauseBd != null)
         {
-            _pauseBd.BorderBrush = movieBgmPaused
-                ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00))
-                : new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+            if (movieBgmPlay)
+            {
+                // 黄色になるのは PAUSE ボタン自身でまとめて一時停止したときのみ
+                _pauseBd.BorderBrush = _isPauseAllActive
+                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00))
+                    : new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+            }
+            else if (_isPauseAllActive)
+            {
+                // MOV/BGM が全部止まったらフラグをリセット（バンク切り替え等）
+                _isPauseAllActive = false;
+                _pauseBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+            }
         }
     }
 
@@ -914,6 +937,7 @@ public partial class MainWindow : Window
             _fadeAnimTimer.Start();
         }
 
+        _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
         _playback.PanicFadeAll();
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
@@ -931,7 +955,7 @@ public partial class MainWindow : Window
         {
             _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
             _panicFlashTimer?.Stop();
-            _panicFlashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            _panicFlashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             _panicFlashTimer.Tick += (_, _) =>
             {
                 _panicFlashTimer!.Stop();
@@ -941,6 +965,7 @@ public partial class MainWindow : Window
             _panicFlashTimer.Start();
         }
 
+        _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
@@ -954,13 +979,15 @@ public partial class MainWindow : Window
 
     private void ExecutePauseAll()
     {
-        if (_playback.HasMovieBgmPaused())
+        if (_isPauseAllActive)
         {
+            _isPauseAllActive = false;
             _playback.ResumeAllPaused();
             _movieCtrl.ResumeVideo();
         }
         else
         {
+            _isPauseAllActive = true;
             _playback.PauseAllMovieBgm();
             _movieCtrl.PauseVideo();
         }
