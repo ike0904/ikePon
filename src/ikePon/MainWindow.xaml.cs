@@ -51,6 +51,9 @@ public partial class MainWindow : Window
         !string.IsNullOrEmpty(path) && ImageExtensions.Contains(System.IO.Path.GetExtension(path));
 
     private int _imageDisplayingPadIndex = -1;
+    private int _imageFadingPadIndex = -1;
+    private long _imageFadeStartTick;
+    private float _imageFadeDuration;
 
     private readonly DispatcherTimer _uiTimer;
 
@@ -338,6 +341,24 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
+        // 静止画フェード進行を計算（フェード完了したらリセット）
+        int fadingIdx = _imageFadingPadIndex;
+        float imageFadeGainForPad = -1f;
+        if (fadingIdx >= 0)
+        {
+            float elapsed = (Environment.TickCount64 - _imageFadeStartTick) / 1000f;
+            float gain = 1f - Math.Clamp(elapsed / Math.Max(_imageFadeDuration, 0.01f), 0f, 1f);
+            if (gain <= 0f)
+            {
+                _imageFadingPadIndex = -1;
+                fadingIdx = -1;
+            }
+            else
+            {
+                imageFadeGainForPad = gain;
+            }
+        }
+
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -345,7 +366,9 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
-            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec);
+            bool imageDisplaying = _imageDisplayingPadIndex == i;
+            float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
+            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain);
         }
         UpdateActionButtons();
     }
@@ -541,6 +564,8 @@ public partial class MainWindow : Window
         Keyboard.ClearFocus();
         var state = _playback.GetPadState(padIndex);
         bool imageActive = _imageDisplayingPadIndex == padIndex;
+        var pad0 = _playback.GetPadSettings(padIndex);
+        bool isImagePad = pad0 != null && IsImageFile(pad0.FilePath);
         var cm = new ContextMenu();
 
         if (state != PadPlayState.Idle || imageActive)
@@ -549,8 +574,12 @@ public partial class MainWindow : Window
             fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
             var cutOut = new MenuItem { Header = "カットアウト" };
             cutOut.Click += (_, _) => TriggerPadWithMovie(padIndex, stopImmediate: true);
+            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE;
+            var pauseResume = new MenuItem { Header = "一時停止／再開", IsEnabled = pauseEnabled };
+            pauseResume.Click += (_, _) => PausePadWithMovie(padIndex);
             cm.Items.Add(fadeOut);
             cm.Items.Add(cutOut);
+            cm.Items.Add(pauseResume);
         }
         else
         {
@@ -603,12 +632,18 @@ public partial class MainWindow : Window
             else if (fadeOut)
             {
                 _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+                _imageFadingPadIndex = _imageDisplayingPadIndex;
+                _imageFadeStartTick  = Environment.TickCount64;
+                _imageFadeDuration   = _settings.LongFadeDuration;
                 _imageDisplayingPadIndex = -1;
             }
             else if (_imageDisplayingPadIndex == padIndex)
             {
                 // 同じ画像が表示中 → フェードアウト
                 _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+                _imageFadingPadIndex = padIndex;
+                _imageFadeStartTick  = Environment.TickCount64;
+                _imageFadeDuration   = _settings.LongFadeDuration;
                 _imageDisplayingPadIndex = -1;
             }
             else
@@ -683,6 +718,20 @@ public partial class MainWindow : Window
         _playback.LoadBank(_playback.ActiveBank);
         MarkDirty();
         SetInfo2($"Pad {padIndex + 1} に設定をペーストしました。");
+    }
+
+    private void PausePadWithMovie(int padIndex)
+    {
+        var state = _playback.GetPadState(padIndex);
+        if (state == PadPlayState.Idle) return;
+        _playback.ForcePauseResumePad(padIndex);
+        var pad = _playback.GetPadSettings(padIndex);
+        if (pad?.Category == AudioCategory.Movie)
+        {
+            var newState = _playback.GetPadState(padIndex);
+            if (newState == PadPlayState.Paused)  _movieCtrl.PauseVideo();
+            else if (newState == PadPlayState.Playing) _movieCtrl.ResumeVideo();
+        }
     }
 
     private void SeekPad(int padIndex, float fraction)
@@ -966,6 +1015,12 @@ public partial class MainWindow : Window
         }
 
         _isPauseAllActive = false;
+        if (_imageDisplayingPadIndex >= 0)
+        {
+            _imageFadingPadIndex = _imageDisplayingPadIndex;
+            _imageFadeStartTick  = Environment.TickCount64;
+            _imageFadeDuration   = _settings.LongFadeDuration;
+        }
         _imageDisplayingPadIndex = -1;
         _playback.PanicFadeAll();
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
@@ -997,6 +1052,7 @@ public partial class MainWindow : Window
 
         _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
+        _imageFadingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
         _movieCtrl.StopVideo(); // DISPウィンドウは閉じず映像のみ停止
@@ -1391,12 +1447,16 @@ public partial class MainWindow : Window
     private void PasteBankSettings(int bankIdx)
     {
         if (_bankClipboard == null) return;
+        _project.Banks[bankIdx].BankLabel = _bankClipboard.BankLabel;
+        _project.Banks[bankIdx].BankBackgroundColor = _bankClipboard.BankBackgroundColor;
         for (int p = 0; p < BankData.PadCount; p++)
         {
             _project.Banks[bankIdx].Pads[p] = _bankClipboard.Pads[p].Clone();
             _engine.SetPadCategory(bankIdx, p, _project.Banks[bankIdx].Pads[p].Category);
         }
         _playback.LoadBank(bankIdx);
+        RefreshBankLabel(bankIdx);
+        UpdateBankHighlight();
         MarkDirty();
         SetInfo2($"Bank {BankNames[bankIdx]} に設定をペーストしました。");
     }
@@ -1509,7 +1569,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.70{fname}{dirty}";
+        Title = $"ikePon v1.0.71{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

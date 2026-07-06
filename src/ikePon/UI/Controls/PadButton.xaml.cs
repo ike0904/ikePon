@@ -48,6 +48,8 @@ public partial class PadButton : UserControl
     private string? _padBgColor;
     private int _padGainInt = 100;
     private bool _hasFile;
+    private bool _imageDisplaying;
+    private float _imageFadeGain = -1f;
 
     // 音量ドラッグ状態
     private double _volumeDragStartY;
@@ -251,7 +253,7 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f)
     {
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
@@ -261,6 +263,8 @@ public partial class PadButton : UserControl
         bool changed = !_initialized ||
                        _state != state ||
                        _tapBehavior != newTap ||
+                       _imageDisplaying != imageDisplaying ||
+                       Math.Abs(_imageFadeGain - imageFadeGain) > 0.01f ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
                        Math.Abs(_progress - progress) > 0.001f ||
@@ -273,6 +277,8 @@ public partial class PadButton : UserControl
         _state = state;
         _tapBehavior = newTap;
         _fadeGain = fadeGain;
+        _imageDisplaying = imageDisplaying;
+        _imageFadeGain = imageFadeGain;
 
         if (settings != null)
         {
@@ -343,7 +349,27 @@ public partial class PadButton : UserControl
             DeadZone.Background = BrushShift;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
-        if (state == PadPlayState.FadingOut)
+        if (imageFadeGain >= 0f)
+        {
+            // 静止画フェードアウト中: 黄色→グレー補間
+            float g = Math.Clamp(imageFadeGain, 0f, 1f);
+            byte br = Lerp(0x55, 0xFF, g); byte bg2 = Lerp(0x55, 0xD7, g); byte bb = Lerp(0x55, 0x00, g);
+            BorderRoot.BorderBrush = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
+            BorderRoot.BorderThickness = new Thickness(2.5);
+            FileNameLabel.Foreground = BrushTextNormal;
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
+        }
+        else if (imageDisplaying)
+        {
+            // 静止画表示中: 黄色ボーダー
+            BorderRoot.BorderBrush = BrushBorderPlay;
+            BorderRoot.BorderThickness = new Thickness(2.5);
+            FileNameLabel.Foreground = BrushTextNormal;
+            KeyLabel.Foreground  = BrushKeyGray;
+            KeyBadge.BorderBrush = BrushKeyGray;
+        }
+        else if (state == PadPlayState.FadingOut)
         {
             float g = Math.Clamp(fadeGain, 0f, 1f);
             byte br = Lerp(0x55, 0xFF, g); byte bg2 = Lerp(0x55, 0xD7, g); byte bb = Lerp(0x55, 0x00, g);

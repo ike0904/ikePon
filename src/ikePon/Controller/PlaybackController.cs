@@ -169,6 +169,13 @@ public sealed class PlaybackController
         }
     }
 
+    public void ForcePauseResumePad(int padIndex)
+    {
+        var src = _engine.GetSource(_engine.ActiveBank, padIndex);
+        if (src.State == PadPlayState.Playing)       src.Pause();
+        else if (src.State == PadPlayState.Paused)   src.Resume();
+    }
+
     /// <summary>現在アクティブな MOV/BGM/SE パッドの再生数を返す（UI グレーアウト判定用）。</summary>
     public bool HasAnyPlaying()
     {
