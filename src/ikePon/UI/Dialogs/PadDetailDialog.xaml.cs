@@ -121,8 +121,6 @@ public partial class PadDetailDialog : Window
 
         _selectedBgColor = _padSettings.PadBackgroundColor;
         BuildBgColorSwatches();
-
-        UpdateImagePadState();
     }
 
     private void BuildBgColorSwatches()
@@ -407,7 +405,6 @@ public partial class PadDetailDialog : Window
     private void BtnClearFilePath_Click(object sender, RoutedEventArgs e)
     {
         TbFilePath.Text = "";
-        UpdateImagePadState();
     }
 
     // ------------------------------------------------------------------
@@ -426,8 +423,6 @@ public partial class PadDetailDialog : Window
     private static readonly HashSet<string> VideoImageExts = new(StringComparer.OrdinalIgnoreCase)
         { ".mp4", ".mov", ".mkv", ".avi", ".wmv",
           ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
-    private static readonly HashSet<string> ImageOnlyExts = new(StringComparer.OrdinalIgnoreCase)
-        { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
 
     private void TbFilePath_Drop(object sender, DragEventArgs e)
     {
@@ -443,47 +438,7 @@ public partial class PadDetailDialog : Window
             CbCategory.SelectedIndex = 0; // MOVIE
         if (string.IsNullOrWhiteSpace(TbDisplayName.Text))
             TbDisplayName.Text = Path.GetFileNameWithoutExtension(file);
-        UpdateImagePadState();
         e.Handled = true;
-    }
-
-    private bool IsCurrentFileImage()
-        => ImageOnlyExts.Contains(Path.GetExtension(TbFilePath.Text ?? ""));
-
-    private void UpdateImagePadState()
-    {
-        bool isImage = IsCurrentFileImage();
-
-        // カテゴリ: 画像の場合 BGM/SE を無効化して MOVIE に固定
-        if (CbCategory.Items.Count >= 3)
-        {
-            ((ComboBoxItem)CbCategory.Items[1]).IsEnabled = !isImage; // BGM
-            ((ComboBoxItem)CbCategory.Items[2]).IsEnabled = !isImage; // SE
-        }
-        if (isImage && CbCategory.SelectedIndex != 0)
-            CbCategory.SelectedIndex = 0;
-
-        // グレーアウト対象
-        double alpha = isImage ? 0.4 : 1.0;
-        TbPadGain.IsEnabled       = !isImage;
-        TbPadGain.Opacity         = alpha;
-        TbStartPos.IsEnabled      = !isImage;
-        TbStartPos.Opacity        = alpha;
-        TbEndPos.IsEnabled        = !isImage;
-        TbEndPos.Opacity          = alpha;
-        CbAfterPlayback.IsEnabled = !isImage;
-        CbAfterPlayback.Opacity   = alpha;
-
-        // ループ開始位置: image の場合は常に無効。non-image はループ選択時のみ有効
-        bool isLoop = !isImage && CbAfterPlayback.SelectedIndex == 2;
-        TbLoopStart.IsEnabled = isLoop;
-        TbLoopStart.Opacity   = isLoop ? 1.0 : 0.4;
-
-        // 一時停止/再開: SE または 画像の場合はグレーアウト
-        bool isSE = CbCategory.SelectedIndex == 2;
-        CbTapPauseResume.IsEnabled = !isSE && !isImage;
-        if (isImage && CbTapBehavior.SelectedIndex == 2)
-            CbTapBehavior.SelectedIndex = 0;
     }
 
     // ------------------------------------------------------------------

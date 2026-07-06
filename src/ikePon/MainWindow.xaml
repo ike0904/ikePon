@@ -120,8 +120,8 @@
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="130"/>
-                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="144"/>
+                    <ColumnDefinition Width="132"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- ALL CUT ボタン（左側） -->

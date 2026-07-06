@@ -312,20 +312,13 @@ public partial class PadButton : UserControl
                     VolumeLabel.Text = _padGainInt.ToString() + "%";
                 }
             }
-            bool isImagePad = settings.Category == AudioCategory.Movie
-                && !string.IsNullOrEmpty(settings.FilePath)
-                && ImageExts.Contains(System.IO.Path.GetExtension(settings.FilePath));
-            VolumeLabel.Visibility        = (fileExists && !isImagePad) ? Visibility.Visible : Visibility.Collapsed;
-            AfterPlaybackBadge.Visibility = isImagePad ? Visibility.Collapsed : Visibility.Visible;
-            TimeLabel.Visibility          = isImagePad ? Visibility.Collapsed : Visibility.Visible;
+            VolumeLabel.Visibility = fileExists ? Visibility.Visible : Visibility.Collapsed;
         }
         else
         {
             FileNameLabel.Text = "---";
             _hasFile = false;
-            VolumeLabel.Visibility        = Visibility.Collapsed;
-            AfterPlaybackBadge.Visibility = Visibility.Visible;
-            TimeLabel.Visibility          = Visibility.Visible;
+            VolumeLabel.Visibility = Visibility.Collapsed;
         }
 
         if (!changed) return;
@@ -417,9 +410,7 @@ public partial class PadButton : UserControl
         KeyBadge.BorderBrush = BrushKeyGray;
         ProgressBar.Width   = 0;
         ProgressBar.Opacity = 1.0;
-        VolumeLabel.Visibility        = Visibility.Collapsed;
-        AfterPlaybackBadge.Visibility = Visibility.Visible;
-        TimeLabel.Visibility          = Visibility.Visible;
+        VolumeLabel.Visibility = Visibility.Collapsed;
     }
 }
 

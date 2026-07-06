@@ -475,9 +475,7 @@ public partial class MainWindow : Window
         {
             bool dispWasActive = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
-            if (!_movieCtrl.DisplayActive)
-                _imageDisplayingPadIndex = -1;
-            else if (!dispWasActive)
+            if (_movieCtrl.DisplayActive && !dispWasActive)
                 ResumeMovieIfPlaying();
             return true;
         }
@@ -615,9 +613,9 @@ public partial class MainWindow : Window
             }
             else
             {
-                // 新規表示
+                // 新規表示（DISPLAY OFF中でも index を記録しておき、ON時に再表示）
                 _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.AfterPlayback);
-                _imageDisplayingPadIndex = _movieCtrl.DisplayActive ? padIndex : -1;
+                _imageDisplayingPadIndex = padIndex;
             }
             return;
         }
@@ -722,8 +720,17 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
-        pad.FilePath    = null;
-        pad.CustomLabel = null;
+        pad.FilePath           = null;
+        pad.CustomLabel        = null;
+        pad.PadGain            = 1.0f;
+        pad.PadBackgroundColor = null;
+        pad.StartPositionSec   = 0f;
+        pad.EndPositionSec     = -1f;
+        pad.AfterPlayback      = AfterPlaybackBehavior.Stop;
+        pad.TapBehavior        = TapBehavior.FadeOut;
+        pad.LoopStartSec       = -1f;
+        pad.Category           = padIndex < 8 ? AudioCategory.BGM : AudioCategory.SE;
+        _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
         MarkDirty();
     }
 
@@ -851,15 +858,25 @@ public partial class MainWindow : Window
     {
         bool wasActive = _movieCtrl.DisplayActive;
         _movieCtrl.ToggleDisplay();
-        if (!_movieCtrl.DisplayActive)
-            _imageDisplayingPadIndex = -1;
-        else if (!wasActive)
+        if (_movieCtrl.DisplayActive && !wasActive)
             ResumeMovieIfPlaying();
     }
 
-    // DISP を開き直した際に再生中の Movie パッドの映像を再開する
+    // DISP を開き直した際に静止画 or 動画を再開する
     private void ResumeMovieIfPlaying()
     {
+        // 静止画パッドが待機中なら再表示
+        if (_imageDisplayingPadIndex >= 0)
+        {
+            var imgPad = _playback.GetPadSettings(_imageDisplayingPadIndex);
+            if (imgPad != null && !string.IsNullOrEmpty(imgPad.FilePath) && IsImageFile(imgPad.FilePath))
+            {
+                _movieCtrl.PlayVideo(imgPad.FilePath, imgPad.StartPositionSec, imgPad.AfterPlayback);
+                return;
+            }
+        }
+
+        // 音声付き Movie パッドが再生中なら映像を再開
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state = _playback.GetPadState(i);
@@ -1448,7 +1465,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.68{fname}{dirty}";
+        Title = $"ikePon v1.0.69{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
