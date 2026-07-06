@@ -37,6 +37,7 @@ public partial class MainWindow : Window
 
     private PadSettings? _clipboardPad;
     private BankData? _bankClipboard;
+    private bool[,] _missingPads = new bool[ProjectData.BankCount, BankData.PadCount];
 
     private static readonly HashSet<string> AudioVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".mp4", ".mov", ".mkv", ".avi", ".wmv",
@@ -368,7 +369,8 @@ public partial class MainWindow : Window
             var totalSec = _playback.GetPadTotalTime(i);
             bool imageDisplaying = _imageDisplayingPadIndex == i;
             float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
-            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain);
+            bool isMissing = _missingPads[_playback.ActiveBank, i];
+            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing);
         }
         UpdateActionButtons();
     }
@@ -703,6 +705,7 @@ public partial class MainWindow : Window
     {
         if (_clipboardPad == null) return;
         if (_project == null) return;
+        _missingPads[_playback.ActiveBank, padIndex] = false;
         var dest = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         dest.FilePath           = _clipboardPad.FilePath;
         dest.Category           = _clipboardPad.Category;
@@ -768,6 +771,7 @@ public partial class MainWindow : Window
     {
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
+        _missingPads[_playback.ActiveBank, padIndex] = false;
         _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
         pad.FilePath           = null;
         pad.CustomLabel        = null;
@@ -808,7 +812,15 @@ public partial class MainWindow : Window
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, pad.Category);
 
         if (fileChanged)
+        {
+            _missingPads[_playback.ActiveBank, padIndex] = false;
+            if (!string.IsNullOrEmpty(pad.FilePath))
+            {
+                string? resDir = System.IO.Path.GetDirectoryName(pad.FilePath);
+                if (!string.IsNullOrEmpty(resDir)) _settings.LastSelectedResourceDirectory = resDir;
+            }
             _playback.LoadBank(_playback.ActiveBank);
+        }
         else
             _playback.UpdatePadGain(padIndex, pad.PadGain);
 
@@ -845,6 +857,9 @@ public partial class MainWindow : Window
         // 動画・画像ファイルは自動的に MOV カテゴリに設定
         if (VideoImageExtensions.Contains(System.IO.Path.GetExtension(filePath)))
             pad.Category = AudioCategory.Movie;
+        _missingPads[_playback.ActiveBank, padIndex] = false;
+        string? resDir = System.IO.Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(resDir)) _settings.LastSelectedResourceDirectory = resDir;
         string fname = System.IO.Path.GetFileName(filePath);
         SetInfo2($"Pad {padIndex + 1}: {fname} を読み込み中...");
         _playback.LoadBank(_playback.ActiveBank,
@@ -1190,7 +1205,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void Window_Drop(object sender, DragEventArgs e)
+    private async void Window_Drop(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
@@ -1208,23 +1223,7 @@ public partial class MainWindow : Window
         // 初期状態（未変更・未保存）なら確認なしで即読み込み
         if (!_projectDirty && _projectFilePath == null)
         {
-            var loaded = ProjectData.Load(ikp);
-            if (loaded != null)
-            {
-                _project         = loaded;
-                _projectFilePath = ikp;
-                _projectDirty    = false;
-                _playback.SetProject(_project);
-                SyncFadersFromProject();
-                RefreshAllBankLabels();
-                UpdateBankHighlight();
-                UpdateTitle();
-                SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(ikp)}");
-            }
-            else
-            {
-                SetInfo2Warning("読み込みに失敗しました。");
-            }
+            await LoadProjectAsync(ikp);
             e.Handled = true;
             return;
         }
@@ -1235,7 +1234,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void ConfirmIkpLoad()
+    private async void ConfirmIkpLoad()
     {
         if (_pendingIkpPath == null) return;
         string path = _pendingIkpPath;
@@ -1248,21 +1247,7 @@ public partial class MainWindow : Window
             if (r != MessageBoxResult.Yes) { SetInfo2(""); return; }
         }
 
-        var loaded = ProjectData.Load(path);
-        if (loaded == null)
-        {
-            SetInfo2("読み込みに失敗しました。");
-            return;
-        }
-        _project         = loaded;
-        _projectFilePath = path;
-        _projectDirty    = false;
-        _playback.SetProject(_project);
-        SyncFadersFromProject();
-        RefreshAllBankLabels();
-        UpdateBankHighlight();
-        UpdateTitle();
-        SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(path)}");
+        await LoadProjectAsync(path);
     }
 
     private void CancelIkpLoad()
@@ -1296,15 +1281,15 @@ public partial class MainWindow : Window
         _project = new ProjectData();
         _projectFilePath = null;
         _projectDirty = false;
+        _missingPads = new bool[ProjectData.BankCount, BankData.PadCount];
         _playback.SetProject(_project);
         SyncFadersFromProject();
         UpdateTitle();
         SetInfo2("新規プロジェクトを作成しました。");
     }
 
-    private void Menu_Open(object sender, RoutedEventArgs e)
+    private async void Menu_Open(object sender, RoutedEventArgs e)
     {
-        // 初期状態（未変更・未保存）なら確認なしで開く
         if (_projectDirty || _projectFilePath != null)
         {
             if (!ConfirmDiscard()) return;
@@ -1316,17 +1301,7 @@ public partial class MainWindow : Window
             DefaultExt = ".ikp"
         };
         if (dlg.ShowDialog() != true) return;
-        var loaded = ProjectData.Load(dlg.FileName);
-        if (loaded == null) { MessageBox.Show("読み込みに失敗しました。", "ikePon", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-        _project = loaded;
-        _projectFilePath = dlg.FileName;
-        _projectDirty = false;
-        _playback.SetProject(_project);
-        SyncFadersFromProject();
-        RefreshAllBankLabels();
-        UpdateBankHighlight();
-        UpdateTitle();
-        SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(dlg.FileName)}");
+        await LoadProjectAsync(dlg.FileName);
     }
 
     private void Menu_Save(object sender, RoutedEventArgs e)
@@ -1512,6 +1487,61 @@ public partial class MainWindow : Window
         }
     }
 
+    // ------------------------------------------------------------------
+    // プロジェクト読み込み（スマートリロケート付き）
+    // ------------------------------------------------------------------
+    private async Task LoadProjectAsync(string path)
+    {
+        var loaded = ProjectData.Load(path);
+        if (loaded == null)
+        {
+            SetInfo2Warning("読み込みに失敗しました。");
+            return;
+        }
+
+        var relocator = new Controller.RelocateController();
+        relocator.StatusMessage += msg => Dispatcher.Invoke(() => SetInfo2(msg));
+
+        var stillMissing = await relocator.RelocateAsync(
+            loaded,
+            path,
+            _settings.LastSelectedResourceDirectory,
+            async missingPath =>
+            {
+                string? result = null;
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var dlg = new Microsoft.Win32.OpenFileDialog
+                    {
+                        Title = $"ファイルを手動で指定してください：{System.IO.Path.GetFileName(missingPath)}",
+                        Filter = "音声・動画・画像ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|すべてのファイル|*.*",
+                        FileName = System.IO.Path.GetFileName(missingPath)
+                    };
+                    if (dlg.ShowDialog() == true) result = dlg.FileName;
+                });
+                return result;
+            });
+
+        if (!string.IsNullOrEmpty(relocator.ManuallySelectedDirectory))
+            _settings.LastSelectedResourceDirectory = relocator.ManuallySelectedDirectory;
+
+        _missingPads = new bool[ProjectData.BankCount, BankData.PadCount];
+        foreach (var (b, p) in stillMissing)
+            _missingPads[b, p] = true;
+
+        _project         = loaded;
+        _projectFilePath = path;
+        _projectDirty    = false;
+        _playback.SetProject(_project);
+        SyncFadersFromProject();
+        RefreshAllBankLabels();
+        UpdateBankHighlight();
+        UpdateTitle();
+
+        if (!relocator.AnyMissingFound)
+            SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(path)}");
+    }
+
     private void SaveProject(string path)
     {
         SyncFadersToProject();
@@ -1569,7 +1599,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.71{fname}{dirty}";
+        Title = $"ikePon v1.0.72{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

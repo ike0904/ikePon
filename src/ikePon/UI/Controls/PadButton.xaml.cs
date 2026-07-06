@@ -23,8 +23,9 @@ public partial class PadButton : UserControl
     private static readonly SolidColorBrush BrushShift       = new(Color.FromRgb(0x0E, 0x22, 0x3A));
     private static readonly SolidColorBrush BrushCtrl        = new(Color.FromRgb(0x3A, 0x0E, 0x0E));
     private static readonly SolidColorBrush BrushPause       = new(Color.FromRgb(0x0E, 0x3A, 0x0E));
-    private static readonly SolidColorBrush BrushBorderNormal = new(Color.FromRgb(0x55, 0x55, 0x55));
-    private static readonly SolidColorBrush BrushBorderPlay  = new(Color.FromRgb(0xFF, 0xD7, 0x00));
+    private static readonly SolidColorBrush BrushBorderNormal  = new(Color.FromRgb(0x55, 0x55, 0x55));
+    private static readonly SolidColorBrush BrushBorderPlay   = new(Color.FromRgb(0xFF, 0xD7, 0x00));
+    private static readonly SolidColorBrush BrushBorderMissing = new(Colors.Red);
     private static readonly SolidColorBrush BrushTextNormal  = new(Colors.White);
     private static readonly SolidColorBrush BrushTextPlay    = new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushKeyGray     = new(Color.FromRgb(0xAA, 0xAA, 0xAA));
@@ -50,6 +51,8 @@ public partial class PadButton : UserControl
     private bool _hasFile;
     private bool _imageDisplaying;
     private float _imageFadeGain = -1f;
+    private bool _isMissing;
+    private bool _blinkPhase;
 
     // 音量ドラッグ状態
     private double _volumeDragStartY;
@@ -253,13 +256,14 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f, bool isMissing = false)
     {
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
         float newStartSec = settings?.StartPositionSec ?? 0f;
         float newEndSec   = settings?.EndPositionSec   ?? -1f;
         TapBehavior newTap = settings?.TapBehavior ?? TapBehavior.FadeOut;
+        bool newBlinkPhase = (Environment.TickCount64 / 500) % 2 == 0;
         bool changed = !_initialized ||
                        _state != state ||
                        _tapBehavior != newTap ||
@@ -271,7 +275,9 @@ public partial class PadButton : UserControl
                        Math.Abs(_totalSec - totalSec) > 0.5f ||
                        Math.Abs(_startSec - newStartSec) > 0.05f ||
                        Math.Abs(_endSec   - newEndSec)   > 0.05f ||
-                       (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f);
+                       (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f) ||
+                       _isMissing != isMissing ||
+                       (isMissing && _blinkPhase != newBlinkPhase);
         _initialized = true;
 
         _state = state;
@@ -279,6 +285,8 @@ public partial class PadButton : UserControl
         _fadeGain = fadeGain;
         _imageDisplaying = imageDisplaying;
         _imageFadeGain = imageFadeGain;
+        _isMissing = isMissing;
+        _blinkPhase = newBlinkPhase;
 
         if (settings != null)
         {
@@ -286,7 +294,8 @@ public partial class PadButton : UserControl
             _afterPlayback = settings.AfterPlayback;
             string label = settings.CustomLabel
                 ?? System.IO.Path.GetFileNameWithoutExtension(settings.FilePath ?? "");
-            FileNameLabel.Text = string.IsNullOrEmpty(label) ? "---" : label;
+            string displayName = string.IsNullOrEmpty(label) ? "---" : label;
+            FileNameLabel.Text = isMissing ? $"[未リンク] {displayName}" : displayName;
 
             CategoryLabel.Text = settings.Category switch
             {
@@ -349,7 +358,16 @@ public partial class PadButton : UserControl
             DeadZone.Background = BrushShift;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
-        if (imageFadeGain >= 0f)
+        if (isMissing)
+        {
+            // 未リンク: 赤点滅
+            BorderRoot.BorderBrush     = newBlinkPhase ? BrushBorderMissing : BrushBorderNormal;
+            BorderRoot.BorderThickness = newBlinkPhase ? new Thickness(2.5) : new Thickness(1.5);
+            FileNameLabel.Foreground   = BrushTextNormal;
+            KeyLabel.Foreground        = BrushKeyGray;
+            KeyBadge.BorderBrush       = BrushKeyGray;
+        }
+        else if (imageFadeGain >= 0f)
         {
             // 静止画フェードアウト中: 黄色→グレー補間
             float g = Math.Clamp(imageFadeGain, 0f, 1f);

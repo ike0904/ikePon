@@ -25,6 +25,7 @@ public class AppSettings
     public double InterLockMs { get; set; } = 500;
     public double? WindowWidth { get; set; } = null;
     public double? WindowHeight { get; set; } = null;
+    public string LastSelectedResourceDirectory { get; set; } = "";
 
     public static AppSettings Load()
     {
