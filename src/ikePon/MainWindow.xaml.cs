@@ -399,19 +399,23 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.IsRepeat) return;
+        // OnGlobalKey が handled=true にした場合、WPF は e.Handled=true で届ける
+        if (e.IsRepeat || e.Handled) return;
         if (HandleKeyDown(e.Key)) e.Handled = true;
     }
 
     private void Window_KeyUp(object sender, KeyEventArgs e) { }
 
-    // MovieWindowがフォーカスを持つときでもショートカットを動作させる
+    // Win32 メッセージレベルのグローバルキーフック
+    // WPF の KeyDown（フォーカス依存）よりも先に処理されるため、ClearFocus 後でも確実に動作する
     private void OnGlobalKey(ref MSG msg, ref bool handled)
     {
         const int WM_KEYDOWN = 0x0100;
         if (msg.message != WM_KEYDOWN || handled) return;
-        if (IsActive) return;                    // メインウィンドウが既にアクティブなら通常処理
-        if (!_movieCtrl.DisplayActive) return;   // DISPが開いていない場合は不要
+
+        // このアプリのどのウィンドウもアクティブでない場合は他アプリの入力を妨げない
+        if (!IsActive && !_movieCtrl.DisplayActive) return;
+
         // ダイアログが開いている場合はショートカット無効（ダイアログの操作を妨げない）
         if (OwnedWindows.OfType<Window>().Any(w => w.IsVisible)) return;
 
@@ -420,11 +424,17 @@ public partial class MainWindow : Window
 
         var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
 
-        bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
-                        key == Key.Space || key == Key.Return ||
-                        _keyMapper.GetPadIndex(key).HasValue ||
-                        _keyMapper.GetBankIndex(key).HasValue;
-        if (!isOurKey) return;
+        // MovieWindow がアクティブで自ウィンドウが非アクティブの場合のみ対象キーを絞る
+        // （他アプリでの自由なタイピングを妨げないため）
+        if (!IsActive)
+        {
+            bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
+                            key == Key.Space || key == Key.Return ||
+                            key == Key.Y || key == Key.N ||
+                            _keyMapper.GetPadIndex(key).HasValue ||
+                            _keyMapper.GetBankIndex(key).HasValue;
+            if (!isOurKey) return;
+        }
 
         if (HandleKeyDown(key)) handled = true;
     }
@@ -1432,7 +1442,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.65{fname}{dirty}";
+        Title = $"ikéPon v1.0.66{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
