@@ -101,7 +101,7 @@ public partial class SettingsDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        Mouse.Capture(null);  // 前の TextBox によるキャプチャを即時解放
+        if (Mouse.Captured is TextBox) Mouse.Capture(null);
         if (e.OriginalSource is TextBox tb) { tb.Focus(); return; }
         Keyboard.ClearFocus();
     }

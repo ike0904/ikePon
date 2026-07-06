@@ -92,7 +92,7 @@ public partial class BankDetailDialog : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        Mouse.Capture(null);
+        if (Mouse.Captured is TextBox) Mouse.Capture(null);
         if (e.OriginalSource is TextBox tb) { tb.Focus(); return; }
         Keyboard.ClearFocus();
     }
