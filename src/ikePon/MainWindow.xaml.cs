@@ -1305,7 +1305,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.64{fname}{dirty}";
+        Title = $"ikéPon v1.0.65{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
