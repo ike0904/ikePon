@@ -449,9 +449,10 @@ public partial class MainWindow : Window
         // ファイルメニューショートカット（Ctrl+N/O/S）
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
-            if (key == Key.N) { Menu_New(null!, null!);  return true; }
-            if (key == Key.O) { Menu_Open(null!, null!); return true; }
-            if (key == Key.S) { Menu_Save(null!, null!); return true; }
+            if (key == Key.N) { Menu_New(null!, null!);      return true; }
+            if (key == Key.O) { Menu_Open(null!, null!);     return true; }
+            if (key == Key.S) { Menu_Save(null!, null!);     return true; }
+            if (key == Key.E) { Menu_Settings(null!, null!); return true; }
         }
 
         // パニック
@@ -670,10 +671,16 @@ public partial class MainWindow : Window
         if (_clipboardPad == null) return;
         if (_project == null) return;
         var dest = _project.Banks[_playback.ActiveBank].Pads[padIndex];
-        dest.FilePath    = _clipboardPad.FilePath;
-        dest.Category    = _clipboardPad.Category;
-        dest.PadGain     = _clipboardPad.PadGain;
-        dest.CustomLabel = _clipboardPad.CustomLabel;
+        dest.FilePath           = _clipboardPad.FilePath;
+        dest.Category           = _clipboardPad.Category;
+        dest.PadGain            = _clipboardPad.PadGain;
+        dest.CustomLabel        = _clipboardPad.CustomLabel;
+        dest.PadBackgroundColor = _clipboardPad.PadBackgroundColor;
+        dest.StartPositionSec   = _clipboardPad.StartPositionSec;
+        dest.EndPositionSec     = _clipboardPad.EndPositionSec;
+        dest.AfterPlayback      = _clipboardPad.AfterPlayback;
+        dest.TapBehavior        = _clipboardPad.TapBehavior;
+        dest.LoopStartSec       = _clipboardPad.LoopStartSec;
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, dest.Category);
         _playback.LoadBank(_playback.ActiveBank);
         MarkDirty();
@@ -715,7 +722,8 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
-        pad.FilePath = null;
+        pad.FilePath    = null;
+        pad.CustomLabel = null;
         MarkDirty();
     }
 
@@ -1440,7 +1448,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.67{fname}{dirty}";
+        Title = $"ikéPon v1.0.68{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

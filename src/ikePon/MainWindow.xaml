@@ -107,7 +107,7 @@
                 <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
             </MenuItem>
             <MenuItem Header="設定(_S)">
-                <MenuItem Header="設定..." Click="Menu_Settings"/>
+                <MenuItem Header="設定..." InputGestureText="Ctrl+E" Click="Menu_Settings"/>
             </MenuItem>
         </Menu>
 
@@ -302,8 +302,8 @@
                                                 BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="FullText"
-                                                           Text="FULL"
-                                                           FontSize="15" FontWeight="Bold"
+                                                           Text="FULL SCR"
+                                                           FontSize="14" FontWeight="Bold"
                                                            Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
@@ -351,8 +351,8 @@
                                                 BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="DispText"
-                                                           Text="DISP"
-                                                           FontSize="15" FontWeight="Bold"
+                                                           Text="DISPLAY"
+                                                           FontSize="14" FontWeight="Bold"
                                                            Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
