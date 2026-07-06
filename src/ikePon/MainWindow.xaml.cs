@@ -73,6 +73,8 @@ public partial class MainWindow : Window
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
+    // 確認待ち（バンク削除）
+    private int _pendingBankClearIndex = -1;
     // 確認待ち（フェーダーメモリ上書き）
     private (VFaderControl fader, int slot, double gain)? _pendingMemOverwrite;
     // 確認待ち（ikpファイルD&D読み込み）
@@ -297,7 +299,7 @@ public partial class MainWindow : Window
             fader.MuteChanged += (_, muted) => OnFaderMute(captured, muted);
             fader.MemoryRegisterRequested += (s, args) =>
             {
-                if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
+                if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
                 var f = (VFaderControl)s!;
                 _pendingMemOverwrite = (f, args.slot, args.gain);
                 SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？  [Y] 確定  /  [N] キャンセル");
@@ -446,6 +448,13 @@ public partial class MainWindow : Window
             if (key == Key.N) { CancelIkpLoad();  return true; }
         }
 
+        // バンク削除確認中
+        if (_pendingBankClearIndex >= 0)
+        {
+            if (key == Key.Y) { ExecuteBankClear(); return true; }
+            if (key == Key.N) { _pendingBankClearIndex = -1; SetInfo2(""); return true; }
+        }
+
         // ファイルメニューショートカット（Ctrl+N/O/S）
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -547,34 +556,25 @@ public partial class MainWindow : Window
         {
             var pad = _playback.GetPadSettings(padIndex);
 
-            var load = new MenuItem { Header = "ファイルを読み込み..." };
-            load.Click += (_, _) => OpenFileForPad(padIndex);
-            cm.Items.Add(load);
+            var detail = new MenuItem { Header = "詳細設定..." };
+            detail.Click += (_, _) => OpenPadDetail(padIndex);
+            cm.Items.Add(detail);
 
             if (pad != null)
             {
                 cm.Items.Add(new Separator());
 
-                var copyItem = new MenuItem { Header = "設定をコピー", IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
+                var copyItem = new MenuItem { Header = "コピー", IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
                 copyItem.Click += (_, _) => { _clipboardPad = pad.Clone(); };
                 cm.Items.Add(copyItem);
 
-                var pasteItem = new MenuItem { Header = "設定をペースト", IsEnabled = _clipboardPad != null };
+                var pasteItem = new MenuItem { Header = "ペースト", IsEnabled = _clipboardPad != null };
                 pasteItem.Click += (_, _) => PastePadSettings(padIndex);
                 cm.Items.Add(pasteItem);
 
-                if (!string.IsNullOrEmpty(pad.FilePath))
-                {
-                    cm.Items.Add(new Separator());
-                    var clear = new MenuItem { Header = "ファイルの割り当てをクリア" };
-                    clear.Click += (_, _) => ClearPad(padIndex);
-                    cm.Items.Add(clear);
-                }
-
-                cm.Items.Add(new Separator());
-                var detail = new MenuItem { Header = "詳細設定..." };
-                detail.Click += (_, _) => OpenPadDetail(padIndex);
-                cm.Items.Add(detail);
+                var clear = new MenuItem { Header = "削除" };
+                clear.Click += (_, _) => ClearPad(padIndex);
+                cm.Items.Add(clear);
             }
         }
 
@@ -943,7 +943,7 @@ public partial class MainWindow : Window
 
     private void ExecuteAllFade()
     {
-        if (!_playback.HasAnyPlaying()) return;
+        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0) return;
 
         _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
         if (_fadeCutBd != null)
@@ -978,7 +978,7 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
-        if (!_playback.HasAnyPlaying()) return;
+        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0) return;
 
         _panicBd ??= PanicButton.Template.FindName("Bd", PanicButton) as System.Windows.Controls.Border;
         if (_panicBd != null)
@@ -1089,15 +1089,17 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void BankYesBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)         _bankManager.Confirm();
-        else if (_pendingMemOverwrite.HasValue) ConfirmMemOverwrite();
-        else if (_pendingIkpPath != null)      ConfirmIkpLoad();
+        if (_pendingBankConfirm)              _bankManager.Confirm();
+        else if (_pendingMemOverwrite.HasValue)    ConfirmMemOverwrite();
+        else if (_pendingIkpPath != null)          ConfirmIkpLoad();
+        else if (_pendingBankClearIndex >= 0)      ExecuteBankClear();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)         _bankManager.Cancel();
-        else if (_pendingMemOverwrite.HasValue) CancelMemOverwrite();
-        else if (_pendingIkpPath != null)      CancelIkpLoad();
+        if (_pendingBankConfirm)              _bankManager.Cancel();
+        else if (_pendingMemOverwrite.HasValue)    CancelMemOverwrite();
+        else if (_pendingIkpPath != null)          CancelIkpLoad();
+        else if (_pendingBankClearIndex >= 0)      { _pendingBankClearIndex = -1; SetInfo2(""); }
     }
 
     private void ConfirmMemOverwrite()
@@ -1145,7 +1147,7 @@ public partial class MainWindow : Window
         if (ikp == null) return;
 
         // 既存の確認が進行中なら ikp D&D を無視
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue) return;
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
 
         // 初期状態（未変更・未保存）なら確認なしで即読み込み
         if (!_projectDirty && _projectFilePath == null)
@@ -1306,16 +1308,58 @@ public partial class MainWindow : Window
         cm.Items.Add(detail);
         cm.Items.Add(new Separator());
 
-        var copy = new MenuItem { Header = "設定をコピー（全16パッド）" };
+        var copy = new MenuItem { Header = "コピー" };
         copy.Click += (_, _) => { _bankClipboard = _project.Banks[bankIdx].Clone(); };
         cm.Items.Add(copy);
 
-        var paste = new MenuItem { Header = "設定をペースト（全16パッド）", IsEnabled = _bankClipboard != null };
+        var paste = new MenuItem { Header = "ペースト", IsEnabled = _bankClipboard != null };
         paste.Click += (_, _) => PasteBankSettings(bankIdx);
         cm.Items.Add(paste);
 
+        var delete = new MenuItem { Header = "削除" };
+        delete.Click += (_, _) => RequestBankClear(bankIdx);
+        cm.Items.Add(delete);
+
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void RequestBankClear(int bankIdx)
+    {
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null || _pendingBankClearIndex >= 0) return;
+        _pendingBankClearIndex = bankIdx;
+        SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？  [Y] 確定  /  [N] キャンセル");
+    }
+
+    private void ExecuteBankClear()
+    {
+        if (_pendingBankClearIndex < 0) return;
+        int bankIdx = _pendingBankClearIndex;
+        _pendingBankClearIndex = -1;
+
+        var bank = _project.Banks[bankIdx];
+        bank.BankLabel = null;
+        bank.BankBackgroundColor = null;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            _engine.GetSource(bankIdx, p).Unload();
+            var pad = bank.Pads[p];
+            pad.FilePath           = null;
+            pad.CustomLabel        = null;
+            pad.PadGain            = 1.0f;
+            pad.PadBackgroundColor = null;
+            pad.StartPositionSec   = 0f;
+            pad.EndPositionSec     = -1f;
+            pad.AfterPlayback      = AfterPlaybackBehavior.Stop;
+            pad.TapBehavior        = TapBehavior.FadeOut;
+            pad.LoopStartSec       = -1f;
+            pad.Category           = p < 8 ? AudioCategory.BGM : AudioCategory.SE;
+            _engine.SetPadCategory(bankIdx, p, pad.Category);
+        }
+        RefreshBankLabel(bankIdx);
+        UpdateBankHighlight();
+        MarkDirty();
+        SetInfo2($"Bank {BankNames[bankIdx]} をクリアしました。");
     }
 
     private void OpenBankDetail(int bankIdx)
@@ -1465,7 +1509,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.69{fname}{dirty}";
+        Title = $"ikePon v1.0.70{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

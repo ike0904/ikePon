@@ -22,6 +22,7 @@ public partial class PadButton : UserControl
     private static readonly SolidColorBrush BrushPadMovie    = new(Color.FromRgb(0x3D, 0x2A, 0x3D));
     private static readonly SolidColorBrush BrushShift       = new(Color.FromRgb(0x0E, 0x22, 0x3A));
     private static readonly SolidColorBrush BrushCtrl        = new(Color.FromRgb(0x3A, 0x0E, 0x0E));
+    private static readonly SolidColorBrush BrushPause       = new(Color.FromRgb(0x0E, 0x3A, 0x0E));
     private static readonly SolidColorBrush BrushBorderNormal = new(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly SolidColorBrush BrushBorderPlay  = new(Color.FromRgb(0xFF, 0xD7, 0x00));
     private static readonly SolidColorBrush BrushTextNormal  = new(Colors.White);
@@ -336,6 +337,8 @@ public partial class PadButton : UserControl
             DeadZone.Background = BrushPadDefault;
         else if (_tapBehavior == TapBehavior.CutOut)
             DeadZone.Background = BrushCtrl;
+        else if (_tapBehavior == TapBehavior.PauseResume)
+            DeadZone.Background = BrushPause;
         else
             DeadZone.Background = BrushShift;
 
