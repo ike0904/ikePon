@@ -115,18 +115,34 @@
 
         <!-- ファイル名 -->
         <TextBlock Text="ファイル名（フルパス）" Margin="0,0,0,4"/>
-        <TextBox x:Name="TbFilePath"
-                 IsReadOnly="True"
-                 AllowDrop="True"
-                 DragOver="TbFilePath_DragOver"
-                 Drop="TbFilePath_Drop"
-                 Margin="0,0,0,2"
-                 TextWrapping="Wrap"
-                 Background="#252525"
-                 Foreground="#AAAAAA"
-                 MinHeight="32"/>
-        <TextBlock Text="別ファイルに変更: ここへドラッグ＆ドロップ"
-                   FontSize="12" Foreground="White" Margin="0,0,0,10"/>
+        <Grid Margin="0,0,0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="TbFilePath"
+                     Grid.Column="0"
+                     IsReadOnly="True"
+                     Width="Auto"
+                     HorizontalAlignment="Stretch"
+                     AllowDrop="True"
+                     DragOver="TbFilePath_DragOver"
+                     Drop="TbFilePath_Drop"
+                     Cursor="Arrow"
+                     VerticalContentAlignment="Center"
+                     Padding="4,2"/>
+            <Button x:Name="BtnClearFilePath"
+                    Grid.Column="1"
+                    Content="×"
+                    Width="28" Height="22"
+                    Margin="4,0,0,0"
+                    FontSize="12"
+                    Click="BtnClearFilePath_Click"
+                    Background="#3C3C3C" BorderBrush="#555" Foreground="#CCC"
+                    Padding="0"/>
+        </Grid>
+        <TextBlock Text="別ファイルに変更：ここへドラッグ＆ドロップ"
+                   FontSize="10" Foreground="#666" Margin="0,2,0,10" TextWrapping="Wrap"/>
 
         <Separator Background="#383838" Margin="0,0,0,10"/>
 
@@ -174,7 +190,7 @@
                         Orientation="Horizontal"/>
         </Grid>
 
-        <Separator Background="#383838" Margin="0,4,0,10"/>
+        <Separator Background="#383838" Margin="0,0,0,10"/>
 
         <!-- 音量 -->
         <Grid Margin="0,0,0,8">
@@ -194,7 +210,7 @@
             <Label Content="（100%=標準）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
-        <Separator Background="#383838" Margin="0,4,0,10"/>
+        <Separator Background="#383838" Margin="0,0,0,10"/>
 
         <!-- 再生開始位置 -->
         <Grid Margin="0,0,0,8">
@@ -250,7 +266,7 @@
             <Label Content="（空欄＝先頭から）" Grid.Column="2" Margin="8,0,0,0"/>
         </Grid>
 
-        <Separator Background="#383838" Margin="0,0,0,12"/>
+        <Separator Background="#383838" Margin="0,0,0,10"/>
 
         <!-- 最後まで再生した後 -->
         <Grid Margin="0,0,0,8">
@@ -279,10 +295,11 @@
                       ItemContainerStyle="{StaticResource DarkComboBoxItem}">
                 <ComboBoxItem Content="フェードアウト"/>
                 <ComboBoxItem Content="カットアウト"/>
+                <ComboBoxItem x:Name="CbTapPauseResume" Content="一時停止／再開"/>
             </ComboBox>
         </Grid>
 
-        <Separator Background="#383838" Margin="0,0,0,12"/>
+        <Separator Background="#383838" Margin="0,0,0,10"/>
 
         <!-- OK / キャンセル -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

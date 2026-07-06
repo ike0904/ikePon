@@ -54,11 +54,20 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _uiTimer;
 
-    // FULL/DISP/FADE-CUTボタンのテンプレートパーツ（遅延キャッシュ）
+    // FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
     private System.Windows.Controls.Border? _fullBd;
     private System.Windows.Controls.TextBlock? _fullText;
     private System.Windows.Controls.Border? _dispBd;
     private System.Windows.Controls.TextBlock? _dispText;
+    private System.Windows.Controls.Border? _panicBd;
+    private System.Windows.Controls.Border? _fadeCutBd;
+    private System.Windows.Controls.Border? _pauseBd;
+
+    // ALL CUT 黄色フラッシュ用タイマー
+    private DispatcherTimer? _panicFlashTimer;
+    // ALL FADE 黄→青アニメーション用タイマー
+    private DispatcherTimer? _fadeAnimTimer;
+    private long _fadeAnimStartTick;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -334,6 +343,26 @@ public partial class MainWindow : Window
             var totalSec = _playback.GetPadTotalTime(i);
             _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec);
         }
+        UpdateActionButtons();
+    }
+
+    private void UpdateActionButtons()
+    {
+        bool anyPlaying   = _playback.HasAnyPlaying();
+        bool movieBgmPlay = _playback.HasMovieBgmPlaying();
+        bool movieBgmPaused = _playback.HasMovieBgmPaused();
+
+        PanicButton.IsEnabled   = anyPlaying;
+        FadeCutButton.IsEnabled = anyPlaying;
+        PauseAllButton.IsEnabled = movieBgmPlay;
+
+        _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
+        if (_pauseBd != null && movieBgmPlay)
+        {
+            _pauseBd.BorderBrush = movieBgmPaused
+                ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00))
+                : new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+        }
     }
 
     // ------------------------------------------------------------------
@@ -369,7 +398,7 @@ public partial class MainWindow : Window
         var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
 
         bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
-                        key == Key.Space ||
+                        key == Key.Space || key == Key.Return ||
                         _keyMapper.GetPadIndex(key).HasValue ||
                         _keyMapper.GetBankIndex(key).HasValue;
         if (!isOurKey) return;
@@ -433,6 +462,14 @@ public partial class MainWindow : Window
         {
             if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
             ExecuteAllFade();
+            return true;
+        }
+
+        // PAUSE（ENTERキー）
+        if (key == Key.Return)
+        {
+            if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
+            if (PauseAllButton.IsEnabled) ExecutePauseAll();
             return true;
         }
 
@@ -577,6 +614,15 @@ public partial class MainWindow : Window
         {
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
+        }
+        else if (wasActive && pad?.TapBehavior == TapBehavior.PauseResume)
+        {
+            // 一時停止／再開: 音声は TriggerPad 内で処理済み。映像をそれに同期
+            var stateAfter = _playback.GetPadState(padIndex);
+            if (stateAfter == PadPlayState.Paused)
+                _movieCtrl.PauseVideo();
+            else if (stateAfter == PadPlayState.Playing)
+                _movieCtrl.ResumeVideo();
         }
         else if (wasActive)
         {
@@ -811,8 +857,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
-            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
             _fullBd.BorderThickness = new Thickness(2);
             _fullText.Foreground    = new SolidColorBrush(Colors.White);
         }
@@ -833,8 +879,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
-            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x33, 0x66, 0x33));
+            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
             _dispBd.BorderThickness = new Thickness(2);
             _dispText.Foreground    = new SolidColorBrush(Colors.White);
         }
@@ -848,6 +894,26 @@ public partial class MainWindow : Window
 
     private void ExecuteAllFade()
     {
+        _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
+        if (_fadeCutBd != null)
+        {
+            _fadeCutBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _fadeAnimTimer?.Stop();
+            _fadeAnimStartTick = Environment.TickCount64;
+            double duration = Math.Max(_settings.LongFadeDuration, 0.1);
+            _fadeAnimTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+            _fadeAnimTimer.Tick += (_, _) =>
+            {
+                double t = Math.Clamp((Environment.TickCount64 - _fadeAnimStartTick) / 1000.0 / duration, 0.0, 1.0);
+                byte r = (byte)(0xFF + (0x44 - 0xFF) * t);
+                byte g = (byte)(0xD7 + (0x88 - 0xD7) * t);
+                byte b = (byte)(0x00 + (0xFF - 0x00) * t);
+                _fadeCutBd!.BorderBrush = new SolidColorBrush(Color.FromRgb(r, g, b));
+                if (t >= 1.0) { _fadeAnimTimer!.Stop(); _fadeAnimTimer = null; }
+            };
+            _fadeAnimTimer.Start();
+        }
+
         _imageDisplayingPadIndex = -1;
         _playback.PanicFadeAll();
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
@@ -860,10 +926,44 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
+        _panicBd ??= PanicButton.Template.FindName("Bd", PanicButton) as System.Windows.Controls.Border;
+        if (_panicBd != null)
+        {
+            _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+            _panicFlashTimer?.Stop();
+            _panicFlashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            _panicFlashTimer.Tick += (_, _) =>
+            {
+                _panicFlashTimer!.Stop();
+                _panicFlashTimer = null;
+                if (_panicBd != null) _panicBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x44, 0x44));
+            };
+            _panicFlashTimer.Start();
+        }
+
         _imageDisplayingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
         _movieCtrl.StopVideo(); // DISPウィンドウは閉じず映像のみ停止
+    }
+
+    // ------------------------------------------------------------------
+    // PAUSEボタン（MOV/BGM 一時停止・再開）
+    // ------------------------------------------------------------------
+    private void PauseAllButton_Click(object sender, RoutedEventArgs e) => ExecutePauseAll();
+
+    private void ExecutePauseAll()
+    {
+        if (_playback.HasMovieBgmPaused())
+        {
+            _playback.ResumeAllPaused();
+            _movieCtrl.ResumeVideo();
+        }
+        else
+        {
+            _playback.PauseAllMovieBgm();
+            _movieCtrl.PauseVideo();
+        }
     }
 
     // ------------------------------------------------------------------

@@ -139,6 +139,16 @@ public sealed class MovieController : IDisposable
         CloseDisplay();
     }
 
+    public void PauseVideo()
+    {
+        _window?.PauseVideo();
+    }
+
+    public void ResumeVideo()
+    {
+        _window?.ResumeVideo();
+    }
+
     public void SeekVideo(float fraction)
     {
         _window?.SeekVideo(fraction);

@@ -400,6 +400,16 @@ public partial class MovieWindow : Window
         StartStandbyFadeIn();  // CUT/FADEモードどちらでもフェードイン
     }
 
+    public void PauseVideo()
+    {
+        if (_videoVisible) _mediaPlayer.SetPause(true);
+    }
+
+    public void ResumeVideo()
+    {
+        if (_videoVisible) _mediaPlayer.SetPause(false);
+    }
+
     public void SeekVideo(float fraction)
     {
         _mediaPlayer.Position = Math.Clamp(fraction, 0f, 1f);

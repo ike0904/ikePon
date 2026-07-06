@@ -151,6 +151,24 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         }
     }
 
+    public void Pause()
+    {
+        lock (_lock)
+        {
+            if ((PadPlayState)_stateInt == PadPlayState.Playing)
+                _stateInt = (int)PadPlayState.Paused;
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_lock)
+        {
+            if ((PadPlayState)_stateInt == PadPlayState.Paused)
+                _stateInt = (int)PadPlayState.Playing;
+        }
+    }
+
     // ------------------------------------------------------------------
     // ISampleProvider.Read — オーディオスレッドから呼ばれる
     // ------------------------------------------------------------------
@@ -160,7 +178,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         {
             PadPlayState st = (PadPlayState)_stateInt;
 
-            if (st == PadPlayState.Idle)
+            if (st == PadPlayState.Idle || st == PadPlayState.Paused)
             {
                 Array.Clear(buffer, offset, count);
                 return count;

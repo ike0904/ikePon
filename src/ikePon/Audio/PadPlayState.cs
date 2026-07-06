@@ -4,5 +4,6 @@ public enum PadPlayState
 {
     Idle,
     Playing,
-    FadingOut
+    FadingOut,
+    Paused
 }

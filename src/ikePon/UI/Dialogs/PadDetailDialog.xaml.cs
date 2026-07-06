@@ -93,7 +93,12 @@ public partial class PadDetailDialog : Window
             AfterPlaybackBehavior.Loop            => 2,
             _                                     => 0
         };
-        CbTapBehavior.SelectedIndex = _padSettings.TapBehavior == TapBehavior.CutOut ? 1 : 0;
+        CbTapBehavior.SelectedIndex = _padSettings.TapBehavior switch
+        {
+            TapBehavior.CutOut      => 1,
+            TapBehavior.PauseResume => 2,
+            _                       => 0
+        };
         UpdateAfterPlaybackItemStates();
 
         string defaultName = string.IsNullOrEmpty(_padSettings.FilePath)
@@ -209,9 +214,12 @@ public partial class PadDetailDialog : Window
             _ => AfterPlaybackBehavior.Stop
         };
         ResultPadBackgroundColor = _selectedBgColor;
-        var isSE = cat == AudioCategory.SE;
-        ResultTapBehavior   = (!isSE && CbTapBehavior.SelectedIndex == 1)
-            ? TapBehavior.CutOut : TapBehavior.FadeOut;
+        ResultTapBehavior = CbTapBehavior.SelectedIndex switch
+        {
+            1 => TapBehavior.CutOut,
+            2 when cat != AudioCategory.SE => TapBehavior.PauseResume,
+            _ => TapBehavior.FadeOut
+        };
         ResultLoopStartSec  = loopStartSec;
 
         DialogResult = true;
@@ -245,10 +253,11 @@ public partial class PadDetailDialog : Window
 
     private void UpdateTapBehaviorState()
     {
-        if (CbTapBehavior == null) return;
+        if (CbTapBehavior == null || CbTapPauseResume == null) return;
         bool isSE = CbCategory.SelectedIndex == 2;
-        CbTapBehavior.IsEnabled = !isSE;
-        if (isSE) CbTapBehavior.SelectedIndex = 0;
+        CbTapPauseResume.IsEnabled = !isSE;
+        if (isSE && CbTapBehavior.SelectedIndex == 2)
+            CbTapBehavior.SelectedIndex = 0;
     }
 
     private void UpdateLoopStartState()
@@ -391,6 +400,11 @@ public partial class PadDetailDialog : Window
         if (_fileTotalSec > 0) val = Math.Min(val, _fileTotalSec);
         tb.Text = SecsToTimestamp(val);
         e.Handled = true;
+    }
+
+    private void BtnClearFilePath_Click(object sender, RoutedEventArgs e)
+    {
+        TbFilePath.Text = "";
     }
 
     // ------------------------------------------------------------------

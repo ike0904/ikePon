@@ -1,3 +1,3 @@
 namespace ikePon.Model;
 
-public enum TapBehavior { FadeOut, CutOut }
+public enum TapBehavior { FadeOut, CutOut, PauseResume }

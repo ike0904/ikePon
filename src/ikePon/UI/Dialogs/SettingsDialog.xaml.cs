@@ -11,8 +11,6 @@ public partial class SettingsDialog : Window
 {
     private readonly AppSettings _settings;
 
-    private const string StandbyHint = "別ファイルに変更：ここへドラッグ＆ドロップ";
-
     // マウスドラッグ状態
     private TextBox? _dragBox;
     private double _dragStartY;
@@ -30,16 +28,14 @@ public partial class SettingsDialog : Window
         TbLatency.Text   = settings.WasapiLatencyMs.ToString();
         TbPreload.Text   = settings.PreloadThresholdSeconds.ToString();
 
-        TbMovieStandby.Text = string.IsNullOrEmpty(settings.MovieStandbyImagePath)
-            ? StandbyHint
-            : settings.MovieStandbyImagePath;
+        TbMovieStandby.Text = settings.MovieStandbyImagePath ?? "";
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
         SetResetMenu(TbInterlock,     "500");
         SetResetMenu(TbLatency,       "30");
         SetResetMenu(TbPreload,       "10");
-        SetResetMenu(TbMovieStandby,  StandbyHint);
+        SetResetMenu(TbMovieStandby,  "");
     }
 
     private static void SetResetMenu(TextBox tb, string defaultValue)
@@ -72,7 +68,7 @@ public partial class SettingsDialog : Window
 
     private void BtnClearMovieStandby_Click(object sender, RoutedEventArgs e)
     {
-        TbMovieStandby.Text = StandbyHint;
+        TbMovieStandby.Text = "";
     }
 
     private void BtnOk_Click(object sender, RoutedEventArgs e)
@@ -89,8 +85,7 @@ public partial class SettingsDialog : Window
         _settings.InterLockMs             = interlock;
         _settings.WasapiLatencyMs         = latency;
         _settings.PreloadThresholdSeconds = preload;
-        _settings.MovieStandbyImagePath   = TbMovieStandby.Text == StandbyHint
-            ? "" : TbMovieStandby.Text;
+        _settings.MovieStandbyImagePath   = TbMovieStandby.Text;
 
         DialogResult = true;
     }

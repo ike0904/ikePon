@@ -118,11 +118,17 @@ public sealed class PlaybackController
 
         _activePad[catIdx] = padIndex;
 
-        // MOVIE/BGM: 同パッドを再押しした場合はフェード or 即停止（TapBehaviorによる）
+        // MOVIE/BGM: 同パッドを再押しした場合はTapBehaviorによる処理
         bool isSamePad = prev == padIndex;
         bool isMovieBgm = pad.Category == AudioCategory.Movie || pad.Category == AudioCategory.BGM;
         if (isSamePad && isMovieBgm && src.State != PadPlayState.Idle)
         {
+            if (pad.TapBehavior == TapBehavior.PauseResume)
+            {
+                if (src.State == PadPlayState.Playing) src.Pause();
+                else if (src.State == PadPlayState.Paused) src.Resume();
+                return; // _activePad[catIdx] はそのまま（一時停止中も「アクティブ」）
+            }
             if (pad.TapBehavior == TapBehavior.CutOut) src.StopImmediate();
             else src.Stop(_settings.LongFadeDuration);
             _activePad[catIdx] = -1;
@@ -132,6 +138,75 @@ public sealed class PlaybackController
         bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop
                        && pad.Category != AudioCategory.SE;
         src.Trigger(pad.StartPositionSec, pad.EndPositionSec, 0.0f, shouldLoop, pad.LoopStartSec);
+    }
+
+    // ------------------------------------------------------------------
+    // PAUSE ボタン：MOV/BGM の一時停止・再開
+    // ------------------------------------------------------------------
+    public void PauseAllMovieBgm()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var src = _engine.GetSource(bank, p);
+            if (src.State == PadPlayState.Playing)
+            {
+                var cat = _project?.Banks[bank].Pads[p].Category;
+                if (cat == AudioCategory.Movie || cat == AudioCategory.BGM)
+                    src.Pause();
+            }
+        }
+    }
+
+    public void ResumeAllPaused()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var src = _engine.GetSource(bank, p);
+            if (src.State == PadPlayState.Paused)
+                src.Resume();
+        }
+    }
+
+    /// <summary>現在アクティブな MOV/BGM/SE パッドの再生数を返す（UI グレーアウト判定用）。</summary>
+    public bool HasAnyPlaying()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var st = _engine.GetSource(bank, p).State;
+            if (st == PadPlayState.Playing || st == PadPlayState.FadingOut || st == PadPlayState.Paused)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>SE 以外（MOV/BGM）で Paused 状態のパッドがあるか（PAUSE ボタン枠色判定）。</summary>
+    public bool HasMovieBgmPaused()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            if (_engine.GetSource(bank, p).State != PadPlayState.Paused) continue;
+            var cat = _project?.Banks[bank].Pads[p].Category;
+            if (cat == AudioCategory.Movie || cat == AudioCategory.BGM) return true;
+        }
+        return false;
+    }
+
+    /// <summary>SE 以外（MOV/BGM）の再生中パッドがあるか（PAUSE ボタン活性判定）。</summary>
+    public bool HasMovieBgmPlaying()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var st = _engine.GetSource(bank, p).State;
+            if (st != PadPlayState.Playing && st != PadPlayState.Paused) continue;
+            var cat = _project?.Banks[bank].Pads[p].Category;
+            if (cat == AudioCategory.Movie || cat == AudioCategory.BGM) return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------
