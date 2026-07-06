@@ -56,10 +56,24 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         _latencyMs = latencyMs;
 
         // 1. WASAPI Shared — 他アプリと音声を共存させる（Windows オーディオミキサー経由）
+        // Windows ミックスフォーマットが 48000 Hz など異なる場合はリサンプリングして合わせる
         try
         {
+            int mixRate = _format.SampleRate;
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                using var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                mixRate = device.AudioClient.MixFormat.SampleRate;
+            }
+            catch { }
+
+            ISampleProvider provider = this;
+            if (mixRate != _format.SampleRate)
+                provider = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(this, mixRate);
+
             _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(30, latencyMs));
-            _wasapiOut.Init(this);
+            _wasapiOut.Init(provider);
             _wasapiOut.Play();
             return;
         }
