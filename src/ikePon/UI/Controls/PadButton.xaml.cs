@@ -161,6 +161,12 @@ public partial class PadButton : UserControl
         int stepSize = shift ? 10 : 1;
         int newVal = Math.Clamp(_volumeDragStartVal + steps * stepSize, 0, 500);
         VolumeLabel.Text = newVal.ToString();
+        // ドラッグ中もリアルタイムで音量を反映
+        if (newVal != _padGainInt)
+        {
+            _padGainInt = newVal;
+            PadVolumeChanged?.Invoke(this, newVal);
+        }
         e.Handled = true;
     }
 

@@ -51,7 +51,7 @@
                                             <TextBlock x:Name="Igt"
                                                        Grid.Column="1"
                                                        Text="{TemplateBinding InputGestureText}"
-                                                       Foreground="#777"
+                                                       Foreground="#AAA"
                                                        Margin="24,0,0,0"
                                                        VerticalAlignment="Center"
                                                        Visibility="Collapsed"/>
@@ -170,10 +170,6 @@
                                                 <Trigger Property="IsPressed" Value="True">
                                                     <Setter TargetName="Bd" Property="Background" Value="#FF2222"/>
                                                 </Trigger>
-                                                <Trigger Property="IsEnabled" Value="False">
-                                                    <Setter TargetName="Bd" Property="Background" Value="#1E0A0A"/>
-                                                    <Setter TargetName="PanicText" Property="Opacity" Value="0.35"/>
-                                                </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
@@ -228,10 +224,6 @@
                                             <Trigger Property="IsPressed" Value="True">
                                                 <Setter TargetName="FadeCutBd" Property="Opacity" Value="0.7"/>
                                             </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="FadeCutBd" Property="Background" Value="#0A0A1E"/>
-                                                <Setter TargetName="FadeCutText" Property="Opacity" Value="0.35"/>
-                                            </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
@@ -258,7 +250,7 @@
                                             <Grid>
                                                 <TextBlock x:Name="PauseText"
                                                            Text="PAUSE"
-                                                           FontSize="11" FontWeight="Bold"
+                                                           FontSize="13" FontWeight="Bold"
                                                            Foreground="White"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Panel.ZIndex="1"/>
@@ -284,10 +276,6 @@
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
                                                 <Setter TargetName="PauseBd" Property="Opacity" Value="0.7"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter TargetName="PauseBd" Property="Background" Value="#0A1A0A"/>
-                                                <Setter TargetName="PauseText" Property="Opacity" Value="0.35"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>

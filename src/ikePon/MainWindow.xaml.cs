@@ -70,9 +70,6 @@ public partial class MainWindow : Window
     private long _fadeAnimStartTick;
     // PAUSEボタンの一時停止状態（PAUSE ボタン自身でまとめて一時停止したときのみ true）
     private bool _isPauseAllActive;
-    // UpdateActionButtons 差分キャッシュ（IsEnabled の無駄な更新を防ぐ）
-    private bool _lastAnyPlaying  = true;  // 初期値を true にして初回で必ず更新させる
-    private bool _lastMovieBgmPlay = true;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -353,21 +350,7 @@ public partial class MainWindow : Window
 
     private void UpdateActionButtons()
     {
-        bool anyPlaying   = _playback.HasAnyPlaying();
         bool movieBgmPlay = _playback.HasMovieBgmPlaying();
-
-        // IsEnabled は変化があった時だけ設定（無駄な WPF 内部更新を防ぐ）
-        if (anyPlaying != _lastAnyPlaying)
-        {
-            PanicButton.IsEnabled   = anyPlaying;
-            FadeCutButton.IsEnabled = anyPlaying;
-            _lastAnyPlaying = anyPlaying;
-        }
-        if (movieBgmPlay != _lastMovieBgmPlay)
-        {
-            PauseAllButton.IsEnabled = movieBgmPlay;
-            _lastMovieBgmPlay = movieBgmPlay;
-        }
 
         _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
         if (_pauseBd != null)
@@ -463,6 +446,14 @@ public partial class MainWindow : Window
             if (key == Key.N) { CancelIkpLoad();  return true; }
         }
 
+        // ファイルメニューショートカット（Ctrl+N/O/S）
+        if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (key == Key.N) { Menu_New(null!, null!);  return true; }
+            if (key == Key.O) { Menu_Open(null!, null!); return true; }
+            if (key == Key.S) { Menu_Save(null!, null!); return true; }
+        }
+
         // パニック
         if (key == Key.Escape)
         {
@@ -502,7 +493,7 @@ public partial class MainWindow : Window
         if (key == Key.Return)
         {
             if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
-            if (PauseAllButton.IsEnabled) ExecutePauseAll();
+            ExecutePauseAll();
             return true;
         }
 
@@ -927,6 +918,8 @@ public partial class MainWindow : Window
 
     private void ExecuteAllFade()
     {
+        if (!_playback.HasAnyPlaying()) return;
+
         _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
         if (_fadeCutBd != null)
         {
@@ -960,6 +953,8 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
+        if (!_playback.HasAnyPlaying()) return;
+
         _panicBd ??= PanicButton.Template.FindName("Bd", PanicButton) as System.Windows.Controls.Border;
         if (_panicBd != null)
         {
@@ -989,6 +984,9 @@ public partial class MainWindow : Window
 
     private void ExecutePauseAll()
     {
+        // 一時停止対象がなく、かつ再開すべき状態でもない場合は無反応
+        if (!_playback.HasMovieBgmPlaying() && !_isPauseAllActive) return;
+
         if (_isPauseAllActive)
         {
             _isPauseAllActive = false;
@@ -1442,7 +1440,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikéPon v1.0.66{fname}{dirty}";
+        Title = $"ikéPon v1.0.67{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
