@@ -55,11 +55,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
     {
         _latencyMs = latencyMs;
 
-        // 1. WASAPI Exclusive — Windows オーディオミキサーを完全バイパス（エフェクト・多重化を排除）
+        // 1. WASAPI Shared — 他アプリと音声を共存させる（Windows オーディオミキサー経由）
         try
         {
-            int exLatency = Math.Max(100, latencyMs);
-            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, exLatency);
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(30, latencyMs));
             _wasapiOut.Init(this);
             _wasapiOut.Play();
             return;
@@ -88,10 +87,10 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             _waveOutFallback = null;
         }
 
-        // 3. WASAPI Shared — 最終フォールバック
+        // 3. WASAPI Exclusive — 最終フォールバック（共有・WaveOut が両方失敗した場合）
         try
         {
-            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(100, latencyMs));
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, Math.Max(100, latencyMs));
             _wasapiOut.Init(this);
             _wasapiOut.Play();
         }
