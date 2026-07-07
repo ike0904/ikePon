@@ -399,7 +399,37 @@ D&amp;D で可。<code>×</code> でクリア</td>
 </tr>
 </tbody>
 </table>
-<h3 id="パッドボタンの見方">4.3 パッドボタンの見方</h3>
+<h3 id="最後まで再生した後の動作">4.3「最後まで再生した後」の動作</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">設定</th>
+<th style="text-align: left;">動作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">そのまま終了</td>
+<td style="text-align: left;">再生終了後、スタンバイ画像に戻る（BGM
+は無音になる）</td>
+</tr>
+<tr>
+<td style="text-align: left;">最終フレームで停止</td>
+<td style="text-align: left;">最終フレームで静止して映像を表示し続ける（MOV
+のみ）</td>
+</tr>
+<tr>
+<td style="text-align: left;">ループ</td>
+<td style="text-align: left;">ループ再生開始位置（または先頭）に戻って繰り返す（SE
+以外で有効）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="パッドボタンの見方">4.4 パッドボタンの見方</h3>
 <pre><code>┌────────────────────────────────────────┐
 │ [BGM]   100%                        [■] │  ← カテゴリ / 音量 / 再生後動作バッジ
 │                                         │
@@ -545,8 +575,7 @@ D&amp;D で可。<code>×</code> でクリア</td>
 </tbody>
 </table>
 <p><strong>同カテゴリの別パッドを再生した場合：</strong>
-旧パッドをショートフェード（約 0.5
-秒）停止して新パッドを即再生します。</p>
+旧パッドを即座に停止して新パッドを即再生します。</p>
 <h3 id="プログレスバーによるシーク">5.3 プログレスバーによるシーク</h3>
 <p>再生中にパッド下部の <strong>プログレスバー（最下 10px）</strong>
 をクリックすると、クリックした位置に即ジャンプします。音声と映像は同時にシークされます。</p>
@@ -616,7 +645,7 @@ D&amp;D で可。<code>×</code> でクリア</td>
 <li><strong>再生中の音がある場合</strong>：確認メッセージが表示されます。</li>
 </ul>
 <pre><code>インフォメーションエリアに確認メッセージ → [Y] 確定 / [N] キャンセル</code></pre>
-<p>確認中も<strong>現バンクのパッド操作は通常どおり</strong>受け付けます。確定すると旧バンクの全音声がショートフェードで停止し、新バンクに切り替わります。</p>
+<p>確認中も<strong>現バンクのパッド操作は通常どおり</strong>受け付けます。確定すると旧バンクの全音声が即座に停止し、新バンクに切り替わります。</p>
 <h3 id="バンク詳細設定">7.3 バンク詳細設定</h3>
 <p>バンクボタンを <strong>右クリック → 詳細設定…</strong>
 で開きます。</p>
@@ -657,16 +686,17 @@ D&amp;D で可。<code>×</code> でクリア</td>
 </tr>
 <tr>
 <td style="text-align: left;">コピー</td>
-<td style="text-align: left;">バンク内 16 パッドの全設定をコピー</td>
+<td style="text-align: left;">バンク詳細設定およびバンク内 16
+パッドの全設定をコピー</td>
 </tr>
 <tr>
 <td style="text-align: left;">ペースト</td>
-<td style="text-align: left;">コピーした設定を貼り付け（16
-パッド一括）</td>
+<td style="text-align: left;">バンク詳細設定およびバンク内 16
+パッドの全設定を貼り付け</td>
 </tr>
 <tr>
 <td style="text-align: left;">削除</td>
-<td style="text-align: left;">バンク内の全パッドを初期化（確認あり）</td>
+<td style="text-align: left;">バンク詳細設定およびバンク内の全パッドを初期化（確認あり）</td>
 </tr>
 </tbody>
 </table>
@@ -758,24 +788,23 @@ dB（標準）、<code>127</code> = 最大（約 +2.4 dB）</p>
 </table>
 <h3 id="mu-ボタンミュート">8.3 MU ボタン（ミュート）</h3>
 <p>各フェーダー下の <strong>MU</strong>
-ボタンを押すとカテゴリをミュート（赤色で ON 状態を表示）します。</p>
+ボタンを押すとカテゴリをミュート（黄色で ON 状態を表示）します。</p>
 <hr />
 <h2 id="動画ウィンドウdisplay-full-scr">9. 動画ウィンドウ（DISPLAY /
 FULL SCR）</h2>
 <h3 id="displayグレーボタン---キー">9.1 DISPLAY（グレーボタン /
 <code>-</code> キー）</h3>
-<p>動画ウィンドウを表示・非表示でトグルします。映像の
-BO（ブラックアウト）操作にも使用できます。</p>
+<p>動画ウィンドウを表示・非表示でトグルします。</p>
 <ul>
 <li>DISPLAY が <strong>OFF</strong>
-の状態でも静止画パッドをトリガーできます。DISPLAY を ON
-にすると最後にトリガーした画像が表示されます。</li>
+の状態でも動画・静止画パッドをトリガーできます。DISPLAY を ON
+にすると最後にトリガーした映像が表示されます。</li>
 </ul>
 <h3 id="full-scrグレーボタン-0-キー">9.2 FULL SCR（グレーボタン /
 <code>0</code> キー）</h3>
 <p>動画ウィンドウの全画面/ウィンドウモードをトグルします。DISPLAY が OFF
 でも設定可能です（次回 ON 時に全画面で開きます）。</p>
-<p>動画ウィンドウを<strong>ダブルクリック</strong>しても全画面トグルができます。</p>
+<p>動画ウィンドウを<strong>ダブルクリック</strong>しても全画面/ウィンドウモードのトグルができます。</p>
 <h3 id="動画ウィンドウの操作">9.3 動画ウィンドウの操作</h3>
 <ul>
 <li>ウィンドウの位置・サイズはアプリ終了時に自動保存され、次回起動時に復元されます。</li>
@@ -785,36 +814,6 @@ BO（ブラックアウト）操作にも使用できます。</p>
 <p>映像が再生されていない間、設定したスタンバイ画像を表示できます（設定
 →
 スタンバイ画像）。未設定の場合は黒画面（ブラックアウト）になります。</p>
-<h3 id="最後まで再生した後の動作">9.5「最後まで再生した後」の動作</h3>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th style="text-align: left;">設定</th>
-<th style="text-align: left;">動作</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">そのまま終了</td>
-<td style="text-align: left;">再生終了後、スタンバイ画像に戻る（BGM
-は無音になる）</td>
-</tr>
-<tr>
-<td style="text-align: left;">最終フレームで停止</td>
-<td style="text-align: left;">最終フレームで静止して映像を表示し続ける（MOV
-のみ）</td>
-</tr>
-<tr>
-<td style="text-align: left;">ループ</td>
-<td style="text-align: left;">ループ再生開始位置（または先頭）に戻って繰り返す（SE
-以外で有効）</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h2 id="スマートリロケート自動ファイル再リンク">10.
 スマートリロケート（自動ファイル再リンク）</h2>
@@ -992,11 +991,11 @@ FADE（全パッドをロングフェードアウト）</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Y</code></td>
-<td style="text-align: left;">バンク切り替え確認で YES</td>
+<td style="text-align: left;">各種確認で YES</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>N</code></td>
-<td style="text-align: left;">バンク切り替え確認で NO</td>
+<td style="text-align: left;">各種確認で NO</td>
 </tr>
 </tbody>
 </table>
