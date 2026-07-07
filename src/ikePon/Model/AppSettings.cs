@@ -26,6 +26,7 @@ public class AppSettings
     public double? WindowWidth { get; set; } = null;
     public double? WindowHeight { get; set; } = null;
     public string LastSelectedResourceDirectory { get; set; } = "";
+    public string SelectedMidiDeviceName { get; set; } = "";
 
     public static AppSettings Load()
     {

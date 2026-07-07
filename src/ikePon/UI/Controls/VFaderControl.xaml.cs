@@ -271,7 +271,9 @@ public partial class VFaderControl : UserControl
     // ------------------------------------------------------------------
     // ミュートボタン
     // ------------------------------------------------------------------
-    private void Mute_Click(object sender, RoutedEventArgs e)
+    private void Mute_Click(object sender, RoutedEventArgs e) => ToggleMute();
+
+    public void ToggleMute()
     {
         _isMuted = !_isMuted;
         UpdateMuteButton();

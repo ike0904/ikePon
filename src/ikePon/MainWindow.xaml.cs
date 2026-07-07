@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly BankManager _bankManager;
     private readonly KeyboardMapper _keyMapper;
     private readonly MovieController _movieCtrl;
+    private readonly MidiController _midi;
     private ProjectData _project;
     private string? _projectFilePath;
     private bool _projectDirty;
@@ -83,6 +84,8 @@ public partial class MainWindow : Window
     private (VFaderControl fader, int slot, double gain)? _pendingMemOverwrite;
     // 確認待ち（ikpファイルD&D読み込み）
     private string? _pendingIkpPath;
+    // 確認待ち（ファイルメニュー「開く」）
+    private bool _pendingOpenConfirm;
 
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
@@ -101,6 +104,7 @@ public partial class MainWindow : Window
         _bankManager = new BankManager(_playback);
         _keyMapper = new KeyboardMapper();
         _movieCtrl = new MovieController(_settings);
+        _midi = new MidiController(Dispatcher);
         _project   = new ProjectData();
 
         InitializeComponent();
@@ -126,6 +130,9 @@ public partial class MainWindow : Window
         _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() => UpdateDispButton(on));
         _movieCtrl.FullScreenChanged    += on => Dispatcher.Invoke(() => UpdateFullButton(on));
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
+
+        WireMidi();
+        _midi.SetDevice(_settings.SelectedMidiDeviceName);
 
         UpdateBankHighlight();
         UpdateTitle();
@@ -471,6 +478,13 @@ public partial class MainWindow : Window
         {
             if (key == Key.Y) { ConfirmIkpLoad(); return true; }
             if (key == Key.N) { CancelIkpLoad();  return true; }
+        }
+
+        // ファイルメニュー「開く」確認中
+        if (_pendingOpenConfirm)
+        {
+            if (key == Key.Y) { ConfirmOpenLoad(); return true; }
+            if (key == Key.N) { CancelOpenLoad();  return true; }
         }
 
         // バンク削除確認中
@@ -910,6 +924,38 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
+    // MIDIワイヤリング
+    // ------------------------------------------------------------------
+    private void WireMidi()
+    {
+        _midi.PadTriggered += idx =>
+        {
+            var padCat = _playback.GetPadSettings(idx)?.Category;
+            if (padCat == AudioCategory.Movie && _movieCtrl.IsBuffering)
+            { SetInfo2("バッファリング中..."); return; }
+            TriggerPadWithMovie(idx);
+        };
+        _midi.AllCutTriggered    += ExecutePanic;
+        _midi.AllFadeTriggered   += ExecuteAllFade;
+        _midi.PauseTriggered     += ExecutePauseAll;
+        _midi.FullScreenTriggered += () =>
+        {
+            _movieCtrl.ToggleFullScreen();
+            UpdateFullButton(_movieCtrl.IsFullScreen);
+        };
+        _midi.DisplayTriggered += () =>
+        {
+            bool was = _movieCtrl.DisplayActive;
+            _movieCtrl.ToggleDisplay();
+            if (_movieCtrl.DisplayActive && !was) ResumeMovieIfPlaying();
+        };
+        _midi.BankTriggered    += idx => RequestBankSwitch(idx);
+        _midi.MuTriggered      += idx => _faders[idx].ToggleMute();
+        _midi.MemTriggered     += (idx, slot) => OnMemoryRecall(idx, slot, quick: false);
+        _midi.FaderCCReceived  += (idx, val) => _faders[idx].Value = VFaderControl.FaderMax * val / 127.0;
+    }
+
+    // ------------------------------------------------------------------
     // FULL / DISPLAY ボタン
     // ------------------------------------------------------------------
     private void FullButton_Click(object sender, RoutedEventArgs e)
@@ -1160,17 +1206,19 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void BankYesBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)              _bankManager.Confirm();
-        else if (_pendingMemOverwrite.HasValue)    ConfirmMemOverwrite();
-        else if (_pendingIkpPath != null)          ConfirmIkpLoad();
-        else if (_pendingBankClearIndex >= 0)      ExecuteBankClear();
+        if (_pendingBankConfirm)                   _bankManager.Confirm();
+        else if (_pendingMemOverwrite.HasValue)     ConfirmMemOverwrite();
+        else if (_pendingIkpPath != null)           ConfirmIkpLoad();
+        else if (_pendingBankClearIndex >= 0)       ExecuteBankClear();
+        else if (_pendingOpenConfirm)               ConfirmOpenLoad();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)              _bankManager.Cancel();
-        else if (_pendingMemOverwrite.HasValue)    CancelMemOverwrite();
-        else if (_pendingIkpPath != null)          CancelIkpLoad();
-        else if (_pendingBankClearIndex >= 0)      { _pendingBankClearIndex = -1; SetInfo2(""); }
+        if (_pendingBankConfirm)                   _bankManager.Cancel();
+        else if (_pendingMemOverwrite.HasValue)     CancelMemOverwrite();
+        else if (_pendingIkpPath != null)           CancelIkpLoad();
+        else if (_pendingBankClearIndex >= 0)       { _pendingBankClearIndex = -1; SetInfo2(""); }
+        else if (_pendingOpenConfirm)               CancelOpenLoad();
     }
 
     private void ConfirmMemOverwrite()
@@ -1229,8 +1277,7 @@ public partial class MainWindow : Window
         }
 
         _pendingIkpPath = ikp;
-        string fname = System.IO.Path.GetFileName(ikp);
-        SetInfo2Warning($"{fname} を読み込みますか？  [Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning("プロジェクトを読み込みますか？  [Y] 確定  /  [N] キャンセル");
         e.Handled = true;
     }
 
@@ -1239,14 +1286,7 @@ public partial class MainWindow : Window
         if (_pendingIkpPath == null) return;
         string path = _pendingIkpPath;
         _pendingIkpPath = null;
-
-        if (_projectDirty)
-        {
-            var r = MessageBox.Show("変更が保存されていません。続けますか？", "ikePon",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (r != MessageBoxResult.Yes) { SetInfo2(""); return; }
-        }
-
+        SetInfo2("");
         await LoadProjectAsync(path);
     }
 
@@ -1290,10 +1330,36 @@ public partial class MainWindow : Window
 
     private async void Menu_Open(object sender, RoutedEventArgs e)
     {
-        if (_projectDirty || _projectFilePath != null)
+        // 初期状態（未変更・未保存）なら確認なしで即ダイアログ
+        if (!_projectDirty && _projectFilePath == null)
         {
-            if (!ConfirmDiscard()) return;
+            await DoOpenFileDialog();
+            return;
         }
+        // 他の確認が進行中なら無視
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
+            || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
+
+        _pendingOpenConfirm = true;
+        SetInfo2Warning("プロジェクトを読み込みますか？  [Y] 確定  /  [N] キャンセル");
+    }
+
+    private async void ConfirmOpenLoad()
+    {
+        if (!_pendingOpenConfirm) return;
+        _pendingOpenConfirm = false;
+        SetInfo2("");
+        await DoOpenFileDialog();
+    }
+
+    private void CancelOpenLoad()
+    {
+        _pendingOpenConfirm = false;
+        SetInfo2("");
+    }
+
+    private async Task DoOpenFileDialog()
+    {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = "プロジェクトを開く",
@@ -1357,7 +1423,8 @@ public partial class MainWindow : Window
 
     private void RequestBankClear(int bankIdx)
     {
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null || _pendingBankClearIndex >= 0) return;
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
+            || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
         _pendingBankClearIndex = bankIdx;
         SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？  [Y] 確定  /  [N] キャンセル");
     }
@@ -1482,6 +1549,7 @@ public partial class MainWindow : Window
         {
             _engine.PaSeparate = _settings.PaSeparateMode;
             _movieCtrl.ReloadStandbyImage();
+            _midi.SetDevice(_settings.SelectedMidiDeviceName);
             _settings.Save();
             SetInfo2("設定を保存しました。");
         }
@@ -1599,7 +1667,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.72{fname}{dirty}";
+        Title = $"ikePon v1.0.73{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
@@ -1616,6 +1684,7 @@ public partial class MainWindow : Window
         }
         ComponentDispatcher.ThreadPreprocessMessage -= OnGlobalKey;
         _uiTimer.Stop();
+        _midi.Dispose();
         _engine.Dispose();
         _movieCtrl.Dispose(); // CloseDisplay + LibVLC解放
         _settings.WindowWidth  = Width;

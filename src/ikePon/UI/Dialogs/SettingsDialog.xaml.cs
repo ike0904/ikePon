@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ikePon.Controller;
 using ikePon.Model;
 
 namespace ikePon.UI.Dialogs;
@@ -29,6 +30,15 @@ public partial class SettingsDialog : Window
         TbPreload.Text   = settings.PreloadThresholdSeconds.ToString();
 
         TbMovieStandby.Text = settings.MovieStandbyImagePath ?? "";
+
+        // MIDIデバイス一覧を列挙
+        CbMidiDevice.Items.Add("なし（無効）");
+        foreach (var name in MidiController.GetDeviceNames())
+            CbMidiDevice.Items.Add(name);
+        // 保存済みデバイスを選択
+        int midiIdx = CbMidiDevice.Items.Cast<string>()
+            .ToList().IndexOf(settings.SelectedMidiDeviceName);
+        CbMidiDevice.SelectedIndex = midiIdx >= 0 ? midiIdx : 0;
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
@@ -86,6 +96,9 @@ public partial class SettingsDialog : Window
         _settings.WasapiLatencyMs         = latency;
         _settings.PreloadThresholdSeconds = preload;
         _settings.MovieStandbyImagePath   = TbMovieStandby.Text;
+        _settings.SelectedMidiDeviceName  = CbMidiDevice.SelectedIndex > 0
+            ? (CbMidiDevice.SelectedItem as string ?? "")
+            : "";
 
         DialogResult = true;
     }

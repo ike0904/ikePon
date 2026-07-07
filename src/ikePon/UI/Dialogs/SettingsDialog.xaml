@@ -190,6 +190,18 @@
 
         <Separator Background="#383838" Margin="0,8"/>
 
+        <!-- MIDI入力デバイス -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="180"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="MIDI入力デバイス" Grid.Column="0"/>
+            <ComboBox x:Name="CbMidiDevice" Grid.Column="1"/>
+        </Grid>
+
+        <Separator Background="#383838" Margin="0,8"/>
+
         <!-- インターロック -->
         <TextBlock Text="インターロック" FontWeight="Bold" FontSize="12"
                    Foreground="#AAAAAA" Margin="0,0,0,8"/>
