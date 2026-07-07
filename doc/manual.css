@@ -1,0 +1,157 @@
+@charset "UTF-8";
+
+body {
+    font-family: "Meiryo", "Yu Gothic", "MS Gothic", sans-serif;
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #222;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    font-size: 20pt;
+    font-weight: bold;
+    color: #1a1a2e;
+    border-bottom: 3px solid #1a1a2e;
+    padding-bottom: 6px;
+    margin-top: 0;
+    page-break-before: avoid;
+}
+
+h2 {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #16213e;
+    border-bottom: 2px solid #4a90d9;
+    padding-bottom: 4px;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #0f3460;
+    margin-top: 14px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+}
+
+h4 {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #333;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    page-break-after: avoid;
+}
+
+p {
+    margin: 4px 0 8px;
+}
+
+/* テーブル */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0 12px;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+}
+
+th {
+    background-color: #2c3e6b;
+    color: white;
+    padding: 5px 8px;
+    text-align: left;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+}
+
+tr:nth-child(even) td {
+    background-color: #f5f7fa;
+}
+
+/* コードブロック */
+pre {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-left: 4px solid #4a90d9;
+    padding: 8px 10px;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    white-space: pre;
+    overflow-x: auto;
+    margin: 8px 0;
+    page-break-inside: avoid;
+}
+
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    background: #eee;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9pt;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* 画像 */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 10px auto;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+/* 水平線 */
+hr {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 16px 0;
+}
+
+/* リスト */
+ul, ol {
+    margin: 4px 0 8px;
+    padding-left: 1.6em;
+}
+
+li {
+    margin-bottom: 2px;
+}
+
+/* ページ設定 */
+@page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-center {
+        content: counter(page);
+        font-size: 9pt;
+        color: #666;
+    }
+}
+
+/* ページブレーク制御 */
+h1, h2 {
+    page-break-before: auto;
+}
+
+/* 最初のh1はページブレークなし */
+h1:first-child {
+    page-break-before: avoid;
+}
