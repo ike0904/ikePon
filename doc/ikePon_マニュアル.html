@@ -234,7 +234,7 @@ page-break-before: avoid;
 <td style="text-align: left;">ファイル操作・設定</td>
 </tr>
 <tr>
-<td style="text-align: left;">パニックエリア</td>
+<td style="text-align: left;">グローバルエリア</td>
 <td style="text-align: left;">メニュー直下</td>
 <td style="text-align: left;">ALL CUT / ALL FADE / PAUSE / FULL SCR /
 DISPLAY の 5 ボタンとインフォメーション表示</td>
@@ -388,7 +388,8 @@ D&amp;D で可。<code>×</code> でクリア</td>
 <tr>
 <td style="text-align: left;">最後まで再生した後</td>
 <td style="text-align: left;"><code>そのまま終了</code> /
-<code>最終フレームで停止</code>（MOV のみ） / <code>ループ</code></td>
+<code>最終フレームで停止</code>（MOV のみ） / <code>ループ</code>（SE
+以外）</td>
 </tr>
 <tr>
 <td style="text-align: left;">再生中タップ</td>
@@ -511,14 +512,6 @@ D&amp;D で可。<code>×</code> でクリア</td>
 <td style="text-align: left;">キーを押す</td>
 <td style="text-align: left;">通常再生（「再生中タップ」設定に従う）</td>
 </tr>
-<tr>
-<td style="text-align: left;"><code>Shift</code> + キー</td>
-<td style="text-align: left;">そのパッドをロングフェードアウト</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Ctrl</code> + キー</td>
-<td style="text-align: left;">そのパッドをカットアウト（即停止）</td>
-</tr>
 </tbody>
 </table>
 <h3 id="再生中タップの動作">5.2 再生中タップの動作</h3>
@@ -560,16 +553,12 @@ D&amp;D で可。<code>×</code> でクリア</td>
 <h3 id="インターロック">5.4 インターロック</h3>
 <p>同一パッドへの連打（500 ms 以内）は無視されます（設定で変更可）。</p>
 <hr />
-<h2 id="パニック操作all-cut-all-fade-pause">6. パニック操作（ALL CUT /
-ALL FADE / PAUSE）</h2>
+<h2 id="グローバル操作all-cut-all-fade-pause">6. グローバル操作（ALL CUT
+/ ALL FADE / PAUSE）</h2>
 <h3 id="all-cut赤ボタン-esc">6.1 ALL CUT（赤ボタン /
 <code>ESC</code>）</h3>
-<p>全パッドを一括停止する<strong>パニックボタン</strong>です。</p>
+<p>全パッドを即座に一括停止する<strong>パニックボタン</strong>です。</p>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th style="text-align: left;">操作</th>
@@ -579,11 +568,7 @@ ALL FADE / PAUSE）</h2>
 <tbody>
 <tr>
 <td style="text-align: left;">1 回押し</td>
-<td style="text-align: left;">全パッドをロングフェードアウトで停止（動画も連動フェード）。ボタン枠が黄色にアニメーション</td>
-</tr>
-<tr>
-<td style="text-align: left;">2 回連打（200 ms 以内）</td>
-<td style="text-align: left;">全パッドを即座に停止し、オーディオエンジンを再初期化</td>
+<td style="text-align: left;">全パッドを即座に停止。ボタン枠が黄色にフラッシュ</td>
 </tr>
 </tbody>
 </table>
@@ -619,14 +604,17 @@ ALL FADE / PAUSE）</h2>
 <h3 id="バンクの構成">7.1 バンクの構成</h3>
 <p>8 つのバンク（A〜H）がそれぞれ 16
 個のパッドを持ちます。バンクキーのレイアウト：</p>
-<pre><code> 7   8    ← バンク A, B
- U   I    ← バンク C, D
- J   K    ← バンク E, F
- M   ,    ← バンク G, H  ※ カンマキー</code></pre>
+<pre><code> 7   8    ← バンク A, E
+ U   I    ← バンク B, F
+ J   K    ← バンク C, G
+ M   ,    ← バンク D, H  ※ カンマキー</code></pre>
 <p>現在選択中のバンクは <strong>黄色の枠</strong>
 でハイライトされます。</p>
 <h3 id="バンクの切り替え">7.2 バンクの切り替え</h3>
-<p>バンクキーを押すと確認メッセージが表示されます（即時切り替えではありません）。</p>
+<ul>
+<li><strong>再生中の音がない場合</strong>：バンクキーを押すと即座に切り替わります（確認なし）。</li>
+<li><strong>再生中の音がある場合</strong>：確認メッセージが表示されます。</li>
+</ul>
 <pre><code>インフォメーションエリアに確認メッセージ → [Y] 確定 / [N] キャンセル</code></pre>
 <p>確認中も<strong>現バンクのパッド操作は通常どおり</strong>受け付けます。確定すると旧バンクの全音声がショートフェードで停止し、新バンクに切り替わります。</p>
 <h3 id="バンク詳細設定">7.3 バンク詳細設定</h3>
@@ -743,8 +731,8 @@ ALL FADE / PAUSE）</h2>
 </table>
 <p>スケール：<code>0</code> = 無音、<code>96</code> = ±0
 dB（標準）、<code>127</code> = 最大（約 +2.4 dB）</p>
-<h3 id="メモリーボタンm1m4">8.2 メモリーボタン（M1〜M4）</h3>
-<p>各フェーダーに M1〜M4 の 4 つのメモリーボタンがあります。</p>
+<h3 id="メモリーボタンm1m3">8.2 メモリーボタン（M1〜M3）</h3>
+<p>各フェーダーに M1〜M3 の 3 つのメモリーボタンがあります。</p>
 <table>
 <thead>
 <tr>
@@ -759,15 +747,12 @@ dB（標準）、<code>127</code> = 最大（約 +2.4 dB）</p>
 </tr>
 <tr>
 <td style="text-align: left;">クリック（登録済み）</td>
-<td style="text-align: left;">記憶した値へ素早く移動（約 0.5 秒）</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Shift</code> + クリック</td>
-<td style="text-align: left;">記憶した値へゆっくり移動（約 3.0 秒）</td>
+<td style="text-align: left;">記憶した値へフェード移動</td>
 </tr>
 <tr>
 <td style="text-align: left;">右クリック</td>
-<td style="text-align: left;">登録メニュー（上書き確認あり）</td>
+<td style="text-align: left;">フェード移動 / 即座に移動 / 再登録 /
+削除</td>
 </tr>
 </tbody>
 </table>
@@ -800,9 +785,12 @@ BO（ブラックアウト）操作にも使用できます。</p>
 <p>映像が再生されていない間、設定したスタンバイ画像を表示できます（設定
 →
 スタンバイ画像）。未設定の場合は黒画面（ブラックアウト）になります。</p>
-<h3 id="最後まで再生した後の動作mov-カテゴリ">9.5「最後まで再生した後」の動作（MOV
-カテゴリ）</h3>
+<h3 id="最後まで再生した後の動作">9.5「最後まで再生した後」の動作</h3>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr>
 <th style="text-align: left;">設定</th>
@@ -812,15 +800,18 @@ BO（ブラックアウト）操作にも使用できます。</p>
 <tbody>
 <tr>
 <td style="text-align: left;">そのまま終了</td>
-<td style="text-align: left;">再生終了後、スタンバイ画像に戻る</td>
+<td style="text-align: left;">再生終了後、スタンバイ画像に戻る（BGM
+は無音になる）</td>
 </tr>
 <tr>
 <td style="text-align: left;">最終フレームで停止</td>
-<td style="text-align: left;">最終フレームで静止して映像を表示し続ける</td>
+<td style="text-align: left;">最終フレームで静止して映像を表示し続ける（MOV
+のみ）</td>
 </tr>
 <tr>
 <td style="text-align: left;">ループ</td>
-<td style="text-align: left;">ループ再生開始位置（または先頭）に戻って繰り返す</td>
+<td style="text-align: left;">ループ再生開始位置（または先頭）に戻って繰り返す（SE
+以外で有効）</td>
 </tr>
 </tbody>
 </table>
@@ -870,8 +861,7 @@ BO（ブラックアウト）操作にも使用できます。</p>
 <tbody>
 <tr>
 <td style="text-align: left;">フェードアウト時間</td>
-<td style="text-align: left;">ALL CUT/ALL
-FADE・<code>Shift</code>+キーのフェード秒数</td>
+<td style="text-align: left;">ALL FADE のフェード秒数</td>
 <td style="text-align: left;">2.0 秒</td>
 </tr>
 <tr>
@@ -953,28 +943,24 @@ FADE・<code>Shift</code>+キーのフェード秒数</td>
 <tbody>
 <tr>
 <td style="text-align: left;"><code>7</code> / <code>8</code></td>
-<td style="text-align: left;">A / B</td>
+<td style="text-align: left;">A / E</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>U</code> / <code>I</code></td>
-<td style="text-align: left;">C / D</td>
+<td style="text-align: left;">B / F</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>J</code> / <code>K</code></td>
-<td style="text-align: left;">E / F</td>
+<td style="text-align: left;">C / G</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>M</code> / <code>,</code></td>
-<td style="text-align: left;">G / H</td>
+<td style="text-align: left;">D / H</td>
 </tr>
 </tbody>
 </table>
 <h3 id="アクションキー">アクションキー</h3>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th style="text-align: left;">キー</th>
@@ -984,8 +970,7 @@ FADE・<code>Shift</code>+キーのフェード秒数</td>
 <tbody>
 <tr>
 <td style="text-align: left;"><code>ESC</code></td>
-<td style="text-align: left;">ALL CUT（1 回：フェード、2
-回連打：即停止＋エンジン再初期化）</td>
+<td style="text-align: left;">ALL CUT（全パッドを即座に停止）</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Space</code></td>
@@ -1012,25 +997,6 @@ FADE（全パッドをロングフェードアウト）</td>
 <tr>
 <td style="text-align: left;"><code>N</code></td>
 <td style="text-align: left;">バンク切り替え確認で NO</td>
-</tr>
-</tbody>
-</table>
-<h3 id="修飾キー">修飾キー</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">キー</th>
-<th style="text-align: left;">動作</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>Shift</code> + パッドキー</td>
-<td style="text-align: left;">そのパッドをロングフェードアウト</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>Ctrl</code> + パッドキー</td>
-<td style="text-align: left;">そのパッドをカットアウト（即停止）</td>
 </tr>
 </tbody>
 </table>
