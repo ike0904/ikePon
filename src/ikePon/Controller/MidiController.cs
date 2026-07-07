@@ -145,7 +145,10 @@ public class MidiController : IDisposable
     {
         if (note >= PadBase && note <= PadEnd)
         {
-            PadTriggered?.Invoke(note - PadBase);
+            // ノート36=底行、ノート48=上行。上行がPAD0-3なので行を反転する
+            int n = note - PadBase;               // 0-15
+            int padIndex = (3 - n / 4) * 4 + n % 4;
+            PadTriggered?.Invoke(padIndex);
             return;
         }
 

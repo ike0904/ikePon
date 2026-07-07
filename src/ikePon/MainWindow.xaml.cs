@@ -951,7 +951,7 @@ public partial class MainWindow : Window
         };
         _midi.BankTriggered    += idx => RequestBankSwitch(idx);
         _midi.MuTriggered      += idx => _faders[idx].ToggleMute();
-        _midi.MemTriggered     += (idx, slot) => OnMemoryRecall(idx, slot, quick: false);
+        _midi.MemTriggered     += (idx, slot) => _faders[idx].TriggerMemory(slot);
         _midi.FaderCCReceived  += (idx, val) => _faders[idx].Value = VFaderControl.FaderMax * val / 127.0;
     }
 

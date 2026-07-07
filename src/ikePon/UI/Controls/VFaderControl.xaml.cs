@@ -271,6 +271,16 @@ public partial class VFaderControl : UserControl
     // ------------------------------------------------------------------
     // ミュートボタン
     // ------------------------------------------------------------------
+    /// <summary>MIDI等から Memory_Click と同等の操作を行う（未登録→登録、登録済→フェード移動）</summary>
+    public void TriggerMemory(int slot)
+    {
+        if (slot >= 3) return;
+        if (_memories[slot].HasValue)
+            MemoryRecall?.Invoke(this, (slot, false));
+        else
+            StoreMemory(slot, Value);
+    }
+
     private void Mute_Click(object sender, RoutedEventArgs e) => ToggleMute();
 
     public void ToggleMute()
