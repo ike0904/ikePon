@@ -305,6 +305,21 @@ M  ,   ← バンク D, H  ※カンマ（OemComma）
 - 「なし（無効）」が初期値
 - 設定変更は即時反映（アプリ再起動不要）
 
+### 5.5 クラス・ファイル構成への影響
+
+本機能の実装にあたり、内部処理用のコントローラーを新設し、音声エンジンや UI スレッドと非同期で結合する。
+
+```
+src/ikePon/
+├── Controller/
+│   └── MidiController.cs         [新規] MIDI入力デバイスの監視、メッセージのパース、各コントローラーへのディスパッチ処理
+├── Model/
+│   └── AppSettings.cs            [拡張] SelectedMidiDeviceName（settings.jsonへの保存用プロパティ）の追加
+└── UI/
+    └── Dialogs/
+        └── SettingsDialog.xaml   [拡張] MIDIデバイス選択用ComboBoxのUI追加
+```
+
 ---
 
 ## 6. 再生制御
