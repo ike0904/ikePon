@@ -76,12 +76,14 @@
                                                             CornerRadius="3"
                                                             Width="36" Height="20"
                                                             Cursor="SizeNS">
-                                                        <!-- グリップ線 3本 -->
-                                                        <StackPanel VerticalAlignment="Center" Margin="6,0">
-                                                            <Rectangle x:Name="Grip1" Height="1" Fill="White" Margin="0,1"/>
-                                                            <Rectangle x:Name="Grip2" Height="1" Fill="White" Margin="0,2"/>
-                                                            <Rectangle x:Name="Grip3" Height="1" Fill="White" Margin="0,2"/>
-                                                        </StackPanel>
+                                                        <!-- 音量値表示 -->
+                                                        <TextBlock x:Name="ThumbValue"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="White"
+                                                                   Text="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Slider}}, Path=Value, StringFormat={}{0:0}}"/>
                                                     </Border>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
@@ -94,9 +96,7 @@
                                                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Slider}}, Path=IsKeyboardFocusWithin}" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#FFD700"/>
                                                             <Setter TargetName="ThumbBd" Property="BorderThickness" Value="2.5"/>
-                                                            <Setter TargetName="Grip1" Property="Fill" Value="#FFD700"/>
-                                                            <Setter TargetName="Grip2" Property="Fill" Value="#FFD700"/>
-                                                            <Setter TargetName="Grip3" Property="Fill" Value="#FFD700"/>
+                                                            <Setter TargetName="ThumbValue" Property="Foreground" Value="#FFD700"/>
                                                         </DataTrigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>

@@ -1863,14 +1863,14 @@ public partial class MainWindow : Window
         _project         = loaded;
         _projectFilePath = path;
         _projectDirty    = false;
-        _playback.SetProject(_project);
+        string fileName = System.IO.Path.GetFileName(path);
+        Action? onComplete = relocator.AnyMissingFound ? null
+            : () => SetInfo2($"プロジェクトを読み込みました: {fileName}");
+        _playback.SetProject(_project, onComplete);
         SyncFadersFromProject();
         RefreshAllBankLabels();
         UpdateBankHighlight();
         UpdateTitle();
-
-        if (!relocator.AnyMissingFound)
-            SetInfo2($"プロジェクトを読み込みました: {System.IO.Path.GetFileName(path)}");
     }
 
     private void SaveProject(string path)
@@ -1930,7 +1930,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.77{fname}{dirty}";
+        Title = $"ikePon v1.0.78{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

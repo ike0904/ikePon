@@ -34,11 +34,11 @@ public sealed class PlaybackController
         _gainDb = gainDb;
     }
 
-    public void SetProject(ProjectData project)
+    public void SetProject(ProjectData project, Action? onComplete = null)
     {
         _project = project;
         _engine.ActiveBank = project.ActiveBankIndex;
-        LoadBank(project.ActiveBankIndex);
+        LoadBank(project.ActiveBankIndex, onComplete);
     }
 
     // ------------------------------------------------------------------

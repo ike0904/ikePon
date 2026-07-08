@@ -65,7 +65,9 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 _preloaded    = resampled;
                 _preloadTotal = resampled.Length;
                 FilePath      = filePath;
-                FileTotalSec  = (float)duration;
+                FileTotalSec  = _format.SampleRate > 0 && _format.Channels > 0
+                    ? (float)_preloadTotal / (_format.SampleRate * _format.Channels)
+                    : (float)duration;
             }
             return true;
         }

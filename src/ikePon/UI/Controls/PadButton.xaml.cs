@@ -61,6 +61,10 @@ public partial class PadButton : UserControl
     private int _volumeDragStartVal;
     private bool _volumeDragging;
 
+    // シークバードラッグ状態
+    private bool _seekDragging;
+    private float _seekDragFraction;
+
     private static byte Lerp(byte a, byte b, float t)
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
 
@@ -94,13 +98,35 @@ public partial class PadButton : UserControl
         ProgressBorder.MouseLeftButtonDown += (s, e) =>
         {
             if (_state == PadPlayState.Idle) { e.Handled = true; return; }
+            _seekDragging = true;
+            ProgressBorder.CaptureMouse();
             double clickX = e.GetPosition(ProgressBorder).X;
             double totalWidth = ProgressBorder.ActualWidth;
             if (totalWidth > 0)
             {
-                float fraction = (float)Math.Clamp(clickX / totalWidth, 0.0, 1.0);
-                SeekRequested?.Invoke(this, fraction);
+                _seekDragFraction = (float)Math.Clamp(clickX / totalWidth, 0.0, 1.0);
+                ShowSeekDragDisplay();
             }
+            e.Handled = true;
+        };
+        ProgressBorder.MouseMove += (s, e) =>
+        {
+            if (!_seekDragging || !ProgressBorder.IsMouseCaptured) return;
+            double clickX = e.GetPosition(ProgressBorder).X;
+            double totalWidth = ProgressBorder.ActualWidth;
+            if (totalWidth > 0)
+            {
+                _seekDragFraction = (float)Math.Clamp(clickX / totalWidth, 0.0, 1.0);
+                ShowSeekDragDisplay();
+            }
+            e.Handled = true;
+        };
+        ProgressBorder.MouseLeftButtonUp += (s, e) =>
+        {
+            if (!_seekDragging) return;
+            _seekDragging = false;
+            ProgressBorder.ReleaseMouseCapture();
+            SeekRequested?.Invoke(this, _seekDragFraction);
             e.Handled = true;
         };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
@@ -416,6 +442,16 @@ public partial class PadButton : UserControl
         UpdateTimeLabel(state, progress, totalSec, newStartSec, newEndSec);
     }
 
+    private void ShowSeekDragDisplay()
+    {
+        float displayEnd = _endSec > 0f ? _endSec : _totalSec;
+        if (displayEnd <= 0f) return;
+        float currentSec = Math.Clamp(_seekDragFraction * _totalSec, 0f, displayEnd);
+        TimeLabel.Text = $"{FormatTime01(currentSec)}/{FormatTime01(displayEnd)}";
+        double w = _padWidth * Math.Clamp(_seekDragFraction, 0f, 1f);
+        ProgressBar.Width = double.IsNaN(w) || w < 0 ? 0 : w;
+    }
+
     private static string FormatTime01(float secs)
     {
         if (secs < 0) secs = 0;
@@ -430,6 +466,7 @@ public partial class PadButton : UserControl
 
     private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec, float startSec, float endSec)
     {
+        if (_seekDragging) return;
         float displayEnd = endSec > 0f ? endSec : totalSec;
         if (displayEnd <= 0f) { TimeLabel.Text = ""; return; }
 
@@ -442,6 +479,7 @@ public partial class PadButton : UserControl
 
     private void UpdateProgress()
     {
+        if (_seekDragging) return;
         double w = _padWidth * Math.Clamp(_progress, 0f, 1f);
         ProgressBar.Width = double.IsNaN(w) || w < 0 ? 0 : w;
     }
