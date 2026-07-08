@@ -92,11 +92,10 @@
                                                         <Trigger Property="IsDragging" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="Background" Value="#787878"/>
                                                         </Trigger>
-                                                        <!-- 矢印キーで操作可能な時（スライダーがキーボードフォーカスを持つ時）黄色 -->
+                                                        <!-- 矢印キーで操作可能な時（スライダーがキーボードフォーカスを持つ時）枠のみ黄色 -->
                                                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Slider}}, Path=IsKeyboardFocusWithin}" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="BorderBrush" Value="#FFD700"/>
                                                             <Setter TargetName="ThumbBd" Property="BorderThickness" Value="2.5"/>
-                                                            <Setter TargetName="ThumbValue" Property="Foreground" Value="#FFD700"/>
                                                         </DataTrigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>

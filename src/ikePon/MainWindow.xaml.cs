@@ -878,9 +878,9 @@ public partial class MainWindow : Window
         dest.TapBehavior        = _clipboardPad.TapBehavior;
         dest.LoopStartSec       = _clipboardPad.LoopStartSec;
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, dest.Category);
-        _playback.LoadBank(_playback.ActiveBank);
+        string padMsg = $"Pad {padIndex + 1} に設定をペーストしました。";
+        _playback.LoadBank(_playback.ActiveBank, () => SetInfo2(padMsg));
         MarkDirty();
-        SetInfo2($"Pad {padIndex + 1} に設定をペーストしました。");
     }
 
     private void PausePadWithMovie(int padIndex)
@@ -1370,11 +1370,23 @@ public partial class MainWindow : Window
             _panicFlashTimer.Start();
         }
 
+        // ALL FADE 中の場合、フェードアニメを即終了（完了状態の色に移行）
+        if (_fadeAnimTimer != null)
+        {
+            _fadeAnimTimer.Stop();
+            _fadeAnimTimer = null;
+            _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
+            if (_fadeCutBd != null)
+                _fadeCutBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF));
+        }
+
+        bool wasPaused = _isPauseAllActive;
         _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
         _imageFadingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
+        if (wasPaused) _movieCtrl.ResumeVideo(); // PAUSE状態のVLCを正常に停止させる
         _movieCtrl.StopVideo(); // DISPウィンドウは閉じず映像のみ停止
     }
 
@@ -1759,11 +1771,11 @@ public partial class MainWindow : Window
             _project.Banks[bankIdx].Pads[p] = _bankClipboard.Pads[p].Clone();
             _engine.SetPadCategory(bankIdx, p, _project.Banks[bankIdx].Pads[p].Category);
         }
-        _playback.LoadBank(bankIdx);
+        string bankMsg = $"Bank {BankNames[bankIdx]} に設定をペーストしました。";
+        _playback.LoadBank(bankIdx, () => SetInfo2(bankMsg));
         RefreshBankLabel(bankIdx);
         UpdateBankHighlight();
         MarkDirty();
-        SetInfo2($"Bank {BankNames[bankIdx]} に設定をペーストしました。");
     }
 
     private string? ShowInputDialog(string title, string current)
@@ -1930,7 +1942,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.78{fname}{dirty}";
+        Title = $"ikePon v1.0.79{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
