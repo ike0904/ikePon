@@ -34,6 +34,13 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private float _shortFadeSec = 0.5f;
     private bool  _shouldLoop   = false;
 
+    // ループクロスフェード（1秒間）
+    private bool _canCrossfade;   // 条件を満たすか（Trigger時に評価）
+    private bool _inCrossfade;    // クロスフェード実行中
+    private int  _xfadeReadPos;   // ループ側の読み取り位置
+    private int  _xfadeSamples;   // クロスフェード総サンプル数（1秒）
+    private int  _xfadeDone;      // 完了済みサンプル数
+
     public WaveFormat WaveFormat => _format;
     public PadPlayState State    => (PadPlayState)_stateInt;
     public float PlaybackPosition { get; private set; }
@@ -95,6 +102,8 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             FilePath         = null;
             FileTotalSec     = 0f;
             PlaybackPosition = 0f;
+            _inCrossfade     = false;
+            _canCrossfade    = false;
         }
     }
 
@@ -125,8 +134,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             }
 
             _fade.Reset();
-            _stateInt = (int)PadPlayState.Playing;
+            _stateInt        = (int)PadPlayState.Playing;
             PlaybackPosition = 0f;
+            _inCrossfade     = false;
+            _canCrossfade    = EvalCanCrossfade();
         }
     }
 
@@ -137,6 +148,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             var st = (PadPlayState)_stateInt;
             if (st == PadPlayState.Playing || st == PadPlayState.FadingOut)
             {
+                _inCrossfade = false; // クロスフェード中断
                 _fade.StartFadeOut(fadeDuration, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
             }
@@ -147,9 +159,10 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     {
         lock (_lock)
         {
-            _stateInt = (int)PadPlayState.Idle;
+            _stateInt        = (int)PadPlayState.Idle;
             _fade.Reset();
             PlaybackPosition = 0f;
+            _inCrossfade     = false;
         }
     }
 
@@ -211,6 +224,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             {
                 _stateInt = (int)PadPlayState.Idle;
                 _fade.Reset();
+                _inCrossfade = false;
                 Array.Clear(buffer, offset, count);
             }
 
@@ -220,67 +234,125 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
     private int ReadSource(float[] buffer, int offset, int count, PadPlayState st)
     {
-        if (_preloaded != null)
+        if (_preloaded == null) { Array.Clear(buffer, offset, count); return count; }
+
+        int sr = _format.SampleRate, ch = _format.Channels;
+        int written = 0;
+
+        while (written < count)
         {
-            int available = _preloadTotal - _readPos;
-            int toRead    = Math.Min(count, available);
-
-            if (toRead > 0) Array.Copy(_preloaded, _readPos, buffer, offset, toRead);
-            _readPos += toRead;
-
-            if (toRead < count) Array.Clear(buffer, offset + toRead, count - toRead);
-
-            PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
-
-            // 終了位置チェック
-            if (_endSec > 0 && st == PadPlayState.Playing)
+            if (_inCrossfade)
             {
-                float currentSec = _format.SampleRate > 0 && _format.Channels > 0
-                    ? (float)_readPos / (_format.SampleRate * _format.Channels)
-                    : 0f;
-                if (currentSec >= _endSec)
+                // ── クロスフェードブレンド ──────────────────────────
+                int remaining  = count - written;
+                int xfLeft     = _xfadeSamples - _xfadeDone;
+                int toProcess  = Math.Min(remaining, xfLeft);
+
+                for (int i = 0; i < toProcess; i++)
                 {
-                    if (_shouldLoop)
-                    {
-                        float loopTo = _loopStartSec >= 0 ? _loopStartSec : _startSec;
-                        _readPos = Math.Clamp((int)(loopTo * _format.SampleRate * _format.Channels), 0, _preloadTotal);
-                        PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
-                    }
-                    else
-                        TriggerEndFade();
+                    float t    = (float)(_xfadeDone + i) / _xfadeSamples;
+                    float main = (_readPos     + i < _preloadTotal) ? _preloaded[_readPos     + i] : 0f;
+                    float loop = (_xfadeReadPos + i < _preloadTotal) ? _preloaded[_xfadeReadPos + i] : 0f;
+                    buffer[offset + written + i] = main * (1f - t) + loop * t;
+                }
+
+                _readPos      += toProcess;
+                _xfadeReadPos += toProcess;
+                _xfadeDone    += toProcess;
+                written       += toProcess;
+                PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+
+                if (_xfadeDone >= _xfadeSamples)
+                {
+                    // クロスフェード完了：ループ側の位置へ移行
+                    _inCrossfade = false;
+                    _readPos     = _xfadeReadPos;
+                    PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+                }
+                continue;
+            }
+
+            // ── 通常読み取り ─────────────────────────────────────
+            int available = _preloadTotal - _readPos;
+            if (available <= 0) { break; }
+
+            // クロスフェード開始位置で区切る
+            int readLimit = count - written;
+            if (_canCrossfade && _endSec > 0f && _shouldLoop && st == PadPlayState.Playing)
+            {
+                int xfStart = Math.Max(0, (int)((_endSec - 0.5f) * sr * ch));
+                if (_readPos < xfStart)
+                    readLimit = Math.Min(readLimit, xfStart - _readPos);
+            }
+
+            int toRead = Math.Min(readLimit, available);
+            if (toRead > 0)
+            {
+                Array.Copy(_preloaded, _readPos, buffer, offset + written, toRead);
+                _readPos += toRead;
+                written  += toRead;
+                PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+            }
+
+            // クロスフェード開始判定
+            if (_canCrossfade && _endSec > 0f && _shouldLoop && st == PadPlayState.Playing)
+            {
+                int xfStart = Math.Max(0, (int)((_endSec - 0.5f) * sr * ch));
+                if (_readPos >= xfStart && !_inCrossfade)
+                {
+                    float loopTo  = _loopStartSec >= 0f ? _loopStartSec : _startSec;
+                    _xfadeReadPos = Math.Max(0, (int)((loopTo - 0.5f) * sr * ch));
+                    _xfadeSamples = sr * ch;
+                    _xfadeDone    = 0;
+                    _inCrossfade  = true;
+                    continue; // クロスフェード処理へ
                 }
             }
 
+            // endSec チェック（クロスフェード非適用時）
+            if (_endSec > 0f && st == PadPlayState.Playing)
+            {
+                float curSec = sr > 0 && ch > 0 ? (float)_readPos / (sr * ch) : 0f;
+                if (curSec >= _endSec)
+                {
+                    if (_shouldLoop)
+                    {
+                        float loopTo = _loopStartSec >= 0f ? _loopStartSec : _startSec;
+                        _readPos = Math.Clamp((int)(loopTo * sr * ch), 0, _preloadTotal);
+                        PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+                        continue;
+                    }
+                    else { TriggerEndFade(); break; }
+                }
+            }
+
+            // ファイル終端チェック
             if (_readPos >= _preloadTotal)
             {
-                var curState = (PadPlayState)_stateInt;
-                if (curState == PadPlayState.Playing)
+                var cur = (PadPlayState)_stateInt;
+                if (cur == PadPlayState.Playing)
                 {
                     if (_shouldLoop)
                     {
-                        float loopTo = _loopStartSec >= 0 ? _loopStartSec : _startSec;
-                        _readPos = Math.Clamp((int)(loopTo * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                        float loopTo = _loopStartSec >= 0f ? _loopStartSec : _startSec;
+                        _readPos = Math.Clamp((int)(loopTo * sr * ch), 0, _preloadTotal);
                         PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+                        continue;
                     }
-                    else
-                    {
-                        _stateInt = (int)PadPlayState.Idle;
-                        _fade.Reset();
-                        PlaybackPosition = 0f;
-                    }
+                    else { _stateInt = (int)PadPlayState.Idle; _fade.Reset(); PlaybackPosition = 0f; break; }
                 }
-                else if (curState == PadPlayState.FadingOut)
+                else if (cur == PadPlayState.FadingOut)
                 {
-                    _stateInt = (int)PadPlayState.Idle;
-                    _fade.Reset();
-                    PlaybackPosition = 0f;
+                    _stateInt = (int)PadPlayState.Idle; _fade.Reset(); PlaybackPosition = 0f; break;
                 }
+                else break;
             }
-            return toRead;
+
+            if (toRead == 0) break; // 安全弁
         }
 
-        Array.Clear(buffer, offset, count);
-        return 0;
+        if (written < count) Array.Clear(buffer, offset + written, count - written);
+        return written > 0 ? written : count;
     }
 
     public void SeekToFraction(float fraction)
@@ -290,12 +362,25 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             if (_preloaded == null || (PadPlayState)_stateInt == PadPlayState.Idle) return;
             _readPos = Math.Clamp((int)(fraction * _preloadTotal), 0, _preloadTotal);
             PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+            _inCrossfade = false;
         }
     }
 
     public void SetLoop(bool loop)
     {
-        lock (_lock) { _shouldLoop = loop; }
+        lock (_lock)
+        {
+            _shouldLoop   = loop;
+            _canCrossfade = EvalCanCrossfade();
+        }
+    }
+
+    /// <summary>クロスフェード適用条件を評価する。</summary>
+    private bool EvalCanCrossfade()
+    {
+        if (!_shouldLoop || _endSec <= 0f) return false;
+        float loopTo = _loopStartSec >= 0f ? _loopStartSec : _startSec;
+        return (FileTotalSec - _endSec >= 0.5f) && (loopTo >= 0.5f);
     }
 
     private void TriggerEndFade()
@@ -304,6 +389,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         {
             if ((PadPlayState)_stateInt == PadPlayState.Playing)
             {
+                _inCrossfade = false;
                 _fade.StartFadeOut(_shortFadeSec, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
             }
