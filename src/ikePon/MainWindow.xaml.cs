@@ -423,7 +423,7 @@ public partial class MainWindow : Window
                 if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
                 var f = (VFaderControl)s!;
                 _pendingMemOverwrite = (f, args.slot, args.gain);
-                SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？  [Y] 確定  /  [N] キャンセル");
+                SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？\n[Y] 確定  /  [N] キャンセル");
             };
 
             _faders[i] = fader;
@@ -439,7 +439,7 @@ public partial class MainWindow : Window
         _bankManager.BankSwitchRequested += idx =>
         {
             _pendingBankConfirm = true;
-            SetInfo2Warning($"Bank {BankNames[idx]} [{KeyboardMapper.BankLabels[idx]}] に切り替えますか？  [Y] 確定  /  [N] キャンセル");
+            SetInfo2Warning($"Bank {BankNames[idx]} [{KeyboardMapper.BankLabels[idx]}] に切り替えますか？\n[Y] 確定  /  [N] キャンセル");
         };
         _bankManager.BankSwitched += idx =>
         {
@@ -1573,7 +1573,7 @@ public partial class MainWindow : Window
         }
 
         _pendingIkpPath = ikp;
-        SetInfo2Warning("プロジェクトを読み込みますか？  [Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning("プロジェクトを読み込みますか？\n[Y] 確定  /  [N] キャンセル");
         e.Handled = true;
     }
 
@@ -1639,7 +1639,7 @@ public partial class MainWindow : Window
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
 
         _pendingOpenConfirm = true;
-        SetInfo2Warning("プロジェクトを読み込みますか？  [Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning("プロジェクトを読み込みますか？\n[Y] 確定  /  [N] キャンセル");
     }
 
     private async void ConfirmOpenLoad()
@@ -1725,7 +1725,7 @@ public partial class MainWindow : Window
         if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
         _pendingBankClearIndex = bankIdx;
-        SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？  [Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？\n[Y] 確定  /  [N] キャンセル");
     }
 
     private void ExecuteBankClear()
