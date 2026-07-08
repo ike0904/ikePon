@@ -247,7 +247,7 @@ public partial class MainWindow : Window
             {
                 if (e.Data.GetDataPresent("PadDrop"))
                     e.Effects = DragDropEffects.Move;
-                else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                else if (e.Data.GetDataPresent(DataFormats.FileDrop) && pad.CanEdit)
                     e.Effects = DragDropEffects.Copy;
                 else
                     e.Effects = DragDropEffects.None;
@@ -261,7 +261,7 @@ public partial class MainWindow : Window
                         SwapPads(srcIdx, captured);
                     e.Handled = true;
                 }
-                else
+                else if (pad.CanEdit)
                 {
                     HandlePadDrop(captured, e);
                 }
@@ -1966,7 +1966,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.84{fname}{dirty}";
+        Title = $"ikePon v1.0.85{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

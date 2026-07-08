@@ -26,6 +26,7 @@ public partial class PadDetailDialog : Window
     public float               ResultLoopStartSec      { get; private set; }
 
     private string? _selectedBgColor;
+    private readonly Dictionary<TextBox, string> _savedTexts = new();
 
     private static readonly string[] BgColorPalette =
     [
@@ -58,6 +59,12 @@ public partial class PadDetailDialog : Window
         SetResetMenu(TbPadGain,  "100");
         SetResetMenu(TbStartPos, "0:00.0");
         SetResetMenu(TbEndPos,   "");
+
+        foreach (var tb in new[] { TbPadGain, TbStartPos, TbEndPos, TbLoopStart })
+        {
+            var captured = tb;
+            tb.GotFocus += (_, _) => _savedTexts[captured] = captured.Text;
+        }
     }
 
     private static void SetResetMenu(TextBox tb, string defaultValue)
@@ -302,19 +309,88 @@ public partial class PadDetailDialog : Window
         if (sender is TextBox tb) CommitPosBox(tb);
     }
 
-    private static void CommitGainBox(TextBox tb)
+    private void CommitGainBox(TextBox tb)
     {
-        if (TryParseGainInt(tb.Text, out int val))
-            tb.Text = val.ToString();
+        string converted = ToHalfWidth(tb.Text);
+        if (TryParseGainInt(converted, out int val))
+        {
+            _savedTexts[tb] = val.ToString();
+            tb.Text = _savedTexts[tb];
+        }
         else
-            tb.Text = "100";
+        {
+            tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "100";
+        }
     }
 
     private void CommitPosBox(TextBox tb)
     {
-        if (string.IsNullOrWhiteSpace(tb.Text)) return;
-        if (TryParseTimestampLenient(tb.Text, out float secs))
-            tb.Text = SecsToTimestamp(secs);
+        if (string.IsNullOrWhiteSpace(tb.Text))
+        {
+            _savedTexts[tb] = "";
+            return;
+        }
+
+        string converted = ToHalfWidth(tb.Text);
+        if (!TryParseTimestampLenient(converted, out float secs) || secs < 0)
+        {
+            tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "";
+            return;
+        }
+
+        if (tb == TbStartPos)
+        {
+            if (!string.IsNullOrWhiteSpace(TbEndPos.Text) &&
+                TryParseTimestampLenient(ToHalfWidth(TbEndPos.Text), out float endSec) &&
+                secs >= endSec)
+            {
+                tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "";
+                return;
+            }
+        }
+        else if (tb == TbEndPos)
+        {
+            if (!string.IsNullOrWhiteSpace(TbStartPos.Text) &&
+                TryParseTimestampLenient(ToHalfWidth(TbStartPos.Text), out float startSec) &&
+                secs <= startSec)
+            {
+                tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "";
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(TbLoopStart.Text) &&
+                TryParseTimestampLenient(ToHalfWidth(TbLoopStart.Text), out float loopSec) &&
+                secs <= loopSec)
+            {
+                tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "";
+                return;
+            }
+        }
+        else if (tb == TbLoopStart)
+        {
+            if (!string.IsNullOrWhiteSpace(TbEndPos.Text) &&
+                TryParseTimestampLenient(ToHalfWidth(TbEndPos.Text), out float endSec) &&
+                secs >= endSec)
+            {
+                tb.Text = _savedTexts.TryGetValue(tb, out var saved) ? saved : "";
+                return;
+            }
+        }
+
+        string normalized = SecsToTimestamp(secs);
+        _savedTexts[tb] = normalized;
+        tb.Text = normalized;
+    }
+
+    private static string ToHalfWidth(string s)
+    {
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (char c in s)
+        {
+            if (c >= '！' && c <= '～') sb.Append((char)(c - 0xFEE0));
+            else if (c == '　') sb.Append(' ');
+            else sb.Append(c);
+        }
+        return sb.ToString();
     }
 
     // ------------------------------------------------------------------

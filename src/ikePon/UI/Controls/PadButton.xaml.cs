@@ -91,7 +91,7 @@ public partial class PadButton : UserControl
         };
         AfterPlaybackBadge.MouseLeftButtonDown += (s, e) =>
         {
-            if (!CanEdit) { e.Handled = true; return; }
+            if (!CanEdit || _state != PadPlayState.Idle) { e.Handled = true; return; }
             CycleAfterPlayback();
             e.Handled = true;
         };
@@ -228,9 +228,21 @@ public partial class PadButton : UserControl
         e.Handled = true;
     }
 
+    private static string ToHalfWidth(string s)
+    {
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (char c in s)
+        {
+            if (c >= '！' && c <= '～') sb.Append((char)(c - 0xFEE0));
+            else if (c == '　') sb.Append(' ');
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
     private void CommitVolumeLabel()
     {
-        string raw = VolumeLabel.Text.TrimEnd('%').Trim();
+        string raw = ToHalfWidth(VolumeLabel.Text).TrimEnd('%').Trim();
         if (!int.TryParse(raw, out int val) || val < 0 || val > 500)
             val = _padGainInt;
         val = Math.Clamp(val, 0, 500);
