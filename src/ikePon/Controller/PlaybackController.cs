@@ -21,7 +21,11 @@ public sealed class PlaybackController
     private readonly long[,] _lastTick = new long[ProjectData.BankCount, BankData.PadCount];
 
     private ProjectData? _project;
+    private int _loadingCount; // アクティブバンクのロード中カウンタ
 
+    // アクティブバンクのロード開始/完了通知（UIスレッドから呼び出し）
+    public event Action? BankLoadStarted;
+    public event Action? BankLoadCompleted;
 
     public PlaybackController(AudioEngine engine, AppSettings settings, FileGainDatabase gainDb)
     {
@@ -49,6 +53,13 @@ public sealed class PlaybackController
         for (int p = 0; p < BankData.PadCount; p++)
             _engine.SetPadCategory(bankIndex, p, bank.Pads[p].Category);
 
+        bool isActive = bankIndex == _engine.ActiveBank;
+        if (isActive)
+        {
+            if (System.Threading.Interlocked.Increment(ref _loadingCount) == 1)
+                BankLoadStarted?.Invoke(); // ローディング開始（UIスレッドから呼ばれる前提）
+        }
+
         Task.Run(() =>
         {
             for (int p = 0; p < BankData.PadCount; p++)
@@ -66,8 +77,12 @@ public sealed class PlaybackController
                     src.Load(pad.FilePath, _settings.PreloadThresholdSeconds,
                         _gainDb.GetGain(pad.FilePath), pad.PadGain);
             }
-            if (onComplete != null)
-                System.Windows.Application.Current.Dispatcher.Invoke(onComplete);
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (isActive && System.Threading.Interlocked.Decrement(ref _loadingCount) == 0)
+                    BankLoadCompleted?.Invoke();
+                onComplete?.Invoke();
+            });
         });
     }
 

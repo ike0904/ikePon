@@ -95,6 +95,9 @@ public partial class MainWindow : Window
     // インフォメーション次アクション消去フラグ（確認メッセージ以外の通常メッセージのみ true）
     private bool _infoClearPending;
 
+    // バンク読み込み中フラグ（true 中はパッドをグレーアウト・操作ブロック）
+    private bool _bankLoading;
+
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
     // 確認待ち（バンク削除）
@@ -231,11 +234,12 @@ public partial class MainWindow : Window
             {
                 if (_padDragActive || _padDragSourceIdx != captured) return;
                 _padDragSourceIdx = -1;
+                if (_bankLoading) { e.Handled = true; return; } // ローディング中は操作ブロック
                 TriggerPadWithMovie(captured, _padShiftOnDown, _padCtrlOnDown);
                 e.Handled = true;
             };
 
-            pad.MouseRightButtonUp += (_, e) => PadRightClick(captured, e);
+            pad.MouseRightButtonUp += (_, e) => { if (!_bankLoading) PadRightClick(captured, e); };
             pad.AllowDrop = true;
             pad.DragOver  += (_, e) =>
             {
@@ -446,6 +450,9 @@ public partial class MainWindow : Window
             _pendingBankConfirm = false;
             SetInfo2("");
         };
+
+        _playback.BankLoadStarted  += () => SetBankLoading(true);
+        _playback.BankLoadCompleted += () => SetBankLoading(false);
     }
 
     // ------------------------------------------------------------------
@@ -1007,6 +1014,7 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.FilePath = filePath;
+        pad.CustomLabel = null; // 表示名は新しいファイル名を採用（前の名前を引き継がない）
         // 動画・画像ファイルは自動的に MOV カテゴリに設定
         if (VideoImageExtensions.Contains(System.IO.Path.GetExtension(filePath)))
             pad.Category = AudioCategory.Movie;
@@ -1120,6 +1128,18 @@ public partial class MainWindow : Window
         foreach (var pad in _padButtons)
             pad.CanEdit = !locked;
         UpdateLockButton();
+    }
+
+    private void SetBankLoading(bool loading)
+    {
+        _bankLoading = loading;
+        double opacity = loading ? 0.45 : 1.0;
+        foreach (var pad in _padButtons)
+            pad.Opacity = opacity;
+        if (loading && !InfoLine2.Text.Contains("読み込み中"))
+            SetInfo2("読み込み中...");
+        else if (!loading && InfoLine2.Text == "読み込み中...")
+            SetInfo2("");
     }
 
     // ------------------------------------------------------------------
@@ -1910,7 +1930,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.76{fname}{dirty}";
+        Title = $"ikePon v1.0.77{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

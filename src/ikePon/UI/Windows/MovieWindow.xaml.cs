@@ -479,6 +479,9 @@ public partial class MovieWindow : Window
 
         StopFadeTimer();
         StopStandbyFadeIn();
+        // スタンバイ表示中にフルスクリーン切替するとフェードインが中断される → 不透明度を確定
+        if (!_videoVisible && StandbyLayer.Visibility == Visibility.Visible)
+            StandbyLayer.Opacity = 1.0;
         VideoView.Visibility = Visibility.Hidden;
 
         Window cover;

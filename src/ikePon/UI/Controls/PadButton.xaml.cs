@@ -419,10 +419,12 @@ public partial class PadButton : UserControl
     private static string FormatTime01(float secs)
     {
         if (secs < 0) secs = 0;
+        secs = MathF.Round(secs, 1); // 0.1秒単位で丸めて詳細設定との表示ズレを防ぐ
         int m   = (int)(secs / 60);
-        float r = secs % 60;
+        float r = secs - m * 60f;
         int s   = (int)r;
-        int t   = (int)((r - s) * 10);
+        int t   = (int)Math.Round((r - s) * 10);
+        if (t == 10) { t = 0; if (++s == 60) { s = 0; m++; } }
         return $"{m}:{s:00}.{t}";
     }
 

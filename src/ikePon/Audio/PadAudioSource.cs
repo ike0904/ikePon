@@ -242,6 +242,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                     {
                         float loopTo = _loopStartSec >= 0 ? _loopStartSec : _startSec;
                         _readPos = Math.Clamp((int)(loopTo * _format.SampleRate * _format.Channels), 0, _preloadTotal);
+                        PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
                     }
                     else
                         TriggerEndFade();
@@ -286,6 +287,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         {
             if (_preloaded == null || (PadPlayState)_stateInt == PadPlayState.Idle) return;
             _readPos = Math.Clamp((int)(fraction * _preloadTotal), 0, _preloadTotal);
+            PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
         }
     }
 
