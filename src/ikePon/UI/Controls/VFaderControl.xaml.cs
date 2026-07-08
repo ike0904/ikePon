@@ -115,7 +115,7 @@ public partial class VFaderControl : UserControl
     {
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         double step = e.Delta > 0 ? FaderSlider.SmallChange : -FaderSlider.SmallChange;
-        if (shift) step *= 8;
+        if (shift) step *= 10;
         FaderSlider.Value = Math.Clamp(FaderSlider.Value + step, 0, SLIDER_MAX);
         e.Handled = true;
     }
