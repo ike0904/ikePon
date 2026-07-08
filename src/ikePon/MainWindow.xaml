@@ -350,7 +350,7 @@
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="FullBd" Background="#0E3A0E"
-                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                                BorderBrush="#2A7A2A" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="FullText"
                                                            Text="FULL SCR"
@@ -399,7 +399,7 @@
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="DispBd" Background="#0E3A0E"
-                                                BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
+                                                BorderBrush="#2A7A2A" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="DispText"
                                                            Text="DISPLAY"

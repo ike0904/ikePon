@@ -454,7 +454,7 @@ public partial class PadDetailDialog : Window
 
     /// <summary>
     /// タイムスタンプを寛容にパース。
-    /// "12" → 12秒, "1:23" → 83秒, "1:23.5" → 83.5秒
+    /// "12" → 12秒, "1:23" → 83秒, "1:23.5" / "1:23:5" / "1.23.5" → 83.5秒
     /// </summary>
     private static bool TryParseTimestampLenient(string s, out float secs)
     {
@@ -465,6 +465,7 @@ public partial class PadDetailDialog : Window
         if (s.Contains(':'))
         {
             var parts = s.Split(':');
+            // m:ss.n 形式
             if (parts.Length == 2
                 && int.TryParse(parts[0].Trim(), out int m)
                 && float.TryParse(parts[1].Trim(),
@@ -473,7 +474,29 @@ public partial class PadDetailDialog : Window
                 secs = m * 60 + sec;
                 return true;
             }
+            // m:ss:n 形式（"1:23:5" → 83.5秒）
+            if (parts.Length == 3
+                && int.TryParse(parts[0].Trim(), out int m3)
+                && int.TryParse(parts[1].Trim(), out int ss3)
+                && float.TryParse("0." + parts[2].Trim(),
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out float frac3))
+            {
+                secs = m3 * 60 + ss3 + frac3;
+                return true;
+            }
             return false;
+        }
+
+        // m.ss.n 形式（"1.23.5" → 83.5秒）
+        var dotParts = s.Split('.');
+        if (dotParts.Length == 3
+            && int.TryParse(dotParts[0].Trim(), out int mDot)
+            && int.TryParse(dotParts[1].Trim(), out int ssDot)
+            && float.TryParse("0." + dotParts[2].Trim(),
+                NumberStyles.Float, CultureInfo.InvariantCulture, out float fracDot))
+        {
+            secs = mDot * 60 + ssDot + fracDot;
+            return true;
         }
 
         // コロンなし → 秒数として解釈
