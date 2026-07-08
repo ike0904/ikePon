@@ -92,6 +92,9 @@ public partial class MainWindow : Window
     // PAUSEボタンの一時停止状態（PAUSE ボタン自身でまとめて一時停止したときのみ true）
     private bool _isPauseAllActive;
 
+    // インフォメーション次アクション消去フラグ（確認メッセージ以外の通常メッセージのみ true）
+    private bool _infoClearPending;
+
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
     // 確認待ち（バンク削除）
@@ -511,6 +514,8 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        // 通常インフォメーションを次のアクション（クリック）で消去
+        if (_infoClearPending) { _infoClearPending = false; SetInfo2(""); }
         // メインウィンドウ内の任意のクリックでミキサースライダーのキーボードフォーカスをリセット
         Keyboard.ClearFocus();
     }
@@ -560,6 +565,11 @@ public partial class MainWindow : Window
     // true を返した場合は e.Handled = true にする
     private bool HandleKeyDown(Key key)
     {
+        // 確認待ちでなければ、通常インフォメーションをキー操作で消去
+        bool anyPending = _pendingBankConfirm || _pendingMemOverwrite.HasValue ||
+                          _pendingIkpPath != null || _pendingOpenConfirm || _pendingBankClearIndex >= 0;
+        if (_infoClearPending && !anyPending) { _infoClearPending = false; SetInfo2(""); }
+
         // バンク確認中は Y/N のみ受け付け
         if (_pendingBankConfirm)
         {
@@ -622,6 +632,8 @@ public partial class MainWindow : Window
         if (key == Key.D0)
         {
             if (_isLocked) return true;
+            _fullBd ??= FullButton.Template.FindName("FullBd", FullButton) as System.Windows.Controls.Border;
+            if (_fullBd != null) { _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _fullBd.BorderThickness = new Thickness(2.5); }
             _movieCtrl.ToggleFullScreen();
             UpdateFullButton(_movieCtrl.IsFullScreen);
             return true;
@@ -631,6 +643,8 @@ public partial class MainWindow : Window
         if (key == Key.OemMinus)
         {
             if (_isLocked) return true;
+            _dispBd ??= DispButton.Template.FindName("DispBd", DispButton) as System.Windows.Controls.Border;
+            if (_dispBd != null) { _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _dispBd.BorderThickness = new Thickness(2.5); }
             bool dispWasActive = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
             if (_movieCtrl.DisplayActive && !dispWasActive)
@@ -703,11 +717,19 @@ public partial class MainWindow : Window
 
         if (state != PadPlayState.Idle || imageActive)
         {
-            var fadeOut = new MenuItem { Header = "フェードアウト" };
+            bool duringPauseAll = _isPauseAllActive;
+            // PAUSE中はカットアウト以外をグレーアウト
+            var fadeOut = new MenuItem { Header = "フェードアウト", IsEnabled = !duringPauseAll };
             fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
             var cutOut = new MenuItem { Header = "カットアウト" };
-            cutOut.Click += (_, _) => TriggerPadWithMovie(padIndex, stopImmediate: true);
-            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE;
+            cutOut.Click += (_, _) =>
+            {
+                TriggerPadWithMovie(padIndex, stopImmediate: true);
+                // PAUSE中カットアウト後、一時停止対象パッドがなくなった場合はPAUSE解除
+                if (duringPauseAll)
+                    Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
+            };
+            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !duringPauseAll;
             var pauseResume = new MenuItem { Header = "一時停止／再開", IsEnabled = pauseEnabled };
             pauseResume.Click += (_, _) => PausePadWithMovie(padIndex);
             cm.Items.Add(fadeOut);
@@ -1059,12 +1081,16 @@ public partial class MainWindow : Window
         _midi.FullScreenTriggered += () =>
         {
             if (_isLocked) return;
+            _fullBd ??= FullButton.Template.FindName("FullBd", FullButton) as System.Windows.Controls.Border;
+            if (_fullBd != null) { _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _fullBd.BorderThickness = new Thickness(2.5); }
             _movieCtrl.ToggleFullScreen();
             UpdateFullButton(_movieCtrl.IsFullScreen);
         };
         _midi.DisplayTriggered += () =>
         {
             if (_isLocked) return;
+            _dispBd ??= DispButton.Template.FindName("DispBd", DispButton) as System.Windows.Controls.Border;
+            if (_dispBd != null) { _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _dispBd.BorderThickness = new Thickness(2.5); }
             bool was = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
             if (_movieCtrl.DisplayActive && !was) ResumeMovieIfPlaying();
@@ -1142,21 +1168,43 @@ public partial class MainWindow : Window
         SetInfo2($"Bank {BankNames[srcIdx]} と Bank {BankNames[dstIdx]} を入れ替えました");
     }
 
+    // PAUSE中カットアウト後にPAUSE可能パッドが残っていなければPAUSE解除
+    private void CheckReleasePauseAll()
+    {
+        if (!_isPauseAllActive) return;
+        for (int i = 0; i < BankData.PadCount; i++)
+        {
+            if (_playback.GetPadState(i) == PadPlayState.Idle) continue;
+            var cat = _playback.GetPadSettings(i)?.Category;
+            if (cat == AudioCategory.Movie || cat == AudioCategory.BGM) return;
+        }
+        _isPauseAllActive = false;
+        UpdateActionButtons();
+    }
+
     // ------------------------------------------------------------------
     // FULL / DISPLAY ボタン
     // ------------------------------------------------------------------
     private void LockButton_Click(object sender, RoutedEventArgs e) => SetLocked(!_isLocked);
 
-    private void FullButton_Click(object sender, RoutedEventArgs e)
+    private async void FullButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isLocked) return;
+        // 先に黄色ボーダーを表示してからウィンドウ準備を開始
+        _fullBd ??= FullButton.Template.FindName("FullBd", FullButton) as System.Windows.Controls.Border;
+        if (_fullBd != null) { _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _fullBd.BorderThickness = new Thickness(2.5); }
+        await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
         _movieCtrl.ToggleFullScreen();
         UpdateFullButton(_movieCtrl.IsFullScreen);
     }
 
-    private void DispButton_Click(object sender, RoutedEventArgs e)
+    private async void DispButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isLocked) return;
+        // 先に黄色ボーダーを表示してからウィンドウ準備を開始
+        _dispBd ??= DispButton.Template.FindName("DispBd", DispButton) as System.Windows.Controls.Border;
+        if (_dispBd != null) { _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _dispBd.BorderThickness = new Thickness(2.5); }
+        await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
         bool wasActive = _movieCtrl.DisplayActive;
         _movieCtrl.ToggleDisplay();
         if (_movieCtrl.DisplayActive && !wasActive)
@@ -1332,6 +1380,7 @@ public partial class MainWindow : Window
             _playback.PauseAllMovieBgm();
             _movieCtrl.PauseVideo();
         }
+        UpdateActionButtons(); // 押した直後にボタン状態を即座に反映
     }
 
     // ------------------------------------------------------------------
@@ -1493,6 +1542,7 @@ public partial class MainWindow : Window
         InfoLine2.Foreground = BrushInfoNormal;
         InfoLine2Border.Background = Brushes.Transparent;
         BankConfirmPanel.Visibility = Visibility.Collapsed;
+        _infoClearPending = !string.IsNullOrEmpty(text); // 次のアクションで消去
     }
 
     private void SetInfo2Warning(string text)
@@ -1501,6 +1551,7 @@ public partial class MainWindow : Window
         InfoLine2.Foreground = BrushInfoWarnText;
         InfoLine2Border.Background = BrushInfoWarnBg;
         BankConfirmPanel.Visibility = Visibility.Visible;
+        _infoClearPending = false; // 確認メッセージは自動消去しない
     }
 
     // ------------------------------------------------------------------
@@ -1859,7 +1910,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.75{fname}{dirty}";
+        Title = $"ikePon v1.0.76{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
