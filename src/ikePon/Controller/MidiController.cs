@@ -17,6 +17,8 @@ public class MidiController : IDisposable
     public event Action? AllFadeTriggered;
     /// <summary>PAUSE</summary>
     public event Action? PauseTriggered;
+    /// <summary>ロックトグル</summary>
+    public event Action? LockTriggered;
     /// <summary>全画面トグル</summary>
     public event Action? FullScreenTriggered;
     /// <summary>DISPLAY表示切り替え</summary>
@@ -43,8 +45,9 @@ public class MidiController : IDisposable
     private const int NoteAllCut    = 52;
     private const int NoteAllFade   = 53;
     private const int NotePause     = 54;
-    private const int NoteFullScr   = 56;
-    private const int NoteDisplay   = 57;
+    private const int NoteLock       = 56;
+    private const int NoteFullScr   = 57;
+    private const int NoteDisplay   = 58;
     // BANK E/F/G/H: 60-63, BANK A/B/C/D: 64-67
     private const int BankBase  = 60; // 60→E(4), 61→F(5), 62→G(6), 63→H(7), 64→A(0), 65→B(1), 66→C(2), 67→D(3)
     private const int BankEnd   = 67;
@@ -154,11 +157,12 @@ public class MidiController : IDisposable
 
         switch (note)
         {
-            case NoteAllCut:  AllCutTriggered?.Invoke();  return;
-            case NoteAllFade: AllFadeTriggered?.Invoke(); return;
-            case NotePause:   PauseTriggered?.Invoke();   return;
+            case NoteAllCut:  AllCutTriggered?.Invoke();     return;
+            case NoteAllFade: AllFadeTriggered?.Invoke();    return;
+            case NotePause:   PauseTriggered?.Invoke();      return;
+            case NoteLock:    LockTriggered?.Invoke();       return;
             case NoteFullScr: FullScreenTriggered?.Invoke(); return;
-            case NoteDisplay: DisplayTriggered?.Invoke(); return;
+            case NoteDisplay: DisplayTriggered?.Invoke();    return;
         }
 
         if (note >= BankBase && note <= BankEnd)

@@ -189,9 +189,9 @@ public partial class VFaderControl : UserControl
             bool match = Math.Abs((double)_memories[slot]!.Value - Value) < 0.001;
             if (match)
             {
-                btn.Background      = BrushMemStored;
-                btn.Foreground      = BrushMemTextMatch;
-                btn.BorderBrush     = BrushMemBorderYellow;
+                btn.Background      = BrushMemRegistered; // 背景は青のまま（黄色化廃止）
+                btn.Foreground      = BrushMemTextReg;
+                btn.BorderBrush     = BrushMemBorderYellow; // 枠のみ黄色
                 btn.BorderThickness = new Thickness(2.5);
             }
             else
@@ -295,9 +295,9 @@ public partial class VFaderControl : UserControl
         if (MuteBtn == null) return;
         if (_isMuted)
         {
-            MuteBtn.Background      = BrushMemStored;        // 黄色（ミュート中）
+            MuteBtn.Background      = BrushMuteInactive;     // 暗赤のまま（黄色化廃止）
             MuteBtn.Foreground      = BrushMemTextMatch;     // 白
-            MuteBtn.BorderBrush     = BrushMemBorderYellow;
+            MuteBtn.BorderBrush     = BrushMemBorderYellow;  // 枠のみ黄色
             MuteBtn.BorderThickness = new Thickness(2.5);
         }
         else

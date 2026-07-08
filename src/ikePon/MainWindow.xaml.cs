@@ -59,7 +59,8 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _uiTimer;
 
-    // FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
+    // LOCK/FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
+    private System.Windows.Controls.Border? _lockBd;
     private System.Windows.Controls.Border? _fullBd;
     private System.Windows.Controls.TextBlock? _fullText;
     private System.Windows.Controls.Border? _dispBd;
@@ -67,6 +68,21 @@ public partial class MainWindow : Window
     private System.Windows.Controls.Border? _panicBd;
     private System.Windows.Controls.Border? _fadeCutBd;
     private System.Windows.Controls.Border? _pauseBd;
+
+    // ロック状態
+    private bool _isLocked;
+
+    // パッド D&D 状態
+    private System.Windows.Point _padDragStartPoint;
+    private int _padDragSourceIdx = -1;
+    private bool _padDragActive;
+    private bool _padShiftOnDown;
+    private bool _padCtrlOnDown;
+
+    // バンク D&D 状態
+    private System.Windows.Point _bankDragStartPoint;
+    private int _bankDragSourceIdx = -1;
+    private bool _bankDragActive;
 
     // ALL CUT 黄色フラッシュ用タイマー
     private DispatcherTimer? _panicFlashTimer;
@@ -138,6 +154,7 @@ public partial class MainWindow : Window
         UpdateTitle();
         UpdateFullButton(_movieCtrl.IsFullScreen);
         UpdateDispButton(_movieCtrl.DisplayActive);
+        UpdateLockButton();
         SetInfo2("準備完了");
         Loaded += (_, _) => _initComplete = true;
     }
@@ -177,22 +194,69 @@ public partial class MainWindow : Window
                 MarkDirty();
             };
             pad.PreviewMouseDown += (_, _) => Keyboard.ClearFocus();
+
+            // タップ vs ドラッグ判定のため MouseDown でのみ状態を記録（DeadZone/TopArea クリックは除外）
             pad.MouseLeftButtonDown += (_, e) =>
             {
-                bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-                bool ctrl  = Keyboard.IsKeyDown(Key.LeftCtrl)  || Keyboard.IsKeyDown(Key.RightCtrl);
-                TriggerPadWithMovie(captured, shift, ctrl);
+                _padDragStartPoint = e.GetPosition(null);
+                _padDragSourceIdx  = captured;
+                _padDragActive     = false;
+                _padShiftOnDown    = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+                _padCtrlOnDown     = Keyboard.IsKeyDown(Key.LeftCtrl)  || Keyboard.IsKeyDown(Key.RightCtrl);
+                // Handled を設定しない → MouseLeftButtonUp まで待つ
+            };
+
+            // ドラッグ閾値を超えたら D&D 開始（LOCK中は無効）
+            pad.PreviewMouseMove += (_, e) =>
+            {
+                if (e.LeftButton != MouseButtonState.Pressed) return;
+                if (_padDragSourceIdx != captured || _padDragActive) return;
+                if (_isLocked) return;
+                var diff = e.GetPosition(null) - _padDragStartPoint;
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    _padDragActive = true;
+                    DragDrop.DoDragDrop(pad, new DataObject("PadDrop", captured), DragDropEffects.Move);
+                    _padDragActive    = false;
+                    _padDragSourceIdx = -1;
+                }
+            };
+
+            // ドラッグなしの場合のみタップとしてパッドをトリガー
+            pad.MouseLeftButtonUp += (_, e) =>
+            {
+                if (_padDragActive || _padDragSourceIdx != captured) return;
+                _padDragSourceIdx = -1;
+                TriggerPadWithMovie(captured, _padShiftOnDown, _padCtrlOnDown);
                 e.Handled = true;
             };
+
             pad.MouseRightButtonUp += (_, e) => PadRightClick(captured, e);
             pad.AllowDrop = true;
             pad.DragOver  += (_, e) =>
             {
-                e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-                    ? DragDropEffects.Copy : DragDropEffects.None;
+                if (e.Data.GetDataPresent("PadDrop"))
+                    e.Effects = DragDropEffects.Move;
+                else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                    e.Effects = DragDropEffects.Copy;
+                else
+                    e.Effects = DragDropEffects.None;
                 e.Handled = true;
             };
-            pad.Drop += (_, e) => HandlePadDrop(captured, e);
+            pad.Drop += (_, e) =>
+            {
+                if (e.Data.GetData("PadDrop") is int srcIdx)
+                {
+                    if (srcIdx != captured)
+                        SwapPads(srcIdx, captured);
+                    e.Handled = true;
+                }
+                else
+                {
+                    HandlePadDrop(captured, e);
+                }
+            };
 
             _padButtons[i] = pad;
             PadGrid.Children.Add(pad);
@@ -254,6 +318,43 @@ public partial class MainWindow : Window
             btn.Style = CreateBankButtonStyle();
             btn.Click += (_, _) => RequestBankSwitch(captured);
             btn.MouseRightButtonUp += (_, e) => BankRightClick(captured, e);
+
+            // バンク D&D
+            btn.PreviewMouseLeftButtonDown += (_, e) =>
+            {
+                _bankDragStartPoint = e.GetPosition(null);
+                _bankDragSourceIdx  = captured;
+                _bankDragActive     = false;
+            };
+            btn.PreviewMouseMove += (_, e) =>
+            {
+                if (e.LeftButton != MouseButtonState.Pressed) return;
+                if (_bankDragSourceIdx != captured || _bankDragActive) return;
+                if (_isLocked) return;
+                var diff = e.GetPosition(null) - _bankDragStartPoint;
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    _bankDragActive = true;
+                    DragDrop.DoDragDrop(btn, new DataObject("BankDrop", captured), DragDropEffects.Move);
+                    _bankDragActive    = false;
+                    _bankDragSourceIdx = -1;
+                }
+            };
+            btn.AllowDrop = true;
+            btn.DragOver += (_, e) =>
+            {
+                e.Effects = e.Data.GetDataPresent("BankDrop") ? DragDropEffects.Move : DragDropEffects.None;
+                e.Handled = true;
+            };
+            btn.Drop += (_, e) =>
+            {
+                if (e.Data.GetData("BankDrop") is int srcIdx && srcIdx != captured)
+                {
+                    SwapBanks(srcIdx, captured);
+                    e.Handled = true;
+                }
+            };
 
             _bankButtons[i] = btn;
         }
@@ -445,7 +546,7 @@ public partial class MainWindow : Window
         // （他アプリでの自由なタイピングを妨げないため）
         if (!IsActive)
         {
-            bool isOurKey = key == Key.Escape || key == Key.D0 || key == Key.OemMinus ||
+            bool isOurKey = key == Key.Escape || key == Key.D9 || key == Key.D0 || key == Key.OemMinus ||
                             key == Key.Space || key == Key.Return ||
                             key == Key.Y || key == Key.N ||
                             _keyMapper.GetPadIndex(key).HasValue ||
@@ -510,9 +611,17 @@ public partial class MainWindow : Window
             return true;
         }
 
+        // LOCK ボタン（[9]キー）
+        if (key == Key.D9)
+        {
+            SetLocked(!_isLocked);
+            return true;
+        }
+
         // FULL ボタン（[0]キー）
         if (key == Key.D0)
         {
+            if (_isLocked) return true;
             _movieCtrl.ToggleFullScreen();
             UpdateFullButton(_movieCtrl.IsFullScreen);
             return true;
@@ -521,6 +630,7 @@ public partial class MainWindow : Window
         // DISPLAY ボタン（[-]キー）
         if (key == Key.OemMinus)
         {
+            if (_isLocked) return true;
             bool dispWasActive = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
             if (_movieCtrl.DisplayActive && !dispWasActive)
@@ -580,6 +690,13 @@ public partial class MainWindow : Window
         Keyboard.ClearFocus();
         var state = _playback.GetPadState(padIndex);
         bool imageActive = _imageDisplayingPadIndex == padIndex;
+
+        // LOCK中はアイドル時のみ右クリックメニューを無効化（再生中は許可）
+        if (_isLocked && state == PadPlayState.Idle && !imageActive)
+        {
+            e.Handled = true;
+            return;
+        }
         var pad0 = _playback.GetPadSettings(padIndex);
         bool isImagePad = pad0 != null && IsImageFile(pad0.FilePath);
         var cm = new ContextMenu();
@@ -938,13 +1055,16 @@ public partial class MainWindow : Window
         _midi.AllCutTriggered    += ExecutePanic;
         _midi.AllFadeTriggered   += ExecuteAllFade;
         _midi.PauseTriggered     += ExecutePauseAll;
+        _midi.LockTriggered      += () => SetLocked(!_isLocked);
         _midi.FullScreenTriggered += () =>
         {
+            if (_isLocked) return;
             _movieCtrl.ToggleFullScreen();
             UpdateFullButton(_movieCtrl.IsFullScreen);
         };
         _midi.DisplayTriggered += () =>
         {
+            if (_isLocked) return;
             bool was = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
             if (_movieCtrl.DisplayActive && !was) ResumeMovieIfPlaying();
@@ -956,16 +1076,87 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
+    // LOCK ボタン
+    // ------------------------------------------------------------------
+    private void UpdateLockButton()
+    {
+        _lockBd ??= LockButton.Template.FindName("LockBd", LockButton) as System.Windows.Controls.Border;
+        if (_lockBd == null) return;
+        _lockBd.BorderBrush     = _isLocked
+            ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00))
+            : new SolidColorBrush(Color.FromRgb(0x7A, 0x2A, 0x2A));
+        _lockBd.BorderThickness = _isLocked ? new Thickness(2.5) : new Thickness(2);
+    }
+
+    private void SetLocked(bool locked)
+    {
+        _isLocked = locked;
+        foreach (var pad in _padButtons)
+            pad.CanEdit = !locked;
+        UpdateLockButton();
+    }
+
+    // ------------------------------------------------------------------
+    // パッド / バンク 入れ替え（D&D）
+    // ------------------------------------------------------------------
+    private void SwapPads(int srcIdx, int dstIdx)
+    {
+        if (srcIdx == dstIdx) return;
+        int bankIdx = _playback.ActiveBank;
+        var bank = _project.Banks[bankIdx];
+
+        (bank.Pads[srcIdx], bank.Pads[dstIdx]) = (bank.Pads[dstIdx], bank.Pads[srcIdx]);
+        (_missingPads[bankIdx, srcIdx], _missingPads[bankIdx, dstIdx]) =
+            (_missingPads[bankIdx, dstIdx], _missingPads[bankIdx, srcIdx]);
+
+        _engine.SetPadCategory(bankIdx, srcIdx, bank.Pads[srcIdx].Category);
+        _engine.SetPadCategory(bankIdx, dstIdx, bank.Pads[dstIdx].Category);
+        _playback.LoadBank(bankIdx);
+        MarkDirty();
+        SetInfo2($"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました");
+    }
+
+    private void SwapBanks(int srcIdx, int dstIdx)
+    {
+        if (srcIdx == dstIdx) return;
+        if (IsAnyPadActive())
+        {
+            SetInfo2("再生中はバンクの入れ替えができません");
+            return;
+        }
+
+        (_project.Banks[srcIdx], _project.Banks[dstIdx]) = (_project.Banks[dstIdx], _project.Banks[srcIdx]);
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            (_missingPads[srcIdx, p], _missingPads[dstIdx, p]) =
+                (_missingPads[dstIdx, p], _missingPads[srcIdx, p]);
+            _engine.SetPadCategory(srcIdx, p, _project.Banks[srcIdx].Pads[p].Category);
+            _engine.SetPadCategory(dstIdx, p, _project.Banks[dstIdx].Pads[p].Category);
+        }
+        _playback.LoadBank(srcIdx);
+        _playback.LoadBank(dstIdx);
+        RefreshBankLabel(srcIdx);
+        RefreshBankLabel(dstIdx);
+        UpdateBankHighlight();
+        MarkDirty();
+        SetInfo2($"Bank {BankNames[srcIdx]} と Bank {BankNames[dstIdx]} を入れ替えました");
+    }
+
+    // ------------------------------------------------------------------
     // FULL / DISPLAY ボタン
     // ------------------------------------------------------------------
+    private void LockButton_Click(object sender, RoutedEventArgs e) => SetLocked(!_isLocked);
+
     private void FullButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_isLocked) return;
         _movieCtrl.ToggleFullScreen();
         UpdateFullButton(_movieCtrl.IsFullScreen);
     }
 
     private void DispButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_isLocked) return;
         bool wasActive = _movieCtrl.DisplayActive;
         _movieCtrl.ToggleDisplay();
         if (_movieCtrl.DisplayActive && !wasActive)
@@ -1016,7 +1207,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x0E, 0x3A, 0x0E));
             _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
             _fullBd.BorderThickness = new Thickness(2);
             _fullText.Foreground    = new SolidColorBrush(Colors.White);
@@ -1031,14 +1222,14 @@ public partial class MainWindow : Window
 
         if (isOn)
         {
-            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x1C, 0x3D, 0x1C));
+            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x1A, 0x5C, 0x1A));
             _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
             _dispBd.BorderThickness = new Thickness(2.5);
             _dispText.Foreground    = new SolidColorBrush(Colors.White);
         }
         else
         {
-            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x30));
+            _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x0E, 0x3A, 0x0E));
             _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
             _dispBd.BorderThickness = new Thickness(2);
             _dispText.Foreground    = new SolidColorBrush(Colors.White);
@@ -1398,6 +1589,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void BankRightClick(int bankIdx, MouseButtonEventArgs e)
     {
+        if (_isLocked) { e.Handled = true; return; }
         var cm = new ContextMenu();
 
         var detail = new MenuItem { Header = "詳細設定..." };
@@ -1667,7 +1859,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.73{fname}{dirty}";
+        Title = $"ikePon v1.0.75{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

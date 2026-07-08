@@ -120,8 +120,9 @@
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="130"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="144"/>
-                    <ColumnDefinition Width="132"/>
+                    <ColumnDefinition Width="84"/>   <!-- LOCK -->
+                    <ColumnDefinition Width="132"/>  <!-- FULL SCR -->
+                    <ColumnDefinition Width="132"/>  <!-- DISPLAY -->
                 </Grid.ColumnDefinitions>
 
                 <!-- ALL CUT ボタン（左側） -->
@@ -285,11 +286,61 @@
                     </Button.Style>
                 </Button>
 
-                <!-- FULLボタン（右端から2番目） -->
-                <Button x:Name="FullButton"
+                <!-- LOCKボタン（FULLの左横） -->
+                <Button x:Name="LockButton"
                         Grid.Column="4"
                         Height="44"
                         Margin="16,0,0,0"
+                        Cursor="Hand"
+                        Focusable="False"
+                        Click="LockButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="LockBd" Background="#3A0E0E"
+                                                BorderBrush="#7A2A2A" BorderThickness="2" CornerRadius="6">
+                                            <Grid>
+                                                <TextBlock x:Name="LockIcon"
+                                                           Text="&#xE72E;"
+                                                           FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="20"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Panel.ZIndex="1"/>
+                                                <Border Background="#1C1C1C" BorderBrush="#AAAAAA"
+                                                        BorderThickness="1" CornerRadius="2"
+                                                        Padding="4,1"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                        Margin="0,0,4,3">
+                                                    <TextBlock Text="9"
+                                                               FontSize="16" FontWeight="Bold"
+                                                               FontFamily="Consolas"
+                                                               Foreground="#AAAAAA"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="LockBd" Property="Opacity" Value="0.85"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="LockBd" Property="Opacity" Value="0.7"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- FULLボタン -->
+                <Button x:Name="FullButton"
+                        Grid.Column="5"
+                        Height="44"
+                        Margin="4,0,0,0"
                         Cursor="Hand"
                         Focusable="False"
                         Click="FullButton_Click">
@@ -298,7 +349,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="FullBd" Background="#303030"
+                                        <Border x:Name="FullBd" Background="#0E3A0E"
                                                 BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="FullText"
@@ -321,10 +372,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="FullBd" Property="Background" Value="#404040"/>
+                                                <Setter TargetName="FullBd" Property="Background" Value="#1A5C1A"/>
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="FullBd" Property="Background" Value="#505050"/>
+                                                <Setter TargetName="FullBd" Property="Background" Value="#226622"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -336,7 +387,7 @@
 
                 <!-- DISPLAYボタン（右端） -->
                 <Button x:Name="DispButton"
-                        Grid.Column="5"
+                        Grid.Column="6"
                         Height="44"
                         Margin="4,0,0,0"
                         Cursor="Hand"
@@ -347,7 +398,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border x:Name="DispBd" Background="#303030"
+                                        <Border x:Name="DispBd" Background="#0E3A0E"
                                                 BorderBrush="#555555" BorderThickness="2" CornerRadius="6">
                                             <Grid>
                                                 <TextBlock x:Name="DispText"
@@ -370,10 +421,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="DispBd" Property="Background" Value="#404040"/>
+                                                <Setter TargetName="DispBd" Property="Background" Value="#1A5C1A"/>
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="DispBd" Property="Background" Value="#505050"/>
+                                                <Setter TargetName="DispBd" Property="Background" Value="#226622"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -397,7 +448,8 @@
                                        Text="準備完了"
                                        FontSize="12"
                                        Foreground="White"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"/>
                             <!-- バンク切り替え確認ボタン（確認中のみ表示） -->
                             <StackPanel x:Name="BankConfirmPanel"
                                         Grid.Column="1"

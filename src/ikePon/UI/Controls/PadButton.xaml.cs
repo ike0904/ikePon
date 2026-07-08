@@ -54,6 +54,8 @@ public partial class PadButton : UserControl
     private bool _isMissing;
     private bool _blinkPhase;
 
+    public bool CanEdit { get; set; } = true;
+
     // 音量ドラッグ状態
     private double _volumeDragStartY;
     private int _volumeDragStartVal;
@@ -79,12 +81,13 @@ public partial class PadButton : UserControl
 
         CategoryBadge.MouseLeftButtonDown += (s, e) =>
         {
-            if (_state != PadPlayState.Idle) { e.Handled = true; return; }
+            if (!CanEdit || _state != PadPlayState.Idle) { e.Handled = true; return; }
             CategoryTapped?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         };
         AfterPlaybackBadge.MouseLeftButtonDown += (s, e) =>
         {
+            if (!CanEdit) { e.Handled = true; return; }
             CycleAfterPlayback();
             e.Handled = true;
         };
