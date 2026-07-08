@@ -27,7 +27,7 @@
                         Orientation="Vertical"
                         Minimum="0"
                         Maximum="127"
-                        Value="96"
+                        Value="100"
                         SmallChange="1"
                         LargeChange="8"
                         HorizontalAlignment="Center"

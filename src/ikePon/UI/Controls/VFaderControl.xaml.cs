@@ -9,11 +9,11 @@ namespace ikePon.UI.Controls;
 
 public partial class VFaderControl : UserControl
 {
-    // 0-127 linear scale: 96 = unity gain (±0dB)
+    // 0-127 linear scale: 100 = unity gain (±0dB)
     private const double SLIDER_MAX  = 127.0;
-    private const double SLIDER_ZERO = 96.0;   // ±0dB position
+    private const double SLIDER_ZERO = 100.0;  // ±0dB position
 
-    public const double FaderMax = SLIDER_MAX / SLIDER_ZERO;  // ≈1.323
+    public const double FaderMax = SLIDER_MAX / SLIDER_ZERO;  // ≈1.27
 
     private const double ThumbHalf = 10.0;
 
@@ -70,7 +70,7 @@ public partial class VFaderControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // ゲイン↔スライダー値変換（0-127 linear: 96=1.0）
+    // ゲイン↔スライダー値変換（0-127 linear: 100=1.0）
     // ------------------------------------------------------------------
     private static double SliderToGain(double sliderVal) => sliderVal / SLIDER_ZERO;
     private static double GainToSlider(double gain) => Math.Clamp(gain * SLIDER_ZERO, 0.0, SLIDER_MAX);
@@ -130,9 +130,9 @@ public partial class VFaderControl : UserControl
     private void FaderSlider_SizeChanged(object sender, SizeChangedEventArgs e) => DrawScale();
 
     // ------------------------------------------------------------------
-    // 目盛り描画（0-127 等間隔、96位置は2倍太く白）
+    // 目盛り描画（10刻み、120-127のみ7刻み、100位置は太く白）
     // ------------------------------------------------------------------
-    private static readonly int[] ScaleMarkValues = [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 127];
+    private static readonly int[] ScaleMarkValues = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 127];
 
     private void DrawScale()
     {
