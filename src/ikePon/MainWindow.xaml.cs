@@ -97,6 +97,8 @@ public partial class MainWindow : Window
 
     // バンク読み込み中フラグ（true 中はパッドをグレーアウト・操作ブロック）
     private bool _bankLoading;
+    // 読み込み完了後に表示するバンク切り替えメッセージ
+    private string? _pendingBankSwitchMsg;
 
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
@@ -443,7 +445,7 @@ public partial class MainWindow : Window
         {
             _pendingBankConfirm = false;
             UpdateBankHighlight();
-            SetInfo2($"Bank {BankNames[idx]} に切り替えました");
+            _pendingBankSwitchMsg = $"Bank {BankNames[idx]} に切り替えました";
         };
         _bankManager.BankSwitchCancelled += () =>
         {
@@ -1136,10 +1138,20 @@ public partial class MainWindow : Window
         double opacity = loading ? 0.45 : 1.0;
         foreach (var pad in _padButtons)
             pad.Opacity = opacity;
-        if (loading && !InfoLine2.Text.Contains("読み込み中"))
-            SetInfo2("読み込み中...");
-        else if (!loading && InfoLine2.Text == "読み込み中...")
-            SetInfo2("");
+        if (loading)
+        {
+            InfoLine2.Text = "読み込み中...";
+            InfoLine2.Foreground = BrushInfoWarnText;
+            InfoLine2Border.Background = BrushInfoWarnBg;
+            BankConfirmPanel.Visibility = Visibility.Collapsed;
+            _infoClearPending = false;
+        }
+        else if (InfoLine2.Text == "読み込み中...")
+        {
+            string? pendingMsg = _pendingBankSwitchMsg;
+            _pendingBankSwitchMsg = null;
+            SetInfo2(pendingMsg ?? "");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1444,7 +1456,7 @@ public partial class MainWindow : Window
             // 全パッドがアイドル → 即座に切り替え（確認なし）
             _playback.SwitchBank(bankIndex);
             UpdateBankHighlight();
-            SetInfo2($"Bank {BankNames[bankIndex]} に切り替えました");
+            _pendingBankSwitchMsg = $"Bank {BankNames[bankIndex]} に切り替えました";
         }
     }
 
@@ -1954,7 +1966,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.81{fname}{dirty}";
+        Title = $"ikePon v1.0.82{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

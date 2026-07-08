@@ -34,11 +34,11 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     private float _shortFadeSec = 0.5f;
     private bool  _shouldLoop   = false;
 
-    // ループクロスフェード（1秒間）
+    // ループクロスフェード（0.2秒×2 = 0.4秒）
     private bool _canCrossfade;   // 条件を満たすか（Trigger時に評価）
     private bool _inCrossfade;    // クロスフェード実行中
     private int  _xfadeReadPos;   // ループ側の読み取り位置
-    private int  _xfadeSamples;   // クロスフェード総サンプル数（1秒）
+    private int  _xfadeSamples;   // クロスフェード総サンプル数（0.4秒）
     private int  _xfadeDone;      // 完了済みサンプル数
 
     public WaveFormat WaveFormat => _format;
@@ -281,7 +281,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             int readLimit = count - written;
             if (_canCrossfade && _endSec > 0f && _shouldLoop && st == PadPlayState.Playing)
             {
-                int xfStart = Math.Max(0, (int)((_endSec - 0.5f) * sr * ch));
+                int xfStart = Math.Max(0, (int)((_endSec - 0.2f) * sr * ch));
                 if (_readPos < xfStart)
                     readLimit = Math.Min(readLimit, xfStart - _readPos);
             }
@@ -298,12 +298,12 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             // クロスフェード開始判定
             if (_canCrossfade && _endSec > 0f && _shouldLoop && st == PadPlayState.Playing)
             {
-                int xfStart = Math.Max(0, (int)((_endSec - 0.5f) * sr * ch));
+                int xfStart = Math.Max(0, (int)((_endSec - 0.2f) * sr * ch));
                 if (_readPos >= xfStart && !_inCrossfade)
                 {
                     float loopTo  = _loopStartSec >= 0f ? _loopStartSec : _startSec;
-                    _xfadeReadPos = Math.Max(0, (int)((loopTo - 0.5f) * sr * ch));
-                    _xfadeSamples = sr * ch;
+                    _xfadeReadPos = Math.Max(0, (int)((loopTo - 0.2f) * sr * ch));
+                    _xfadeSamples = (int)(0.4f * sr * ch);
                     _xfadeDone    = 0;
                     _inCrossfade  = true;
                     continue; // クロスフェード処理へ
@@ -381,7 +381,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     {
         if (!_shouldLoop || _endSec <= 0f) return false;
         float loopTo = _loopStartSec >= 0f ? _loopStartSec : _startSec;
-        return (FileTotalSec - _endSec >= 0.5f) && (loopTo >= 0.5f);
+        return (FileTotalSec - _endSec >= 0.2f) && (loopTo >= 0.2f);
     }
 
     private void TriggerEndFade()
@@ -414,7 +414,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         var list = new List<float>(target.SampleRate * target.Channels * 10);
         var buf  = new float[4096];
-        int maxSamples = target.SampleRate * target.Channels * 600; // 10分上限（コーデックが無限ループする場合の安全策）
+        int maxSamples = target.SampleRate * target.Channels * 3600; // 60分上限（コーデックが無限ループする場合の安全策）
         // n==0 が連続しても即終了せずリトライ（WDL resampler warmup / MF デコーダ初期化対策）
         int zeros = 0;
         while (zeros < 10 && list.Count < maxSamples)
