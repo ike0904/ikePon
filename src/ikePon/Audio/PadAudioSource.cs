@@ -250,10 +250,11 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
                 for (int i = 0; i < toProcess; i++)
                 {
-                    float t    = (float)(_xfadeDone + i) / _xfadeSamples;
-                    float main = (_readPos     + i < _preloadTotal) ? _preloaded[_readPos     + i] : 0f;
-                    float loop = (_xfadeReadPos + i < _preloadTotal) ? _preloaded[_xfadeReadPos + i] : 0f;
-                    buffer[offset + written + i] = main * (1f - t) + loop * t;
+                    float t     = (float)(_xfadeDone + i) / _xfadeSamples;
+                    float angle = t * (MathF.PI / 2f);
+                    float main  = (_readPos     + i < _preloadTotal) ? _preloaded[_readPos     + i] : 0f;
+                    float loop  = (_xfadeReadPos + i < _preloadTotal) ? _preloaded[_xfadeReadPos + i] : 0f;
+                    buffer[offset + written + i] = main * MathF.Cos(angle) + loop * MathF.Sin(angle);
                 }
 
                 _readPos      += toProcess;

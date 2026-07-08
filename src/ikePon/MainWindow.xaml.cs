@@ -1334,6 +1334,7 @@ public partial class MainWindow : Window
             _fadeAnimTimer.Start();
         }
 
+        bool allFadeWasPaused = _isPauseAllActive;
         _isPauseAllActive = false;
         if (_imageDisplayingPadIndex >= 0)
         {
@@ -1343,6 +1344,12 @@ public partial class MainWindow : Window
         }
         _imageDisplayingPadIndex = -1;
         _playback.PanicFadeAll();
+        if (allFadeWasPaused)
+        {
+            _playback.StopPausedPads(); // PAUSE中パッドはカットアウト扱い
+            _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
+            if (_pauseBd != null) _pauseBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+        }
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
 
@@ -1386,7 +1393,12 @@ public partial class MainWindow : Window
         _imageFadingPadIndex = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
-        if (wasPaused) _movieCtrl.ResumeVideo(); // PAUSE状態のVLCを正常に停止させる
+        if (wasPaused)
+        {
+            _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
+            if (_pauseBd != null) _pauseBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+            _movieCtrl.ResumeVideo(); // PAUSE状態のVLCを正常に停止させる
+        }
         _movieCtrl.StopVideo(); // DISPウィンドウは閉じず映像のみ停止
     }
 
@@ -1942,7 +1954,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.80{fname}{dirty}";
+        Title = $"ikePon v1.0.81{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

@@ -242,6 +242,19 @@ public sealed class PlaybackController
         ResetActivePads();
     }
 
+    /// <summary>一時停止中のパッドのみを即座に停止する（ALL FADE 中 PAUSE 解除用）。</summary>
+    public void StopPausedPads()
+    {
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var src = _engine.GetSource(bank, p);
+            if (src.State == PadPlayState.Paused)
+                src.StopImmediate();
+        }
+        ResetActivePads();
+    }
+
     public void PanicStopAll()
     {
         int bank = _engine.ActiveBank;
