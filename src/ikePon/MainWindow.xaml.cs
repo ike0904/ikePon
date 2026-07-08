@@ -1169,9 +1169,9 @@ public partial class MainWindow : Window
 
         _engine.SetPadCategory(bankIdx, srcIdx, bank.Pads[srcIdx].Category);
         _engine.SetPadCategory(bankIdx, dstIdx, bank.Pads[dstIdx].Category);
-        _playback.LoadBank(bankIdx);
+        string msg = $"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました";
+        _playback.LoadBank(bankIdx, () => SetInfo2(msg));
         MarkDirty();
-        SetInfo2($"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました");
     }
 
     private void SwapBanks(int srcIdx, int dstIdx)
@@ -1966,7 +1966,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.82{fname}{dirty}";
+        Title = $"ikePon v1.0.83{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

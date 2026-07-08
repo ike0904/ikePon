@@ -123,12 +123,22 @@ public sealed class PlaybackController
 
         int catIdx = (int)pad.Category;
 
-        // 同カテゴリの別パッドが再生中なら即座に停止
+        // 同カテゴリの別パッドが再生中/フェードアウト中なら即座に停止
         int prev = _activePad[catIdx];
         if (prev >= 0 && prev != padIndex)
         {
             var prevSrc = _engine.GetSource(bank, prev);
             prevSrc.StopImmediate();
+        }
+
+        // _activePad 管理外でフェードアウト中の同カテゴリパッドも即座に停止
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            if (p == padIndex) continue;
+            var ps = _engine.GetSource(bank, p);
+            if (ps.State == PadPlayState.FadingOut &&
+                (int)(_project!.Banks[bank].Pads[p].Category) == catIdx)
+                ps.StopImmediate();
         }
 
         _activePad[catIdx] = padIndex;
