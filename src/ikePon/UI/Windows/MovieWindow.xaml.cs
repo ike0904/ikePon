@@ -37,8 +37,8 @@ public partial class MovieWindow : Window
     private string? _currentFilePath;
     private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
-    private bool _videoVisible;
-    private int  _playSession;
+    private bool            _videoVisible;
+    private volatile int    _playSession; // volatile: VLC スレッドから EndReached 時に読む
 
     // PositionChanged によるループ検出（EndReached が発火しない場合の代替）
     private float          _lastPosition;
@@ -114,8 +114,9 @@ public partial class MovieWindow : Window
         _mediaPlayer.Playing          += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
         _mediaPlayer.EndReached       += (_, _) =>
         {
-            Logger.Log("[MW] EndReached fired (VLC thread)");
-            Dispatcher.BeginInvoke(OnMediaEnded);
+            int sess = _playSession; // volatile read: PrepareForPlay が先に走っていた場合にずれを検出
+            Logger.Log($"[MW] EndReached fired (VLC thread, session={sess})");
+            Dispatcher.BeginInvoke(() => OnMediaEnded(sess));
         };
         _mediaPlayer.EncounteredError += (_, _) => Dispatcher.BeginInvoke(OnMediaError);
         // EndReached が来ない .mov 対策：位置の後半→前半ジャンプでループ終端を検出する
@@ -213,18 +214,19 @@ public partial class MovieWindow : Window
     // 動画再生開始前の準備：スタンバイ画像は表示せず黒のみ（フラッシュ防止）
     private void PrepareForPlay()
     {
-        _playSession++;
-        _loopEndHandled      = false; // 新しい再生サイクル開始：ループ検出フラグをリセット
+        _playSession++;       // セッション更新（VLC thread の EndReached が古いセッションを持つか判定に使う）
+        _loopEndHandled      = false;
         _lastPosition        = 0f;
         _videoEndSec         = -1;
         IsBuffering          = true;
         _videoVisible        = false;
-        VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でバッファリング中の黒画面を隠す
-        Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-        StandbyImage.Source     = null; // 黒（スタンバイ画像なし）
+        VideoView.Visibility = Visibility.Collapsed;
+        // Stop() は呼ばない。直後の _mediaPlayer.Play(newMedia) が内部で旧メディアを停止する。
+        // Task.Run(Stop) + Play() の並列実行による VLC 内部デッドロックを回避。
+        StandbyImage.Source     = null;
         StandbyLayer.Opacity    = 1.0;
         StandbyLayer.Visibility = Visibility.Visible;
-        Logger.Log("[MW] PrepareForPlay: buffering start (VideoView=Collapsed)");
+        Logger.Log($"[MW] PrepareForPlay: session={_playSession}");
     }
 
     public void PlayVideo(string filePath, double startSec, double endSec = -1,
@@ -469,11 +471,23 @@ public partial class MovieWindow : Window
     private void OnMediaPlaying()
     {
         Logger.Log($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2} videoVisible={_videoVisible} session={_playSession}");
-        if (_pendingStartSec > 0)
-            _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        // 途中再生（シーク後の映像表示）はシーク完了に時間がかかるため遅延を延長
-        int delayMs = _pendingStartSec > 0 ? 800 : 300;
+        // Pause→Resume からの Playing イベント（映像表示済み）→ シーク・タイマー不要
+        if (_videoVisible)
+        {
+            Logger.Log("[MW] OnMediaPlaying: already visible (Pause→Resume) → skip");
+            return;
+        }
+
+        // 初回シークは 1 回だけ（_pendingStartSec はここでクリア、Pause→Resume での再シークを防ぐ）
+        bool hadPendingSeek = _pendingStartSec > 0;
+        if (hadPendingSeek)
+        {
+            _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
+            _pendingStartSec = 0;
+        }
+
+        int delayMs = hadPendingSeek ? 800 : 300;
         int capturedSession = _playSession;
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delayMs) };
         timer.Tick += (_, _) =>
@@ -485,7 +499,6 @@ public partial class MovieWindow : Window
                 Logger.Log($"[MW] OnMediaPlaying timer: session mismatch ({capturedSession}!={_playSession}), skip");
                 return;
             }
-            // 映像トラックが無い場合（音声のみファイル等）はスタンバイを維持
             if (_mediaPlayer.VideoTrack < 0)
             {
                 LoadStandbyImage(_settings.MovieStandbyImagePath);
@@ -502,8 +515,13 @@ public partial class MovieWindow : Window
         timer.Start();
     }
 
-    private void OnMediaEnded()
+    private void OnMediaEnded(int sessionAtFire = -1)
     {
+        if (sessionAtFire >= 0 && sessionAtFire != _playSession)
+        {
+            Logger.Log($"[MW] EndReached STALE: session {sessionAtFire} != {_playSession} → skip");
+            return;
+        }
         Logger.Log($"[MW] OnMediaEnded: AfterPlayback={_afterPlayback} handled={_loopEndHandled} fadeTimer={_fadeTimer != null}");
         switch (_afterPlayback)
         {
