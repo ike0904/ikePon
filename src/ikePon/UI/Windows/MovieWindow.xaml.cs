@@ -448,14 +448,6 @@ public partial class MovieWindow : Window
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        // 既に映像表示中（ループ再生）→ スタンバイ切替不要・遅延なし
-        if (_videoVisible)
-        {
-            IsBuffering = false;
-            Logger.Log("[MW] OnMediaPlaying: loop restart, skip standby transition");
-            return;
-        }
-
         // 途中再生（シーク後の映像表示）はシーク完了に時間がかかるため遅延を延長
         int delayMs = _pendingStartSec > 0 ? 800 : 300;
         int capturedSession = _playSession;
@@ -495,12 +487,34 @@ public partial class MovieWindow : Window
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                // EndReached 後は Play() だけでは再開できないため新規 Media を生成して再生
+                // 完全停止→黒画面→300ms後に再起動（シームレス不要・安定性優先）
+                // ※スタンバイ画像は表示しない（黒のみ）
                 if (_currentFilePath != null)
                 {
-                    using var loopMedia = new Media(_libVLC, new Uri(_currentFilePath));
-                    _mediaPlayer.Play(loopMedia);
-                    Logger.Log($"[MW] Loop: restart {_currentFilePath} from {_pendingStartSec:F2}s");
+                    StopFadeTimer();
+                    StopStandbyFadeIn();
+                    _videoVisible        = false;
+                    VideoView.Visibility = Visibility.Collapsed;
+                    StandbyImage.Source  = null;   // スタンバイ画像なし（黒）
+                    StandbyLayer.Opacity    = 1.0;
+                    StandbyLayer.Visibility = Visibility.Visible;
+                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+
+                    string loopPath  = _currentFilePath;
+                    double loopStart = _pendingStartSec;
+                    var    loopAfter = _afterPlayback;
+                    int capturedSess = ++_playSession;
+                    IsBuffering      = true;
+
+                    var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                    t.Tick += (_, _) =>
+                    {
+                        t.Stop();
+                        if (_playSession != capturedSess) return;
+                        PlayVideo(loopPath, loopStart, loopAfter);
+                    };
+                    t.Start();
+                    Logger.Log($"[MW] Loop: full stop → black → restart in 300ms");
                 }
                 break;
             default:
