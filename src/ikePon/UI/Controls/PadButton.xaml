@@ -56,8 +56,8 @@
                             <Border x:Name="TapBehaviorBadge"
                                     Background="#444"
                                     CornerRadius="2"
-                                    Padding="3,1"
-                                    Margin="2,0,0,0"
+                                    Padding="6,3"
+                                    Margin="4,0,0,0"
                                     Cursor="Hand">
                                 <Ellipse x:Name="TapBehaviorDot"
                                          Width="10" Height="10"
@@ -135,7 +135,8 @@
                            TextTrimming="CharacterEllipsis"
                            Margin="0,4"/>
 
-                <!-- Row 2: 下部スペーサー（時間・キーバッジは外側 Grid に移動） -->
+                <!-- Row 2: クリック吸収ゾーン（時間表示エリア、誤タップ防止） -->
+                <Border Grid.Row="2" x:Name="TimeDeadZone" Background="Transparent" Cursor="Arrow"/>
             </Grid>
 
             <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない） -->
@@ -156,9 +157,9 @@
                            RadiusX="2" RadiusY="2"/>
             </Border>
 
-            <!-- 現在時間／総時間（コンテンツ領域下端、デッドゾーン直上） -->
+            <!-- 現在時間／総時間（デッドゾーン内下端） -->
             <StackPanel x:Name="TimePanel"
-                        Grid.Row="0"
+                        Grid.Row="0" Grid.RowSpan="2"
                         VerticalAlignment="Bottom"
                         HorizontalAlignment="Left"
                         Orientation="Horizontal"

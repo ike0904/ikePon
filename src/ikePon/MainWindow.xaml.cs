@@ -100,6 +100,11 @@ public partial class MainWindow : Window
     // 読み込み完了後に表示するバンク切り替えメッセージ
     private string? _pendingBankSwitchMsg;
 
+    // Undo/Redo スタック（ProjectData の JSON スナップショット）
+    private readonly Stack<string> _undoStack = new();
+    private readonly Stack<string> _redoStack = new();
+    private const int MaxUndoHistory = 20;
+
     // 確認待ちフラグ（バンク切り替え）
     private bool _pendingBankConfirm;
     // 確認待ち（バンク削除）
@@ -182,6 +187,7 @@ public partial class MainWindow : Window
             pad.CategoryTapped += (_, _) => CyclePadCategory(captured);
             pad.AfterPlaybackChanged += (_, behavior) =>
             {
+                PushUndo();
                 var padSettings = _playback.GetPadSettings(captured);
                 if (padSettings == null) return;
                 padSettings.AfterPlayback = behavior;
@@ -194,6 +200,7 @@ public partial class MainWindow : Window
             };
             pad.TapBehaviorChanged += (_, behavior) =>
             {
+                PushUndo();
                 var padSettings = _playback.GetPadSettings(captured);
                 if (padSettings == null) return;
                 padSettings.TapBehavior = behavior;
@@ -638,13 +645,15 @@ public partial class MainWindow : Window
             if (key == Key.N) { _pendingBankClearIndex = -1; SetInfo2(""); return true; }
         }
 
-        // ファイルメニューショートカット（Ctrl+N/O/S）
+        // ファイルメニューショートカット（Ctrl+N/O/S/Z/Y）
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             if (key == Key.N) { Menu_New(null!, null!);      return true; }
             if (key == Key.O) { Menu_Open(null!, null!);     return true; }
             if (key == Key.S) { Menu_Save(null!, null!);     return true; }
             if (key == Key.E) { Menu_Settings(null!, null!); return true; }
+            if (key == Key.Z) { ExecuteUndo(); return true; }
+            if (key == Key.Y) { ExecuteRedo(); return true; }
         }
 
         // パニック
@@ -892,6 +901,7 @@ public partial class MainWindow : Window
     {
         if (_clipboardPad == null) return;
         if (_project == null) return;
+        PushUndo();
         _missingPads[_playback.ActiveBank, padIndex] = false;
         var dest = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         dest.FilePath           = _clipboardPad.FilePath;
@@ -934,6 +944,7 @@ public partial class MainWindow : Window
 
     private void CyclePadCategory(int padIndex)
     {
+        PushUndo();
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.Category = pad.Category switch
         {
@@ -961,6 +972,7 @@ public partial class MainWindow : Window
     private void ClearPad(int padIndex)
     {
         if (_project == null) return;
+        PushUndo();
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         _missingPads[_playback.ActiveBank, padIndex] = false;
         _engine.GetSource(_playback.ActiveBank, padIndex).Unload();
@@ -986,6 +998,7 @@ public partial class MainWindow : Window
         float totalSec = _playback.GetPadTotalTime(padIndex);
         var dlg = new PadDetailDialog(pad, totalSec) { Owner = this };
         if (dlg.ShowDialog() != true) return;
+        PushUndo();
 
         bool fileChanged = dlg.ResultFilePath != pad.FilePath;
 
@@ -1053,6 +1066,7 @@ public partial class MainWindow : Window
     private void AssignFileToPad(int padIndex, string filePath)
     {
         if (_project == null) return;
+        PushUndo();
         var pad = _project.Banks[_playback.ActiveBank].Pads[padIndex];
         pad.FilePath = filePath;
         pad.CustomLabel = null; // 表示名は新しいファイル名を採用（前の名前を引き継がない）
@@ -1095,6 +1109,57 @@ public partial class MainWindow : Window
         if (!_initComplete) return;
         if (_projectDirty) return;
         _projectDirty = true;
+        UpdateTitle();
+    }
+
+    // ------------------------------------------------------------------
+    // Undo / Redo
+    // ------------------------------------------------------------------
+    private void PushUndo()
+    {
+        if (!_initComplete) return;
+        SyncFadersToProject();
+        string json = System.Text.Json.JsonSerializer.Serialize(_project);
+        _undoStack.Push(json);
+        if (_undoStack.Count > MaxUndoHistory)
+        {
+            var arr = _undoStack.ToArray();
+            _undoStack.Clear();
+            for (int i = MaxUndoHistory - 1; i >= 0; i--)
+                _undoStack.Push(arr[i]);
+        }
+        _redoStack.Clear();
+    }
+
+    private void ExecuteUndo()
+    {
+        if (_undoStack.Count == 0) { SetInfo2("これ以上元に戻せません"); _infoClearPending = true; return; }
+        SyncFadersToProject();
+        _redoStack.Push(System.Text.Json.JsonSerializer.Serialize(_project));
+        ApplyProjectSnapshot(_undoStack.Pop(), "元に戻しました");
+    }
+
+    private void ExecuteRedo()
+    {
+        if (_redoStack.Count == 0) { SetInfo2("やり直せる操作がありません"); _infoClearPending = true; return; }
+        SyncFadersToProject();
+        _undoStack.Push(System.Text.Json.JsonSerializer.Serialize(_project));
+        ApplyProjectSnapshot(_redoStack.Pop(), "やり直しました");
+    }
+
+    private void ApplyProjectSnapshot(string json, string message)
+    {
+        var restored = System.Text.Json.JsonSerializer.Deserialize<ProjectData>(json);
+        if (restored == null) return;
+        int activeBankBefore = _project.ActiveBankIndex;
+        _project = restored;
+        _project.ActiveBankIndex = activeBankBefore;
+        _projectDirty = true;
+        _missingPads = new bool[ProjectData.BankCount, BankData.PadCount];
+        _playback.SetProject(_project, () => SetInfo2(message));
+        SyncFadersFromProject();
+        RefreshAllBankLabels();
+        UpdateBankHighlight();
         UpdateTitle();
     }
 
@@ -1205,6 +1270,7 @@ public partial class MainWindow : Window
     private void SwapPads(int srcIdx, int dstIdx)
     {
         if (srcIdx == dstIdx) return;
+        PushUndo();
         int bankIdx = _playback.ActiveBank;
         var bank = _project.Banks[bankIdx];
 
@@ -1227,6 +1293,7 @@ public partial class MainWindow : Window
             SetInfo2("再生中はバンクの入れ替えができません");
             return;
         }
+        PushUndo();
 
         (_project.Banks[srcIdx], _project.Banks[dstIdx]) = (_project.Banks[dstIdx], _project.Banks[srcIdx]);
         for (int p = 0; p < BankData.PadCount; p++)
@@ -1778,6 +1845,7 @@ public partial class MainWindow : Window
         if (_pendingBankClearIndex < 0) return;
         int bankIdx = _pendingBankClearIndex;
         _pendingBankClearIndex = -1;
+        PushUndo();
 
         var bank = _project.Banks[bankIdx];
         bank.BankLabel = null;
@@ -1810,6 +1878,7 @@ public partial class MainWindow : Window
         string currentLabel = bank.BankLabel ?? $"Bank {BankNames[bankIdx]}";
         var dlg = new ikePon.UI.Dialogs.BankDetailDialog(currentLabel, bank.BankBackgroundColor) { Owner = this };
         if (dlg.ShowDialog() != true) return;
+        PushUndo();
 
         bank.BankLabel = string.IsNullOrWhiteSpace(dlg.ResultLabel) ? null : dlg.ResultLabel;
         bank.BankBackgroundColor = dlg.ResultBgColor;
@@ -1833,6 +1902,7 @@ public partial class MainWindow : Window
     private void PasteBankSettings(int bankIdx)
     {
         if (_bankClipboard == null) return;
+        PushUndo();
         _project.Banks[bankIdx].BankLabel = _bankClipboard.BankLabel;
         _project.Banks[bankIdx].BankBackgroundColor = _bankClipboard.BankBackgroundColor;
         for (int p = 0; p < BankData.PadCount; p++)
@@ -2011,7 +2081,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.91{fname}{dirty}";
+        Title = $"ikePon v1.0.92{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

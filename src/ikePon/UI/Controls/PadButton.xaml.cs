@@ -147,9 +147,10 @@ public partial class PadButton : UserControl
         };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
 
-        // TimePanel クリックがパッドに伝わらないよう吸収
-        TimePanel.MouseLeftButtonDown += (_, e) => e.Handled = true;
-        KeyBadge.MouseLeftButtonDown  += (_, e) => e.Handled = true;
+        // TimePanel / TimeDeadZone クリックがパッドに伝わらないよう吸収
+        TimePanel.MouseLeftButtonDown    += (_, e) => e.Handled = true;
+        TimeDeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        KeyBadge.MouseLeftButtonDown     += (_, e) => e.Handled = true;
 
         // 現在時間TextBoxのイベント
         CurrentTimeBox.GotFocus += (_, _) =>
@@ -221,6 +222,7 @@ public partial class PadButton : UserControl
         else
             _volumeDragStartVal = _padGainInt;
         VolumeLabel.CaptureMouse();
+        VolumeLabel.Focus();
         e.Handled = true;
     }
 
@@ -250,6 +252,7 @@ public partial class PadButton : UserControl
         if (_volumeDragging)
         {
             CommitVolumeLabel();
+            Keyboard.ClearFocus();
             e.Handled = true;
         }
         _volumeDragging = false;
@@ -293,6 +296,7 @@ public partial class PadButton : UserControl
         _timeDragging     = false;
         _timeDragStartVal = _startSec;
         CurrentTimeBox.CaptureMouse();
+        CurrentTimeBox.Focus();
         e.Handled = true;
     }
 
@@ -323,6 +327,7 @@ public partial class PadButton : UserControl
         if (_timeDragging)
         {
             CommitTimeBox();
+            Keyboard.ClearFocus();
             e.Handled = true;
         }
         _timeDragging = false;
