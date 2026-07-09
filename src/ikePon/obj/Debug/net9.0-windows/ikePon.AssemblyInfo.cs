@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ikePon")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d4d317ff14372676463d039a7cb5d9c4921f938b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d4c0ef44cff38d36101ba95e8fc5afcfdb609db7")]
 [assembly: System.Reflection.AssemblyProductAttribute("ikePon")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ikePon")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

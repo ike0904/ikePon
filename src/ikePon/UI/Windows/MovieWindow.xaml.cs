@@ -487,8 +487,8 @@ public partial class MovieWindow : Window
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                // 完全停止→黒画面→300ms後に再起動（シームレス不要・安定性優先）
-                // ※スタンバイ画像は表示しない（黒のみ）
+                // Stop 完了後に 300ms 黒画面を挟んで直接 Play
+                // PlayVideo/PrepareForPlay を経由しない → Stop/Play のレース条件を回避
                 if (_currentFilePath != null)
                 {
                     StopFadeTimer();
@@ -498,7 +498,6 @@ public partial class MovieWindow : Window
                     StandbyImage.Source  = null;   // スタンバイ画像なし（黒）
                     StandbyLayer.Opacity    = 1.0;
                     StandbyLayer.Visibility = Visibility.Visible;
-                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
 
                     string loopPath  = _currentFilePath;
                     double loopStart = _pendingStartSec;
@@ -506,15 +505,31 @@ public partial class MovieWindow : Window
                     int capturedSess = ++_playSession;
                     IsBuffering      = true;
 
-                    var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-                    t.Tick += (_, _) =>
-                    {
-                        t.Stop();
-                        if (_playSession != capturedSess) return;
-                        PlayVideo(loopPath, loopStart, loopAfter);
-                    };
-                    t.Start();
-                    Logger.Log($"[MW] Loop: full stop → black → restart in 300ms");
+                    // Stop 完了を ContinueWith で待ってから 300ms タイマー起動
+                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } })
+                        .ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+                        {
+                            if (_playSession != capturedSess) return;
+                            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                            t.Tick += (_, _) =>
+                            {
+                                t.Stop();
+                                if (_playSession != capturedSess) return;
+                                // PrepareForPlay を経由しないで直接再生（二重 Stop を防ぐ）
+                                _playSession++;
+                                _pendingStartSec = loopStart;
+                                _afterPlayback   = loopAfter;
+                                _currentFilePath = loopPath;
+                                IsBuffering      = true;
+                                var media = new Media(_libVLC, new Uri(loopPath));
+                                _mediaPlayer.Play(media);
+                                media.Dispose();
+                                Logger.Log("[MW] Loop restart: direct Play() after Stop complete");
+                            };
+                            t.Start();
+                            Logger.Log("[MW] Loop: Stop complete → 300ms timer started");
+                        }));
+                    Logger.Log("[MW] Loop: stopping in background...");
                 }
                 break;
             default:
