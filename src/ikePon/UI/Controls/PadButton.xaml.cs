@@ -701,7 +701,7 @@ public partial class PadButton : UserControl
             byte bg2 = Lerp(0x55, 0xD7, gain);
             byte bb = Lerp(0x55, 0x00, gain);
             BorderRoot.BorderBrush     = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
-            BorderRoot.BorderThickness = new Thickness(1.5 + gain * 1.0f);
+            BorderRoot.BorderThickness = new Thickness(2.5);
             FileNameLabel.Foreground   = BrushTextNormal;
             KeyLabel.Foreground        = BrushKeyGray;
             KeyBadge.BorderBrush       = BrushKeyGray;

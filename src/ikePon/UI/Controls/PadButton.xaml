@@ -3,6 +3,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              MinWidth="100" MinHeight="90">
 
+    <UserControl.Resources>
+        <!-- テーマ描画によるフォーカス枠を除去するTextBox用スタイル -->
+        <Style x:Key="NoBorderTextBox" TargetType="TextBox">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Padding="{TemplateBinding Padding}"
+                                      Background="Transparent"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Border x:Name="BorderRoot"
             Background="#3C3C3C"
             BorderBrush="#555555"
@@ -74,8 +93,7 @@
                                  FontFamily="Consolas"
                                  Foreground="White"
                                  Background="Transparent"
-                                 BorderBrush="Transparent"
-                                 BorderThickness="1"
+                                 Style="{StaticResource NoBorderTextBox}"
                                  CaretBrush="White"
                                  SelectionBrush="#3A7FC1"
                                  Width="52"
@@ -169,7 +187,7 @@
                          Width="40"
                          FontSize="12" FontWeight="Bold" FontFamily="Consolas"
                          Foreground="White" Background="Transparent"
-                         BorderBrush="Transparent" BorderThickness="1"
+                         Style="{StaticResource NoBorderTextBox}"
                          CaretBrush="White" SelectionBrush="#3A7FC1"
                          MaxLength="5" TextAlignment="Right"
                          Padding="0" IsReadOnly="True"
