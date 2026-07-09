@@ -315,22 +315,30 @@ public partial class PadButton : UserControl
         if (!CurrentTimeBox.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed) return;
         double deltaY = _timeDragStartY - e.GetPosition(this).Y;
         if (!_timeDragging && Math.Abs(deltaY) < 3) return;
+        _timeDragging = true;
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        int steps = (int)(deltaY / 5.0);
+        float stepSize = shift ? 10f : 1f;
+        float displayEnd = _endSec > 0f ? _endSec : _totalSec;
+        float newVal = Math.Max(0f, _timeDragStartVal + steps * stepSize);
+        if (displayEnd > 0f) newVal = Math.Min(newVal, displayEnd - 0.1f);
 
         if (_state != PadPlayState.Idle)
         {
             // 再生中: シーク
-            _timeDragging = true;
-            bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-            int steps = (int)(deltaY / 5.0);
-            float stepSize = shift ? 10f : 1f;
-            float displayEnd = _endSec > 0f ? _endSec : _totalSec;
-            float newVal = Math.Max(0f, _timeDragStartVal + steps * stepSize);
-            if (displayEnd > 0f) newVal = Math.Min(newVal, displayEnd - 0.1f);
             CurrentTimeBox.Text = FormatTimeFixed(newVal);
             if (_totalSec > 0f)
                 SeekRequested?.Invoke(this, newVal / _totalSec);
         }
-        // アイドル時: ドラッグは何もしない（現在時間は再生開始位置と無関係）
+        else
+        {
+            // アイドル: 表示のみ（詳細設定の再生開始位置には反映しない）
+            if (Math.Abs(newVal - _startSec) > 0.05f)
+            {
+                _startSec = newVal;
+                CurrentTimeBox.Text = FormatTimeFixed(newVal);
+            }
+        }
         e.Handled = true;
     }
 
@@ -341,7 +349,7 @@ public partial class PadButton : UserControl
         {
             if (_state == PadPlayState.Idle)
             {
-                CommitTimeBox();
+                // ドラッグは表示のみ（再生開始位置には反映しない）
             }
             else if (_totalSec > 0f)
             {
@@ -386,7 +394,12 @@ public partial class PadButton : UserControl
             return;
         }
 
-        // アイドル時: ホイールは何もしない（現在時間は再生開始位置と無関係）
+        // アイドル時: 表示のみ（詳細設定の再生開始位置には反映しない）
+        float cap = displayEnd;
+        float newVal2 = Math.Max(0f, _startSec + step);
+        if (cap > 0f) newVal2 = Math.Min(newVal2, cap - 0.1f);
+        _startSec = newVal2;
+        CurrentTimeBox.Text = FormatTimeFixed(newVal2);
         e.Handled = true;
     }
 
@@ -713,13 +726,14 @@ public partial class PadButton : UserControl
             ? startSec
             : Math.Clamp(progress * totalSec, 0f, displayEnd);
 
-        if (!CurrentTimeBox.IsFocused)
+        bool idle = state == PadPlayState.Idle;
+        // アイドル時のテキスト入力中は上書きしない。再生中は常に更新（フォーカス残留による停止を防ぐ）。
+        if (!idle || !CurrentTimeBox.IsFocused)
             CurrentTimeBox.Text = FormatTimeFixed(displayCurrent);
         TotalTimeLabel.Text = "/" + FormatTimeFixed(displayEnd);
 
-        bool idle = state == PadPlayState.Idle;
         CurrentTimeBox.IsReadOnly = !idle; // テキスト直接入力はアイドル時のみ
-        CurrentTimeBox.Cursor = idle ? Cursors.IBeam : Cursors.SizeNS;
+        CurrentTimeBox.Cursor = Cursors.SizeNS;
     }
 
     private void UpdateProgress()
