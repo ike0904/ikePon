@@ -106,8 +106,11 @@
                 <Separator Background="#444"/>
                 <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
             </MenuItem>
-            <MenuItem Header="設定(_S)">
-                <MenuItem Header="設定..." InputGestureText="Ctrl+E" Click="Menu_Settings"/>
+            <MenuItem Header="編集(_E)">
+                <MenuItem Header="元に戻す" InputGestureText="Ctrl+Z" Click="Menu_Undo"/>
+                <MenuItem Header="やり直し" InputGestureText="Ctrl+Y" Click="Menu_Redo"/>
+                <Separator/>
+                <MenuItem Header="全体設定..." InputGestureText="Ctrl+E" Click="Menu_Settings"/>
             </MenuItem>
         </Menu>
 

@@ -997,7 +997,9 @@ public partial class MainWindow : Window
 
         float totalSec = _playback.GetPadTotalTime(padIndex);
         var dlg = new PadDetailDialog(pad, totalSec) { Owner = this };
-        if (dlg.ShowDialog() != true) return;
+        bool confirmed = dlg.ShowDialog() == true;
+        Keyboard.ClearFocus(); // ダイアログを閉じた後にパッドへのフォーカス移動を防ぐ
+        if (!confirmed) return;
         PushUndo();
 
         bool fileChanged = dlg.ResultFilePath != pad.FilePath;
@@ -1146,6 +1148,9 @@ public partial class MainWindow : Window
         _undoStack.Push(System.Text.Json.JsonSerializer.Serialize(_project));
         ApplyProjectSnapshot(_redoStack.Pop(), "やり直しました");
     }
+
+    private void Menu_Undo(object sender, RoutedEventArgs e) => ExecuteUndo();
+    private void Menu_Redo(object sender, RoutedEventArgs e) => ExecuteRedo();
 
     private void ApplyProjectSnapshot(string json, string message)
     {
@@ -2081,7 +2086,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.93{fname}{dirty}";
+        Title = $"ikePon v1.0.94{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

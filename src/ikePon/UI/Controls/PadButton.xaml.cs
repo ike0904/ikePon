@@ -315,31 +315,22 @@ public partial class PadButton : UserControl
         if (!CurrentTimeBox.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed) return;
         double deltaY = _timeDragStartY - e.GetPosition(this).Y;
         if (!_timeDragging && Math.Abs(deltaY) < 3) return;
-        _timeDragging = true;
-        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-        int steps = (int)(deltaY / 5.0);
-        float stepSize = shift ? 10f : 1f;
-        float displayEnd = _endSec > 0f ? _endSec : _totalSec;
-        float newVal = Math.Max(0f, _timeDragStartVal + steps * stepSize);
-        if (displayEnd > 0f) newVal = Math.Min(newVal, displayEnd - 0.1f);
 
         if (_state != PadPlayState.Idle)
         {
             // 再生中: シーク
+            _timeDragging = true;
+            bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+            int steps = (int)(deltaY / 5.0);
+            float stepSize = shift ? 10f : 1f;
+            float displayEnd = _endSec > 0f ? _endSec : _totalSec;
+            float newVal = Math.Max(0f, _timeDragStartVal + steps * stepSize);
+            if (displayEnd > 0f) newVal = Math.Min(newVal, displayEnd - 0.1f);
             CurrentTimeBox.Text = FormatTimeFixed(newVal);
             if (_totalSec > 0f)
                 SeekRequested?.Invoke(this, newVal / _totalSec);
         }
-        else
-        {
-            // アイドル: 開始位置変更
-            if (Math.Abs(newVal - _startSec) > 0.05f)
-            {
-                _startSec = newVal;
-                CurrentTimeBox.Text = FormatTimeFixed(newVal);
-                StartPositionChanged?.Invoke(this, newVal);
-            }
-        }
+        // アイドル時: ドラッグは何もしない（現在時間は再生開始位置と無関係）
         e.Handled = true;
     }
 
@@ -395,13 +386,7 @@ public partial class PadButton : UserControl
             return;
         }
 
-        float cap = displayEnd;
-        float newVal2 = Math.Max(0f, _startSec + step);
-        if (cap > 0f) newVal2 = Math.Min(newVal2, cap - 0.1f);
-        _startSec = newVal2;
-        CurrentTimeBox.Text = FormatTimeFixed(newVal2);
-        StartPositionChanged?.Invoke(this, newVal2);
-        CommitTimeBox();
+        // アイドル時: ホイールは何もしない（現在時間は再生開始位置と無関係）
         e.Handled = true;
     }
 
@@ -734,7 +719,7 @@ public partial class PadButton : UserControl
 
         bool idle = state == PadPlayState.Idle;
         CurrentTimeBox.IsReadOnly = !idle; // テキスト直接入力はアイドル時のみ
-        CurrentTimeBox.Cursor = Cursors.SizeNS; // ドラッグ/ホイールは再生中も有効
+        CurrentTimeBox.Cursor = idle ? Cursors.IBeam : Cursors.SizeNS;
     }
 
     private void UpdateProgress()
