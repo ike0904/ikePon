@@ -839,7 +839,7 @@ public partial class MainWindow : Window
                 .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
 
             // 映像再開（LibVLC）
-            _movieCtrl.PlayVideo(capturedPath, restartSec, AfterPlaybackBehavior.Loop);
+            _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
 
             Logger.Log($"[MW] Video loop restart: audio+video (pad={capturedPad} restartSec={restartSec:F2})");
         };
@@ -887,7 +887,7 @@ public partial class MainWindow : Window
                 // 新規表示の前に同カテゴリの音声再生を停止（音声→静止画の順で操作したとき）
                 _playback.StopMovieAudioPads();
                 ++_movieLoopSession; _currentMoviePadIndex = -1; // 動画ループ再起動をキャンセル
-                _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.AfterPlayback);
+                _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.EndPositionSec, pad.AfterPlayback);
                 _imageDisplayingPadIndex = padIndex;
             }
             return;
@@ -947,7 +947,7 @@ public partial class MainWindow : Window
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
             ++_movieLoopSession; _currentMoviePadIndex = padIndex; // 新規動画再生：ループ追跡開始
-            _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.AfterPlayback);
+            _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
             // 動画ファイル再生時はバッファリング完了まで準備中を表示
             _videoBufferingPadIndex = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath))
@@ -1441,7 +1441,7 @@ public partial class MainWindow : Window
             var imgPad = _playback.GetPadSettings(_imageDisplayingPadIndex);
             if (imgPad != null && !string.IsNullOrEmpty(imgPad.FilePath) && IsImageFile(imgPad.FilePath))
             {
-                _movieCtrl.PlayVideo(imgPad.FilePath, imgPad.StartPositionSec, imgPad.AfterPlayback);
+                _movieCtrl.PlayVideo(imgPad.FilePath, imgPad.StartPositionSec, imgPad.EndPositionSec, imgPad.AfterPlayback);
                 return;
             }
         }
@@ -1456,7 +1456,7 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(pad.FilePath)) continue;
             float pos      = _playback.GetPadPosition(i);
             float totalSec = _playback.GetPadTotalTime(i);
-            _movieCtrl.PlayVideo(pad.FilePath, pos * totalSec, pad.AfterPlayback);
+            _movieCtrl.PlayVideo(pad.FilePath, pos * totalSec, pad.EndPositionSec, pad.AfterPlayback);
             break;
         }
     }
@@ -2187,7 +2187,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.107{fname}{dirty}";
+        Title = $"ikePon v1.0.108{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

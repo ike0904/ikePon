@@ -115,11 +115,11 @@ public sealed class MovieController : IDisposable
         FullScreenChanged?.Invoke(newState);
     }
 
-    public void PlayVideo(string filePath, double startSec,
+    public void PlayVideo(string filePath, double startSec, double endSec = -1,
         AfterPlaybackBehavior afterPlayback = AfterPlaybackBehavior.Stop)
     {
         if (!DisplayActive || _window == null) return;
-        _window.PlayVideo(filePath, startSec, afterPlayback);
+        _window.PlayVideo(filePath, startSec, endSec, afterPlayback);
     }
 
     public void StopVideo()

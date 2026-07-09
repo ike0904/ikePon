@@ -43,6 +43,7 @@ public partial class MovieWindow : Window
     // PositionChanged によるループ検出（EndReached が発火しない場合の代替）
     private float          _lastPosition;
     private volatile bool  _loopEndHandled;
+    private double         _videoEndSec = -1; // PlayVideo に渡された endSec（:stop-time の基準）
 
     public bool IsBuffering { get; private set; }
 
@@ -215,6 +216,7 @@ public partial class MovieWindow : Window
         _playSession++;
         _loopEndHandled      = false; // 新しい再生サイクル開始：ループ検出フラグをリセット
         _lastPosition        = 0f;
+        _videoEndSec         = -1;
         IsBuffering          = true;
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でバッファリング中の黒画面を隠す
@@ -225,7 +227,7 @@ public partial class MovieWindow : Window
         Logger.Log("[MW] PrepareForPlay: buffering start (VideoView=Collapsed)");
     }
 
-    public void PlayVideo(string filePath, double startSec,
+    public void PlayVideo(string filePath, double startSec, double endSec = -1,
         AfterPlaybackBehavior afterPlayback = AfterPlaybackBehavior.Stop)
     {
         StopFadeTimer();
@@ -235,7 +237,7 @@ public partial class MovieWindow : Window
         string ext     = System.IO.Path.GetExtension(filePath);
         bool   isVideo = VideoExts.Contains(ext);
         bool   isImage = ImageExts.Contains(ext);
-        Logger.Log($"[MW] PlayVideo ext={ext} video={isVideo} image={isImage} start={startSec:F2}");
+        Logger.Log($"[MW] PlayVideo ext={ext} video={isVideo} image={isImage} start={startSec:F2} end={endSec:F2}");
 
         if (isImage)
         {
@@ -259,10 +261,18 @@ public partial class MovieWindow : Window
         }
 
         _pendingStartSec  = startSec;
+        _videoEndSec      = endSec;
         _afterPlayback    = afterPlayback;
         _currentFilePath  = filePath;
 
         using var media = new Media(_libVLC, new Uri(filePath));
+        // EndPositionSec が指定されている場合は VLC の :stop-time でその秒数に EndReached を発火させる。
+        // これにより NAudio のループ終端と VLC の終端タイミングが一致し、確実にループ再起動できる。
+        if (endSec > 0)
+        {
+            media.AddOption($":stop-time={endSec:F3}");
+            Logger.Log($"[MW]   VLC :stop-time={endSec:F3}");
+        }
         _mediaPlayer.Play(media);
         Debug.WriteLine("[MW]   MediaPlayer.Play() called");
     }
@@ -528,8 +538,9 @@ public partial class MovieWindow : Window
         }
     }
 
-    // VLC が EndReached を発火せず内部でループした場合の代替検出。
-    // 位置が後半(>80%)から前半(<15%)へジャンプしたときループ終端とみなす。
+    // VLC が EndReached を発火しない場合の代替検出（PositionChanged イベントから呼ばれる）。
+    // パターン1: 位置が後半→前半ジャンプ（VLC 内部自動ループ）
+    // パターン2: _videoEndSec 指定時に現在時刻が endSec に到達（:stop-time のフォールバック）
     private void CheckLoopFromPosition(float pos)
     {
         float prev = _lastPosition;
@@ -537,12 +548,31 @@ public partial class MovieWindow : Window
 
         if (_afterPlayback != AfterPlaybackBehavior.Loop) return;
         if (!_videoVisible || _fadeTimer != null || _loopEndHandled) return;
-        if (!(prev > 0.80f && pos < 0.15f)) return;
 
-        _loopEndHandled = true;
-        Logger.Log($"[MW] Position jump detected: {prev:F3}→{pos:F3} (EndReached fallback) → triggering loop end");
-        Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-        Dispatcher.BeginInvoke(OnMediaEnded);
+        // パターン1: 位置が後半→前半にジャンプ（VLC が内部でループ）
+        if (prev > 0.80f && pos < 0.15f)
+        {
+            _loopEndHandled = true;
+            Logger.Log($"[MW] Position jump: {prev:F3}→{pos:F3} → triggering loop end");
+            Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+            Dispatcher.BeginInvoke(OnMediaEnded);
+            return;
+        }
+
+        // パターン2: endSec 指定あり → 時刻が endSec に達したら強制終端
+        // （:stop-time が効かなかった場合や EndReached が発火しなかった場合のフォールバック）
+        if (_videoEndSec > 0)
+        {
+            long   timeMs  = _mediaPlayer.Time;
+            double timeSec = timeMs / 1000.0;
+            if (timeMs > 0 && timeSec >= _videoEndSec - 0.15)
+            {
+                _loopEndHandled = true;
+                Logger.Log($"[MW] Time-based loop end: {timeSec:F2}s >= endSec={_videoEndSec:F2}s");
+                Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+                Dispatcher.BeginInvoke(OnMediaEnded);
+            }
+        }
     }
 
     private void OnMediaError()
