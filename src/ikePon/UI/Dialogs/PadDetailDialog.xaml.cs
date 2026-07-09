@@ -57,7 +57,7 @@ public partial class PadDetailDialog : Window
         SetResetMenu(TbDisplayName, () =>
             string.IsNullOrEmpty(TbFilePath.Text) ? "" : Path.GetFileNameWithoutExtension(TbFilePath.Text));
         SetResetMenu(TbPadGain,  "100");
-        SetResetMenu(TbStartPos, "0:00.0");
+        SetResetMenu(TbStartPos, "0:00.00");
         SetResetMenu(TbEndPos,   "");
 
         foreach (var tb in new[] { TbPadGain, TbStartPos, TbEndPos, TbLoopStart })
@@ -523,9 +523,12 @@ public partial class PadDetailDialog : Window
     private static string SecsToTimestamp(float secs)
     {
         if (secs < 0) secs = 0;
-        int m   = (int)(secs / 60);
+        int m  = (int)(secs / 60);
         float r = secs - m * 60;
-        return $"{m}:{r:00.0}";
+        int ss = (int)r;
+        int nn = (int)Math.Round((r - ss) * 100);
+        if (nn >= 100) { nn = 0; if (++ss >= 60) { ss = 0; m++; } }
+        return $"{m}:{ss:00}.{nn:00}";
     }
 
     /// <summary>

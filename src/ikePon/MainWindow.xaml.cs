@@ -192,6 +192,13 @@ public partial class MainWindow : Window
                     _movieCtrl.UpdateAfterPlayback(behavior);
                 MarkDirty();
             };
+            pad.TapBehaviorChanged += (_, behavior) =>
+            {
+                var padSettings = _playback.GetPadSettings(captured);
+                if (padSettings == null) return;
+                padSettings.TapBehavior = behavior;
+                MarkDirty();
+            };
             pad.SeekRequested += (_, fraction) => SeekPad(captured, fraction);
             pad.PadVolumeChanged += (_, gainInt) =>
             {
@@ -922,6 +929,10 @@ public partial class MainWindow : Window
             pad.AfterPlayback = AfterPlaybackBehavior.Stop;
         if (pad.AfterPlayback == AfterPlaybackBehavior.Loop && pad.Category == AudioCategory.SE)
             pad.AfterPlayback = AfterPlaybackBehavior.Stop;
+
+        // SEカテゴリ変更時にPauseResumeは使用不可→FadeOutに強制変換
+        if (pad.TapBehavior == TapBehavior.PauseResume && pad.Category == AudioCategory.SE)
+            pad.TapBehavior = TapBehavior.FadeOut;
 
         bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop;
         _engine.GetSource(_playback.ActiveBank, padIndex).SetLoop(shouldLoop);
@@ -1966,7 +1977,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.85{fname}{dirty}";
+        Title = $"ikePon v1.0.89{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

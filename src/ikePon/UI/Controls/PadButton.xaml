@@ -30,22 +30,42 @@
                 <!-- 上部バッジエリア（ON/OFF不可デッドゾーン） -->
                 <Border Grid.Row="0" x:Name="TopArea" Background="Transparent" Cursor="Arrow" Padding="0,1">
                     <Grid>
-                        <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
-                        <Border x:Name="CategoryBadge"
-                                Background="#444"
-                                CornerRadius="2"
-                                Padding="4,1"
-                                HorizontalAlignment="Left"
-                                Cursor="Hand">
-                            <TextBlock x:Name="CategoryLabel"
-                                       Text="BGM"
-                                       FontSize="12"
-                                       FontWeight="Bold"
-                                       Foreground="#999"/>
-                        </Border>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 左グループ（カテゴリ + TapBehavior●） -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
+                            <Border x:Name="CategoryBadge"
+                                    Background="#444"
+                                    CornerRadius="2"
+                                    Padding="4,1"
+                                    Cursor="Hand">
+                                <TextBlock x:Name="CategoryLabel"
+                                           Text="BGM"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Foreground="#999"/>
+                            </Border>
+                            <!-- 再生中タップ設定アイコン（●） -->
+                            <Border x:Name="TapBehaviorBadge"
+                                    Background="#444"
+                                    CornerRadius="2"
+                                    Padding="3,1"
+                                    Margin="2,0,0,0"
+                                    Cursor="Hand">
+                                <Ellipse x:Name="TapBehaviorDot"
+                                         Width="10" Height="10"
+                                         Fill="#4488FF"/>
+                            </Border>
+                        </StackPanel>
 
                         <!-- 音量表示（中央、クリック/ドラッグ/ホイールで変更可） -->
                         <TextBox x:Name="VolumeLabel"
+                                 Grid.Column="1"
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center"
                                  FontSize="12" FontWeight="Bold"
@@ -65,10 +85,10 @@
 
                         <!-- 再生後アイコンバッジ（タップで循環変更） -->
                         <Border x:Name="AfterPlaybackBadge"
+                                Grid.Column="2"
                                 Background="#444"
                                 CornerRadius="2"
                                 Padding="4,1"
-                                HorizontalAlignment="Right"
                                 Cursor="Hand">
                             <Grid Width="14" Height="14">
                                 <!-- 停止アイコン（■） -->

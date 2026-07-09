@@ -34,6 +34,9 @@ public partial class PadButton : UserControl
     private static readonly SolidColorBrush BrushCatBgm      = new(Color.FromRgb(0x3A, 0x7F, 0xC1));
     private static readonly SolidColorBrush BrushCatSe       = new(Color.FromRgb(0x3A, 0xA0, 0x4A));
     private static readonly SolidColorBrush BrushCatMovie    = new(Color.FromRgb(0x9A, 0x4A, 0xCC));
+    private static readonly SolidColorBrush BrushTapCut      = new(Color.FromRgb(0xFF, 0x44, 0x44)); // 赤
+    private static readonly SolidColorBrush BrushTapFade     = new(Color.FromRgb(0x44, 0x88, 0xFF)); // 青
+    private static readonly SolidColorBrush BrushTapPause    = new(Color.FromRgb(0x44, 0xCC, 0x44)); // 緑
 
     private PadPlayState _state = PadPlayState.Idle;
     private AudioCategory _category = AudioCategory.BGM;
@@ -70,6 +73,7 @@ public partial class PadButton : UserControl
 
     public event EventHandler? CategoryTapped;
     public event EventHandler<AfterPlaybackBehavior>? AfterPlaybackChanged;
+    public event EventHandler<TapBehavior>? TapBehaviorChanged;
     public event EventHandler<float>? SeekRequested;
     public event EventHandler<int>? PadVolumeChanged;
 
@@ -93,6 +97,12 @@ public partial class PadButton : UserControl
         {
             if (!CanEdit || _state != PadPlayState.Idle) { e.Handled = true; return; }
             CycleAfterPlayback();
+            e.Handled = true;
+        };
+        TapBehaviorBadge.MouseLeftButtonDown += (s, e) =>
+        {
+            if (!CanEdit || _state != PadPlayState.Idle) { e.Handled = true; return; }
+            CycleTapBehavior();
             e.Handled = true;
         };
         ProgressBorder.MouseLeftButtonDown += (s, e) =>
@@ -263,6 +273,30 @@ public partial class PadButton : UserControl
         AfterPlaybackChanged?.Invoke(this, _afterPlayback);
     }
 
+    private void CycleTapBehavior()
+    {
+        TapBehavior next = _tapBehavior switch
+        {
+            TapBehavior.CutOut      => TapBehavior.FadeOut,
+            TapBehavior.FadeOut     => _category == AudioCategory.SE ? TapBehavior.CutOut : TapBehavior.PauseResume,
+            TapBehavior.PauseResume => TapBehavior.CutOut,
+            _                       => TapBehavior.FadeOut
+        };
+        _tapBehavior = next;
+        UpdateTapBehaviorIcon();
+        TapBehaviorChanged?.Invoke(this, next);
+    }
+
+    private void UpdateTapBehaviorIcon()
+    {
+        TapBehaviorDot.Fill = _tapBehavior switch
+        {
+            TapBehavior.CutOut      => BrushTapCut,
+            TapBehavior.PauseResume => BrushTapPause,
+            _                       => BrushTapFade
+        };
+    }
+
     private AfterPlaybackBehavior GetNextAfterPlayback(AfterPlaybackBehavior current)
     {
         var next = current switch
@@ -357,6 +391,7 @@ public partial class PadButton : UserControl
                 ContentBg.Background = string.IsNullOrEmpty(_padBgColor)
                     ? BrushPadDefault
                     : new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString(_padBgColor));
+                DeadZone.Background = ContentBg.Background;
             }
 
             // 音量表示更新（フォーカス中は上書きしない）
@@ -386,17 +421,8 @@ public partial class PadButton : UserControl
 
         bool playing = state != PadPlayState.Idle;
 
-        // デッドゾーン背景色（TapBehavior常時表示）
-        // SE=グレー, FadeOut=青, CutOut=赤
-        bool isMovieBgm = _category == AudioCategory.Movie || _category == AudioCategory.BGM;
-        if (!isMovieBgm)
-            DeadZone.Background = BrushPadDefault;
-        else if (_tapBehavior == TapBehavior.CutOut)
-            DeadZone.Background = BrushCtrl;
-        else if (_tapBehavior == TapBehavior.PauseResume)
-            DeadZone.Background = BrushPause;
-        else
-            DeadZone.Background = BrushShift;
+        // デッドゾーンはパッド背景色と同一（TapBehavior表示はカテゴリ右の●アイコンに移行）
+        DeadZone.Background = ContentBg.Background;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
         if (isMissing)
@@ -451,6 +477,7 @@ public partial class PadButton : UserControl
 
         UpdateProgress();
         UpdateAfterPlaybackIcon();
+        UpdateTapBehaviorIcon();
         UpdateTimeLabel(state, progress, totalSec, newStartSec, newEndSec);
     }
 
@@ -459,21 +486,18 @@ public partial class PadButton : UserControl
         float displayEnd = _endSec > 0f ? _endSec : _totalSec;
         if (displayEnd <= 0f) return;
         float currentSec = Math.Clamp(_seekDragFraction * _totalSec, 0f, displayEnd);
-        TimeLabel.Text = $"{FormatTime01(currentSec)}/{FormatTime01(displayEnd)}";
+        TimeLabel.Text = $"{FormatTimeMS(currentSec)}/{FormatTimeMS(displayEnd)}";
         double w = _padWidth * Math.Clamp(_seekDragFraction, 0f, 1f);
         ProgressBar.Width = double.IsNaN(w) || w < 0 ? 0 : w;
     }
 
-    private static string FormatTime01(float secs)
+    private static string FormatTimeMS(float secs)
     {
         if (secs < 0) secs = 0;
-        secs = MathF.Round(secs, 1); // 0.1秒単位で丸めて詳細設定との表示ズレを防ぐ
-        int m   = (int)(secs / 60);
-        float r = secs - m * 60f;
-        int s   = (int)r;
-        int t   = (int)Math.Round((r - s) * 10);
-        if (t == 10) { t = 0; if (++s == 60) { s = 0; m++; } }
-        return $"{m}:{s:00}.{t}";
+        int totalSec = (int)Math.Round(secs);
+        int m = totalSec / 60;
+        int s = totalSec % 60;
+        return $"{m}:{s:00}";
     }
 
     private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec, float startSec, float endSec)
@@ -486,7 +510,7 @@ public partial class PadButton : UserControl
             ? startSec
             : Math.Clamp(progress * totalSec, 0f, displayEnd);
 
-        TimeLabel.Text = $"{FormatTime01(displayCurrent)}/{FormatTime01(displayEnd)}";
+        TimeLabel.Text = $"{FormatTimeMS(displayCurrent)}/{FormatTimeMS(displayEnd)}";
     }
 
     private void UpdateProgress()
