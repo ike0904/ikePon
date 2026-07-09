@@ -89,7 +89,7 @@ public sealed class PlaybackController
     // ------------------------------------------------------------------
     // パッドトリガー（UIスレッドから）
     // ------------------------------------------------------------------
-    public void TriggerPad(int padIndex, bool fadeOut = false, bool stopImmediate = false)
+    public void TriggerPad(int padIndex, bool fadeOut = false, bool stopImmediate = false, float startSecOverride = -1f)
     {
         if (_project == null) return;
 
@@ -162,7 +162,8 @@ public sealed class PlaybackController
 
         bool shouldLoop = pad.AfterPlayback == AfterPlaybackBehavior.Loop
                        && pad.Category != AudioCategory.SE;
-        src.Trigger(pad.StartPositionSec, pad.EndPositionSec, 0.0f, shouldLoop, pad.LoopStartSec);
+        float startSec = startSecOverride >= 0f ? startSecOverride : pad.StartPositionSec;
+        src.Trigger(startSec, pad.EndPositionSec, 0.0f, shouldLoop, pad.LoopStartSec);
     }
 
     // ------------------------------------------------------------------

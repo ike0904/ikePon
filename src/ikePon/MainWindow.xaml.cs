@@ -23,7 +23,6 @@ public partial class MainWindow : Window
     private readonly AppSettings _settings;
     private readonly FileGainDatabase _gainDb;
     private readonly PlaybackController _playback;
-    private readonly BankManager _bankManager;
     private readonly KeyboardMapper _keyMapper;
     private readonly MovieController _movieCtrl;
     private readonly MidiController _midi;
@@ -106,7 +105,6 @@ public partial class MainWindow : Window
     private const int MaxUndoHistory = 20;
 
     // 確認待ちフラグ（バンク切り替え）
-    private bool _pendingBankConfirm;
     // 確認待ち（バンク削除）
     private int _pendingBankClearIndex = -1;
     // 確認待ち（フェーダーメモリ上書き）
@@ -132,7 +130,6 @@ public partial class MainWindow : Window
         _gainDb = FileGainDatabase.Load();
         _engine = new AudioEngine();
         _playback = new PlaybackController(_engine, _settings, _gainDb);
-        _bankManager = new BankManager(_playback);
         _keyMapper = new KeyboardMapper();
         _movieCtrl = new MovieController(_settings);
         _midi = new MidiController(Dispatcher);
@@ -215,13 +212,6 @@ public partial class MainWindow : Window
                 if (padSettings == null) return;
                 padSettings.PadGain = gainInt / 100.0f;
                 _playback.UpdatePadGain(captured, padSettings.PadGain);
-                MarkDirty();
-            };
-            pad.StartPositionChanged += (_, secs) =>
-            {
-                var padSettings = _playback.GetPadSettings(captured);
-                if (padSettings == null) return;
-                padSettings.StartPositionSec = secs;
                 MarkDirty();
             };
             pad.PadVolumeDragStarted += (_, _) => Keyboard.ClearFocus();
@@ -444,7 +434,7 @@ public partial class MainWindow : Window
             fader.MuteChanged += (_, muted) => OnFaderMute(captured, muted);
             fader.MemoryRegisterRequested += (s, args) =>
             {
-                if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
+                if (_pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
                 var f = (VFaderControl)s!;
                 _pendingMemOverwrite = (f, args.slot, args.gain);
                 SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？\n[Y] 確定  /  [N] キャンセル");
@@ -460,22 +450,6 @@ public partial class MainWindow : Window
         // MovieWindow フォーカス時でもショートカットを有効化（スレッドレベルでキー割り込み）
         ComponentDispatcher.ThreadPreprocessMessage += OnGlobalKey;
 
-        _bankManager.BankSwitchRequested += idx =>
-        {
-            _pendingBankConfirm = true;
-            SetInfo2Warning($"Bank {BankNames[idx]} [{KeyboardMapper.BankLabels[idx]}] に切り替えますか？\n[Y] 確定  /  [N] キャンセル");
-        };
-        _bankManager.BankSwitched += idx =>
-        {
-            _pendingBankConfirm = false;
-            UpdateBankHighlight();
-            _pendingBankSwitchMsg = $"Bank {BankNames[idx]} に切り替えました";
-        };
-        _bankManager.BankSwitchCancelled += () =>
-        {
-            _pendingBankConfirm = false;
-            SetInfo2("");
-        };
 
         _playback.BankLoadStarted  += () => SetBankLoading(true);
         _playback.BankLoadCompleted += () => SetBankLoading(false);
@@ -609,16 +583,9 @@ public partial class MainWindow : Window
         if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
 
         // 確認待ちでなければ、通常インフォメーションをキー操作で消去
-        bool anyPending = _pendingBankConfirm || _pendingMemOverwrite.HasValue ||
+        bool anyPending = _pendingMemOverwrite.HasValue ||
                           _pendingIkpPath != null || _pendingOpenConfirm || _pendingNewConfirm || _pendingBankClearIndex >= 0;
         if (_infoClearPending && !anyPending) { _infoClearPending = false; SetInfo2(""); }
-
-        // バンク確認中は Y/N のみ受け付け
-        if (_pendingBankConfirm)
-        {
-            if (key == Key.Y) { _bankManager.Confirm(); return true; }
-            if (key == Key.N) { _bankManager.Cancel();  return true; }
-        }
 
         // メモリ上書き確認中
         if (_pendingMemOverwrite.HasValue)
@@ -864,10 +831,21 @@ public partial class MainWindow : Window
         }
 
         // 音声パッド（動画含む）: 再生前の状態を記録（同パッド再押し判定）
-        var stateBefore = isMoviePad ? _playback.GetPadState(padIndex) : PadPlayState.Idle;
+        var stateBefore = _playback.GetPadState(padIndex);
         bool wasActive  = stateBefore != PadPlayState.Idle;
 
-        _playback.TriggerPad(padIndex, fadeOut, stopImmediate);
+        // PAUSEボタンで一時停止中のパッドが押された場合 → そのパッドのみ再開し、PAUSEを解除
+        if (_isPauseAllActive && !fadeOut && !stopImmediate && stateBefore == PadPlayState.Paused)
+        {
+            _isPauseAllActive = false;
+            _playback.ForcePauseResumePad(padIndex);
+            if (isMoviePad && !isImagePad) _movieCtrl.ResumeVideo();
+            return;
+        }
+
+        // パッドの現在時間表示値を再生開始位置として使用（詳細設定の StartPositionSec とは独立）
+        float startSecOverride = _padButtons[padIndex].CurrentStartSec;
+        _playback.TriggerPad(padIndex, fadeOut, stopImmediate, startSecOverride);
 
         if (!isMoviePad) return;
 
@@ -902,7 +880,7 @@ public partial class MainWindow : Window
         }
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
-            _movieCtrl.PlayVideo(pad.FilePath, pad.StartPositionSec, pad.AfterPlayback);
+            _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
         }
     }
@@ -1571,20 +1549,15 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void RequestBankSwitch(int bankIndex)
     {
-        // 同じバンクへの切り替えかつ確認待ちでなければ無視
-        if (bankIndex == _playback.ActiveBank && !_bankManager.IsPendingConfirmation) return;
-        // 確認待ち中、またはアクティブパッドがある場合は確認ダイアログへ
-        if (_bankManager.IsPendingConfirmation || IsAnyPadActive())
+        if (bankIndex == _playback.ActiveBank) return;
+        if (IsAnyPadActive())
         {
-            _bankManager.RequestSwitch(bankIndex);
+            SetInfo2("再生中のバンク切り替えは出来ません");
+            return;
         }
-        else
-        {
-            // 全パッドがアイドル → 即座に切り替え（確認なし）
-            _playback.SwitchBank(bankIndex);
-            UpdateBankHighlight();
-            _pendingBankSwitchMsg = $"Bank {BankNames[bankIndex]} に切り替えました";
-        }
+        _playback.SwitchBank(bankIndex);
+        UpdateBankHighlight();
+        _pendingBankSwitchMsg = $"Bank {BankNames[bankIndex]} に切り替えました";
     }
 
     private bool IsAnyPadActive() =>
@@ -1629,21 +1602,19 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void BankYesBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)                   _bankManager.Confirm();
-        else if (_pendingMemOverwrite.HasValue)     ConfirmMemOverwrite();
-        else if (_pendingIkpPath != null)           ConfirmIkpLoad();
-        else if (_pendingBankClearIndex >= 0)       ExecuteBankClear();
-        else if (_pendingOpenConfirm)               ConfirmOpenLoad();
-        else if (_pendingNewConfirm)                ConfirmNew();
+        if (_pendingMemOverwrite.HasValue)      ConfirmMemOverwrite();
+        else if (_pendingIkpPath != null)       ConfirmIkpLoad();
+        else if (_pendingBankClearIndex >= 0)   ExecuteBankClear();
+        else if (_pendingOpenConfirm)           ConfirmOpenLoad();
+        else if (_pendingNewConfirm)            ConfirmNew();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingBankConfirm)                   _bankManager.Cancel();
-        else if (_pendingMemOverwrite.HasValue)     CancelMemOverwrite();
-        else if (_pendingIkpPath != null)           CancelIkpLoad();
-        else if (_pendingBankClearIndex >= 0)       { _pendingBankClearIndex = -1; SetInfo2(""); }
-        else if (_pendingOpenConfirm)               CancelOpenLoad();
-        else if (_pendingNewConfirm)                CancelNew();
+        if (_pendingMemOverwrite.HasValue)      CancelMemOverwrite();
+        else if (_pendingIkpPath != null)       CancelIkpLoad();
+        else if (_pendingBankClearIndex >= 0)   { _pendingBankClearIndex = -1; SetInfo2(""); }
+        else if (_pendingOpenConfirm)           CancelOpenLoad();
+        else if (_pendingNewConfirm)            CancelNew();
     }
 
     private void ConfirmMemOverwrite()
@@ -1691,7 +1662,7 @@ public partial class MainWindow : Window
         if (ikp == null) return;
 
         // 既存の確認が進行中なら ikp D&D を無視
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0
+        if (_pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0
             || _pendingOpenConfirm || _pendingNewConfirm) return;
 
         // 初期状態（未変更・未保存）なら確認なしで即読み込み
@@ -1750,7 +1721,7 @@ public partial class MainWindow : Window
             DoNewProject();
             return;
         }
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
+        if (_pendingMemOverwrite.HasValue || _pendingIkpPath != null
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm || _pendingNewConfirm) return;
 
         _pendingNewConfirm = true;
@@ -1792,7 +1763,7 @@ public partial class MainWindow : Window
             return;
         }
         // 他の確認が進行中なら無視
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
+        if (_pendingMemOverwrite.HasValue || _pendingIkpPath != null
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
 
         _pendingOpenConfirm = true;
@@ -1879,7 +1850,7 @@ public partial class MainWindow : Window
 
     private void RequestBankClear(int bankIdx)
     {
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
+        if (_pendingMemOverwrite.HasValue || _pendingIkpPath != null
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
         _pendingBankClearIndex = bankIdx;
         SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？\n[Y] 確定  /  [N] キャンセル");
@@ -2118,7 +2089,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.96{fname}{dirty}";
+        Title = $"ikePon v1.0.97{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

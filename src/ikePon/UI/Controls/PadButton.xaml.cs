@@ -60,6 +60,9 @@ public partial class PadButton : UserControl
 
     public bool CanEdit { get; set; } = true;
 
+    /// <summary>現在時間表示値（ドラッグ/ホイール/入力で設定された再生開始位置）</summary>
+    public float CurrentStartSec => _startSec;
+
     // 音量ドラッグ状態
     private double _volumeDragStartY;
     private int _volumeDragStartVal;
@@ -83,7 +86,6 @@ public partial class PadButton : UserControl
     public event EventHandler<float>? SeekRequested;
     public event EventHandler<int>? PadVolumeChanged;
     public event EventHandler? PadVolumeDragStarted;
-    public event EventHandler<float>? StartPositionChanged;
 
     public PadButton()
     {
@@ -289,12 +291,14 @@ public partial class PadButton : UserControl
         if (e.Key is Key.Return or Key.Enter)
         {
             CommitTimeBox();
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Colors.Transparent);
             Keyboard.ClearFocus();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
         {
             CurrentTimeBox.Text = FormatTimeFixed(_startSec);
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Colors.Transparent);
             Keyboard.ClearFocus();
             e.Handled = true;
         }
@@ -422,11 +426,7 @@ public partial class PadButton : UserControl
             float cap = _endSec > 0f ? _endSec : _totalSec;
             secs = Math.Max(0f, secs);
             if (cap > 0f) secs = Math.Min(secs, cap - 0.1f);
-            if (Math.Abs(secs - _startSec) > 0.05f)
-            {
-                _startSec = secs;
-                StartPositionChanged?.Invoke(this, secs);
-            }
+            _startSec = secs; // ローカル表示値のみ更新（padSettingsには反映しない）
         }
         CurrentTimeBox.Text = FormatTimeFixed(_startSec);
     }
@@ -575,7 +575,8 @@ public partial class PadButton : UserControl
                        Math.Abs(_endSec   - newEndSec)   > 0.05f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f) ||
                        _isMissing != isMissing ||
-                       (isMissing && _blinkPhase != newBlinkPhase);
+                       (isMissing && _blinkPhase != newBlinkPhase) ||
+                       (state == PadPlayState.Paused && _blinkPhase != newBlinkPhase);
         _initialized = true;
 
         var prevState = _state;
@@ -690,6 +691,15 @@ public partial class PadButton : UserControl
             FileNameLabel.Foreground = BrushTextNormal;
             KeyLabel.Foreground  = BrushKeyGray;
             KeyBadge.BorderBrush = BrushKeyGray;
+        }
+        else if (state == PadPlayState.Paused)
+        {
+            // 一時停止中: 黄色⇔グレー 0.5秒交互点滅
+            BorderRoot.BorderBrush     = newBlinkPhase ? BrushBorderPlay : BrushBorderNormal;
+            BorderRoot.BorderThickness = newBlinkPhase ? new Thickness(2.5) : new Thickness(1.5);
+            FileNameLabel.Foreground   = BrushTextNormal;
+            KeyLabel.Foreground        = BrushKeyGray;
+            KeyBadge.BorderBrush       = BrushKeyGray;
         }
         else
         {
