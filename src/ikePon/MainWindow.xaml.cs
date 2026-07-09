@@ -693,9 +693,10 @@ public partial class MainWindow : Window
         if (padIdx.HasValue)
         {
             if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
-            // 動画バッファリング中はMOVIEカテゴリパッドの操作を無視
-            var padCat = _playback.GetPadSettings(padIdx.Value)?.Category;
-            if (padCat == AudioCategory.Movie && _movieCtrl.IsBuffering)
+            // 動画バッファリング中はMOVIEカテゴリパッドの操作を無視（静止画は除外）
+            var padSets0 = _playback.GetPadSettings(padIdx.Value);
+            var padCat = padSets0?.Category;
+            if (padCat == AudioCategory.Movie && !IsImageFile(padSets0?.FilePath) && _movieCtrl.IsBuffering)
             {
                 Logger.Log($"[MW] Pad{padIdx.Value + 1} blocked: buffering");
                 SetInfo2("バッファリング中...");
@@ -1150,7 +1151,17 @@ public partial class MainWindow : Window
         _project.ActiveBankIndex = activeBankBefore;
         _projectDirty = true;
         _missingPads = new bool[ProjectData.BankCount, BankData.PadCount];
-        _playback.SetProject(_project, () => SetInfo2(message));
+        _playback.SetProject(_project, () =>
+        {
+            int bank = _playback.ActiveBank;
+            for (int p = 0; p < BankData.PadCount; p++)
+            {
+                var pad = _project.Banks[bank].Pads[p];
+                if (!string.IsNullOrEmpty(pad.FilePath))
+                    _playback.UpdatePadGain(p, pad.PadGain);
+            }
+            SetInfo2(message);
+        });
         SyncFadersFromProject();
         RefreshAllBankLabels();
         UpdateBankHighlight();
@@ -1186,8 +1197,9 @@ public partial class MainWindow : Window
     {
         _midi.PadTriggered += idx =>
         {
-            var padCat = _playback.GetPadSettings(idx)?.Category;
-            if (padCat == AudioCategory.Movie && _movieCtrl.IsBuffering)
+            var padSets1 = _playback.GetPadSettings(idx);
+            var padCat1 = padSets1?.Category;
+            if (padCat1 == AudioCategory.Movie && !IsImageFile(padSets1?.FilePath) && _movieCtrl.IsBuffering)
             { SetInfo2("バッファリング中..."); return; }
             TriggerPadWithMovie(idx);
         };
@@ -2104,7 +2116,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.100{fname}{dirty}";
+        Title = $"ikePon v1.0.101{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

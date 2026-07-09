@@ -67,6 +67,7 @@ public partial class PadButton : UserControl
     private double _volumeDragStartY;
     private int _volumeDragStartVal;
     private bool _volumeDragging;
+    private long _lastVolumeWheelTick;
 
     // シークバードラッグ状態
     private bool _seekDragging;
@@ -272,7 +273,10 @@ public partial class PadButton : UserControl
 
     private void VolumeLabel_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        PadVolumeDragStarted?.Invoke(this, EventArgs.Empty);
+        long now = Environment.TickCount64;
+        if (now - _lastVolumeWheelTick > 1000)
+            PadVolumeDragStarted?.Invoke(this, EventArgs.Empty);
+        _lastVolumeWheelTick = now;
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         int step = e.Delta > 0 ? (shift ? 10 : 1) : (shift ? -10 : -1);
         string raw = VolumeLabel.Text.TrimEnd('%').Trim();
@@ -719,6 +723,9 @@ public partial class PadButton : UserControl
 
         UpdateProgress();
         UpdateAfterPlaybackIcon();
+        bool isImgPad = settings != null && !string.IsNullOrEmpty(settings.FilePath)
+                        && ImageExts.Contains(System.IO.Path.GetExtension(settings.FilePath));
+        AfterPlaybackBadge.Visibility = isImgPad ? Visibility.Collapsed : Visibility.Visible;
         UpdateTapBehaviorIcon();
         UpdateTimeLabel(state, progress, totalSec, _startSec, newEndSec);
     }

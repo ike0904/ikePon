@@ -21,6 +21,7 @@ public partial class VFaderControl : UserControl
     private float?[] _memories = new float?[4]; // slot 3 は未使用（MU button に変更）
     private bool _suppressEvent;
     private bool _isMuted;
+    private long _lastWheelTick;
 
     // アニメーション
     private readonly DispatcherTimer _animTimer;
@@ -131,7 +132,10 @@ public partial class VFaderControl : UserControl
 
     private void FaderSlider_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
     {
-        FaderDragStarted?.Invoke(this, EventArgs.Empty);
+        long now = Environment.TickCount64;
+        if (now - _lastWheelTick > 1000)
+            FaderDragStarted?.Invoke(this, EventArgs.Empty);
+        _lastWheelTick = now;
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         double step = e.Delta > 0 ? FaderSlider.SmallChange : -FaderSlider.SmallChange;
         if (shift) step *= 10;

@@ -28,9 +28,6 @@ public partial class PadDetailDialog : Window
     private string? _selectedBgColor;
     private readonly Dictionary<TextBox, string> _savedTexts = new();
 
-    private static readonly HashSet<string> ImageExts = new(StringComparer.OrdinalIgnoreCase)
-        { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff", ".tif" };
-
     private static readonly string[] BgColorPalette =
     [
         "#3C3C3C",
@@ -131,31 +128,6 @@ public partial class PadDetailDialog : Window
 
         _selectedBgColor = _padSettings.PadBackgroundColor;
         BuildBgColorSwatches();
-        ApplyImagePadConstraints();
-    }
-
-    private void ApplyImagePadConstraints()
-    {
-        if (string.IsNullOrEmpty(_padSettings.FilePath)) return;
-        if (!ImageExts.Contains(Path.GetExtension(_padSettings.FilePath))) return;
-
-        CbCategory.IsEnabled = false;
-        CbCategory.Opacity   = 0.4;
-
-        TbPadGain.IsEnabled = false;
-        TbPadGain.Opacity   = 0.4;
-
-        TbStartPos.IsEnabled = false;
-        TbStartPos.Opacity   = 0.4;
-        TbEndPos.IsEnabled   = false;
-        TbEndPos.Opacity     = 0.4;
-
-        CbAfterPlayback.IsEnabled = false;
-        CbAfterPlayback.Opacity   = 0.4;
-
-        CbTapPauseResume.IsEnabled = false;
-        if (CbTapBehavior.SelectedIndex == 2)
-            CbTapBehavior.SelectedIndex = 0;
     }
 
     private void BuildBgColorSwatches()
@@ -322,7 +294,7 @@ public partial class PadDetailDialog : Window
             bool isGain = (tb == TbPadGain);
             if (isGain) CommitGainBox(tb);
             else CommitPosBox(tb);
-            Keyboard.ClearFocus();
+            tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
         }
         e.Handled = true;
     }
