@@ -89,6 +89,8 @@ public partial class MovieWindow : Window
 
     public bool IsFullScreen => _isFullScreen;
     public event Action<bool>? FullScreenChanged;
+    // 動画がループ終端に達したとき（AfterPlayback=Loop）に発火。再起動はMainWindowが担う。
+    public event Action? LoopEndReached;
 
     public MovieWindow(AppSettings settings, LibVLC libVLC)
     {
@@ -487,49 +489,21 @@ public partial class MovieWindow : Window
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                // Stop 完了後に 300ms 黒画面を挟んで直接 Play
-                // PlayVideo/PrepareForPlay を経由しない → Stop/Play のレース条件を回避
-                if (_currentFilePath != null)
+                // 映像終端に達したら黒画面を表示し、LoopEndReached でMainWindowに通知する。
+                // 音声停止・300ms待機・音声+映像再起動はMainWindowが担う（安定性向上）。
+                // フェードアウト中（_fadeTimer != null）は自然終端扱いせずに無視する。
+                if (_currentFilePath != null && _fadeTimer == null)
                 {
                     StopFadeTimer();
                     StopStandbyFadeIn();
                     _videoVisible        = false;
                     VideoView.Visibility = Visibility.Collapsed;
-                    StandbyImage.Source  = null;   // スタンバイ画像なし（黒）
+                    StandbyImage.Source  = null;   // 黒（スタンバイ画像なし）
                     StandbyLayer.Opacity    = 1.0;
                     StandbyLayer.Visibility = Visibility.Visible;
-
-                    string loopPath  = _currentFilePath;
-                    double loopStart = _pendingStartSec;
-                    var    loopAfter = _afterPlayback;
-                    int capturedSess = ++_playSession;
-                    IsBuffering      = true;
-
-                    // Stop 完了を ContinueWith で待ってから 300ms タイマー起動
-                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } })
-                        .ContinueWith(_ => Dispatcher.BeginInvoke(() =>
-                        {
-                            if (_playSession != capturedSess) return;
-                            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-                            t.Tick += (_, _) =>
-                            {
-                                t.Stop();
-                                if (_playSession != capturedSess) return;
-                                // PrepareForPlay を経由しないで直接再生（二重 Stop を防ぐ）
-                                _playSession++;
-                                _pendingStartSec = loopStart;
-                                _afterPlayback   = loopAfter;
-                                _currentFilePath = loopPath;
-                                IsBuffering      = true;
-                                var media = new Media(_libVLC, new Uri(loopPath));
-                                _mediaPlayer.Play(media);
-                                media.Dispose();
-                                Logger.Log("[MW] Loop restart: direct Play() after Stop complete");
-                            };
-                            t.Start();
-                            Logger.Log("[MW] Loop: Stop complete → 300ms timer started");
-                        }));
-                    Logger.Log("[MW] Loop: stopping in background...");
+                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+                    Logger.Log("[MW] Loop end: black screen, firing LoopEndReached");
+                    LoopEndReached?.Invoke();
                 }
                 break;
             default:

@@ -57,6 +57,10 @@ public partial class MainWindow : Window
     private long _imageFadeStartTick;
     private float _imageFadeDuration;
 
+    // 動画ループ制御：現在再生中の Movie パッドと、ループ再起動キャンセル用セッション番号
+    private int _currentMoviePadIndex = -1;
+    private int _movieLoopSession;
+
     private readonly DispatcherTimer _uiTimer;
 
     // LOCK/FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
@@ -156,9 +160,14 @@ public partial class MainWindow : Window
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
 
-        _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() => UpdateDispButton(on));
+        _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() =>
+        {
+            UpdateDispButton(on);
+            if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; } // display閉時にループ再起動キャンセル
+        });
         _movieCtrl.FullScreenChanged    += on => Dispatcher.Invoke(() => UpdateFullButton(on));
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
+        _movieCtrl.VideoLoopEndReached  += OnVideoLoopEndReached;
 
         WireMidi();
         _midi.SetDevice(_settings.SelectedMidiDeviceName);
@@ -795,6 +804,50 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
+    // 動画ループ終端ハンドラ（MovieController.VideoLoopEndReachedから呼ばれる）
+    // 音声を即座に停止 → 300ms 黒画面・無音 → 音声+映像を同時再起動
+    // ------------------------------------------------------------------
+    private void OnVideoLoopEndReached()
+    {
+        int padIdx = _currentMoviePadIndex;
+        if (padIdx < 0) return;
+
+        var pad = _playback.GetPadSettings(padIdx);
+        if (pad == null || string.IsNullOrEmpty(pad.FilePath)) return;
+
+        // 音声を即座に停止（NAudioループを中断して黒画面期間中は無音にする）
+        _engine.GetSource(_playback.ActiveBank, padIdx).StopImmediate();
+
+        string capturedPath  = pad.FilePath;
+        float  capturedEnd   = pad.EndPositionSec;
+        float  capturedLoop  = pad.LoopStartSec;
+        float  capturedStart = pad.StartPositionSec;
+        // LoopStartSec が設定されていればそこから、なければ StartPositionSec から再生
+        float  restartSec    = capturedLoop >= 0f ? capturedLoop : capturedStart;
+        int    capturedPad   = padIdx;
+        int    capturedSess  = ++_movieLoopSession;
+
+        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            if (_movieLoopSession != capturedSess) return; // キャンセルされた
+            if (!_movieCtrl.DisplayActive) return;         // ディスプレイが閉じられた
+
+            // 音声再開（NAudio）
+            _engine.GetSource(_playback.ActiveBank, capturedPad)
+                .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
+
+            // 映像再開（LibVLC）
+            _movieCtrl.PlayVideo(capturedPath, restartSec, AfterPlaybackBehavior.Loop);
+
+            Logger.Log($"[MW] Video loop restart: audio+video (pad={capturedPad} restartSec={restartSec:F2})");
+        };
+        t.Start();
+        Logger.Log($"[MW] Video loop end: 300ms black+silence timer started (pad={padIdx})");
+    }
+
+    // ------------------------------------------------------------------
     // パッドトリガー（音声 + 動画連動）
     // ------------------------------------------------------------------
     private void TriggerPadWithMovie(int padIndex, bool fadeOut = false, bool stopImmediate = false)
@@ -833,6 +886,7 @@ public partial class MainWindow : Window
             {
                 // 新規表示の前に同カテゴリの音声再生を停止（音声→静止画の順で操作したとき）
                 _playback.StopMovieAudioPads();
+                ++_movieLoopSession; _currentMoviePadIndex = -1; // 動画ループ再起動をキャンセル
                 _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.AfterPlayback);
                 _imageDisplayingPadIndex = padIndex;
             }
@@ -860,11 +914,13 @@ public partial class MainWindow : Window
 
         if (stopImmediate)
         {
+            ++_movieLoopSession; _currentMoviePadIndex = -1;
             _movieCtrl.StopVideo();
             _imageDisplayingPadIndex = -1;
         }
         else if (fadeOut)
         {
+            ++_movieLoopSession;
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
         }
@@ -881,6 +937,7 @@ public partial class MainWindow : Window
         {
             // 同パッド再押し → 音声停止済み → 映像も同様に停止（TapBehavior準拠）
             bool cutOut = pad?.TapBehavior == TapBehavior.CutOut;
+            ++_movieLoopSession; _currentMoviePadIndex = -1;
             if (cutOut)
                 _movieCtrl.StopVideo();
             else
@@ -889,6 +946,7 @@ public partial class MainWindow : Window
         }
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
+            ++_movieLoopSession; _currentMoviePadIndex = padIndex; // 新規動画再生：ループ追跡開始
             _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
             // 動画ファイル再生時はバッファリング完了まで準備中を表示
@@ -1486,6 +1544,7 @@ public partial class MainWindow : Window
             _imageFadeDuration   = _settings.LongFadeDuration;
         }
         _imageDisplayingPadIndex = -1;
+        ++_movieLoopSession; // ALL FADE中にループ再起動が始まらないようキャンセル
         _playback.PanicFadeAll();
         if (allFadeWasPaused)
         {
@@ -1534,6 +1593,7 @@ public partial class MainWindow : Window
         _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
         _imageFadingPadIndex = -1;
+        ++_movieLoopSession; _currentMoviePadIndex = -1; // ループ再起動キャンセル
         _playback.PanicStopAll();
         _playback.FlushOutput();
         if (wasPaused)
@@ -1581,6 +1641,7 @@ public partial class MainWindow : Window
             SetInfo2("再生中のバンク切り替えは出来ません");
             return;
         }
+        ++_movieLoopSession; _currentMoviePadIndex = -1; // ループ再起動キャンセル
         _playback.SwitchBank(bankIndex);
         UpdateBankHighlight();
         _pendingBankSwitchMsg = $"Bank {BankNames[bankIndex]} に切り替えました";
@@ -2126,7 +2187,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.105{fname}{dirty}";
+        Title = $"ikePon v1.0.106{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
