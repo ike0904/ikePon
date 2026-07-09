@@ -24,7 +24,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="18"/>
                 </Grid.RowDefinitions>
 
                 <!-- 上部バッジエリア（ON/OFF不可デッドゾーン） -->
@@ -43,12 +43,14 @@
                                     Background="#444"
                                     CornerRadius="2"
                                     Padding="4,1"
+                                    MinWidth="36"
                                     Cursor="Hand">
                                 <TextBlock x:Name="CategoryLabel"
                                            Text="BGM"
                                            FontSize="12"
                                            FontWeight="Bold"
-                                           Foreground="#999"/>
+                                           Foreground="#999"
+                                           TextAlignment="Center"/>
                             </Border>
                             <!-- 再生中タップ設定アイコン（●） -->
                             <Border x:Name="TapBehaviorBadge"
@@ -133,36 +135,10 @@
                            TextTrimming="CharacterEllipsis"
                            Margin="0,4"/>
 
-                <!-- 下段：時間表示（左）＋キーバッジ（右） -->
-                <TextBlock x:Name="TimeLabel"
-                           Grid.Row="2"
-                           Text=""
-                           FontSize="12"
-                           FontWeight="Bold"
-                           FontFamily="Consolas"
-                           Foreground="White"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Center"
-                           Margin="2,1,0,0"/>
-                <Border Grid.Row="2"
-                        x:Name="KeyBadge"
-                        Background="#1C1C1C"
-                        BorderBrush="#AAAAAA"
-                        BorderThickness="1"
-                        CornerRadius="2"
-                        Padding="4,1"
-                        HorizontalAlignment="Right"
-                        Margin="0,1,2,0">
-                    <TextBlock x:Name="KeyLabel"
-                               Text="1"
-                               FontSize="16"
-                               FontWeight="Bold"
-                               FontFamily="Consolas"
-                               Foreground="#AAAAAA"/>
-                </Border>
+                <!-- Row 2: 下部スペーサー（時間・キーバッジは外側 Grid に移動） -->
             </Grid>
 
-            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない、状態色を表示） -->
+            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない） -->
             <Border Grid.Row="1"
                     x:Name="DeadZone"
                     Cursor="Arrow"/>
@@ -178,6 +154,45 @@
                            Width="0"
                            Fill="#3A7FC1"
                            RadiusX="2" RadiusY="2"/>
+            </Border>
+
+            <!-- 現在時間／総時間（デッドゾーンと重なる位置、左下） -->
+            <StackPanel x:Name="TimePanel"
+                        Grid.Row="0" Grid.RowSpan="2"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Left"
+                        Orientation="Horizontal"
+                        Margin="4,0,0,1"
+                        Visibility="Collapsed">
+                <TextBox x:Name="CurrentTimeBox"
+                         Width="34"
+                         FontSize="12" FontWeight="Bold" FontFamily="Consolas"
+                         Foreground="White" Background="Transparent"
+                         BorderBrush="Transparent" BorderThickness="1"
+                         CaretBrush="White" SelectionBrush="#3A7FC1"
+                         MaxLength="5" TextAlignment="Right"
+                         Padding="0" IsReadOnly="True"
+                         Cursor="SizeNS"/>
+                <TextBlock x:Name="TotalTimeLabel"
+                           FontSize="12" FontWeight="Bold" FontFamily="Consolas"
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- ショートカットキーバッジ（デッドゾーンと重なる位置、右下） -->
+            <Border Grid.Row="0" Grid.RowSpan="2"
+                    x:Name="KeyBadge"
+                    Background="#1C1C1C"
+                    BorderBrush="#AAAAAA" BorderThickness="1"
+                    CornerRadius="2" Padding="4,1"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right"
+                    Margin="0,0,4,1">
+                <TextBlock x:Name="KeyLabel"
+                           Text="1"
+                           FontSize="16" FontWeight="Bold"
+                           FontFamily="Consolas"
+                           Foreground="#AAAAAA"/>
             </Border>
         </Grid>
     </Border>

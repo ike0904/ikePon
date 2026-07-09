@@ -208,6 +208,13 @@ public partial class MainWindow : Window
                 _playback.UpdatePadGain(captured, padSettings.PadGain);
                 MarkDirty();
             };
+            pad.StartPositionChanged += (_, secs) =>
+            {
+                var padSettings = _playback.GetPadSettings(captured);
+                if (padSettings == null) return;
+                padSettings.StartPositionSec = secs;
+                MarkDirty();
+            };
             pad.PreviewMouseDown += (_, _) => Keyboard.ClearFocus();
 
             // タップ vs ドラッグ判定のため MouseDown でのみ状態を記録（DeadZone/TopArea クリックは除外）
@@ -469,6 +476,13 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
+        // 読み込み中アニメーション（ドット数を 1→2→3→1 でサイクル）
+        if (_bankLoading && InfoLine2.Text.StartsWith("読み込み中"))
+        {
+            int dots = (int)(Environment.TickCount64 / 400) % 3 + 1;
+            InfoLine2.Text = "読み込み中" + new string('.', dots);
+        }
+
         // 静止画フェード進行を計算（フェード完了したらリセット）
         int fadingIdx = _imageFadingPadIndex;
         float imageFadeGainForPad = -1f;
@@ -688,6 +702,7 @@ public partial class MainWindow : Window
         var padIdx = _keyMapper.GetPadIndex(key);
         if (padIdx.HasValue)
         {
+            if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
             // 動画バッファリング中はMOVIEカテゴリパッドの操作を無視
             var padCat = _playback.GetPadSettings(padIdx.Value)?.Category;
             if (padCat == AudioCategory.Movie && _movieCtrl.IsBuffering)
@@ -992,13 +1007,23 @@ public partial class MainWindow : Window
                 string? resDir = System.IO.Path.GetDirectoryName(pad.FilePath);
                 if (!string.IsNullOrEmpty(resDir)) _settings.LastSelectedResourceDirectory = resDir;
             }
-            _playback.LoadBank(_playback.ActiveBank);
+            _playback.LoadBank(_playback.ActiveBank, () =>
+            {
+                string msg = $"Pad {padIndex + 1}: 詳細設定を更新しました。";
+                var src = _engine.GetSource(_playback.ActiveBank, padIndex);
+                if (src.WasTruncated)
+                    SetInfo2Warning(msg + "（99:59を超えるため打ち切りました）");
+                else
+                    SetInfo2(msg);
+            });
         }
         else
+        {
             _playback.UpdatePadGain(padIndex, pad.PadGain);
+            SetInfo2($"Pad {padIndex + 1}: 詳細設定を更新しました。");
+        }
 
         MarkDirty();
-        SetInfo2($"Pad {padIndex + 1}: 詳細設定を更新しました。");
     }
 
     private void OpenFileForPad(int padIndex)
@@ -1036,8 +1061,14 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(resDir)) _settings.LastSelectedResourceDirectory = resDir;
         string fname = System.IO.Path.GetFileName(filePath);
         SetInfo2($"Pad {padIndex + 1}: {fname} を読み込み中...");
-        _playback.LoadBank(_playback.ActiveBank,
-            () => SetInfo2($"Pad {padIndex + 1}: {fname} を読み込みました"));
+        _playback.LoadBank(_playback.ActiveBank, () =>
+        {
+            var src = _engine.GetSource(_playback.ActiveBank, padIndex);
+            if (src.WasTruncated)
+                SetInfo2Warning($"Pad {padIndex + 1}: {fname} は99:59を超えるため99:59で打ち切りました");
+            else
+                SetInfo2($"Pad {padIndex + 1}: {fname} を読み込みました");
+        });
         MarkDirty();
     }
 
@@ -1157,7 +1188,7 @@ public partial class MainWindow : Window
             BankConfirmPanel.Visibility = Visibility.Collapsed;
             _infoClearPending = false;
         }
-        else if (InfoLine2.Text == "読み込み中...")
+        else if (InfoLine2.Text.StartsWith("読み込み中"))
         {
             string? pendingMsg = _pendingBankSwitchMsg;
             _pendingBankSwitchMsg = null;
@@ -1977,7 +2008,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.89{fname}{dirty}";
+        Title = $"ikePon v1.0.90{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

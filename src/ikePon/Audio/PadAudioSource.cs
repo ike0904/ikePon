@@ -46,6 +46,9 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     public float PlaybackPosition { get; private set; }
     public string? FilePath { get; private set; }
     public float FileTotalSec { get; private set; }
+    public bool WasTruncated { get; private set; }
+
+    private const float MaxDurationSec = 5999f; // 99:59上限
 
     /// <summary>フェードアウト中の現在ゲイン係数（1.0=開始, 0.0=無音）。再生中は 1.0。</summary>
     public float FadeGain =>
@@ -65,16 +68,18 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         try
         {
             using var reader = new AudioFileReader(filePath);
-            double duration  = reader.TotalTime.TotalSeconds;
-            var resampled    = ConvertToFormat(reader, _format);
+            var resampled = ConvertToFormat(reader, _format, out bool wasTruncated);
             lock (_lock)
             {
                 _preloaded    = resampled;
                 _preloadTotal = resampled.Length;
                 FilePath      = filePath;
-                FileTotalSec  = _format.SampleRate > 0 && _format.Channels > 0
-                    ? (float)_preloadTotal / (_format.SampleRate * _format.Channels)
-                    : (float)duration;
+                WasTruncated  = wasTruncated;
+                FileTotalSec  = wasTruncated
+                    ? MaxDurationSec
+                    : (_format.SampleRate > 0 && _format.Channels > 0
+                        ? (float)_preloadTotal / (_format.SampleRate * _format.Channels)
+                        : 0f);
             }
             return true;
         }
@@ -101,6 +106,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             _readPos         = 0;
             FilePath         = null;
             FileTotalSec     = 0f;
+            WasTruncated     = false;
             PlaybackPosition = 0f;
             _inCrossfade     = false;
             _canCrossfade    = false;
@@ -402,7 +408,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
     // ------------------------------------------------------------------
 
     /// <summary>全データを一括デコード＆フォーマット変換（ロード時のみ実行）。</summary>
-    private static float[] ConvertToFormat(AudioFileReader reader, WaveFormat target)
+    private static float[] ConvertToFormat(AudioFileReader reader, WaveFormat target, out bool truncated)
     {
         ISampleProvider p = reader;
         if (p.WaveFormat.SampleRate != target.SampleRate)
@@ -414,7 +420,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
 
         var list = new List<float>(target.SampleRate * target.Channels * 10);
         var buf  = new float[4096];
-        int maxSamples = target.SampleRate * target.Channels * 3600; // 60分上限（コーデックが無限ループする場合の安全策）
+        int maxSamples = (int)(target.SampleRate * target.Channels * MaxDurationSec); // 99:59上限
         // n==0 が連続しても即終了せずリトライ（WDL resampler warmup / MF デコーダ初期化対策）
         int zeros = 0;
         while (zeros < 10 && list.Count < maxSamples)
@@ -423,6 +429,7 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
             if (n > 0) { zeros = 0; for (int i = 0; i < n; i++) list.Add(buf[i]); }
             else zeros++;
         }
+        truncated = list.Count >= maxSamples;
         return list.ToArray();
     }
 

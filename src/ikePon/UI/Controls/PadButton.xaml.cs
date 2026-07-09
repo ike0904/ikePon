@@ -68,6 +68,11 @@ public partial class PadButton : UserControl
     private bool _seekDragging;
     private float _seekDragFraction;
 
+    // 現在時間ドラッグ状態
+    private bool _timeDragging;
+    private double _timeDragStartY;
+    private float _timeDragStartVal;
+
     private static byte Lerp(byte a, byte b, float t)
         => (byte)Math.Clamp(a + (b - a) * t, 0, 255);
 
@@ -76,6 +81,7 @@ public partial class PadButton : UserControl
     public event EventHandler<TapBehavior>? TapBehaviorChanged;
     public event EventHandler<float>? SeekRequested;
     public event EventHandler<int>? PadVolumeChanged;
+    public event EventHandler<float>? StartPositionChanged;
 
     public PadButton()
     {
@@ -140,6 +146,29 @@ public partial class PadButton : UserControl
             e.Handled = true;
         };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
+
+        // TimePanel クリックがパッドに伝わらないよう吸収
+        TimePanel.MouseLeftButtonDown += (_, e) => e.Handled = true;
+        KeyBadge.MouseLeftButtonDown  += (_, e) => e.Handled = true;
+
+        // 現在時間TextBoxのイベント
+        CurrentTimeBox.GotFocus += (_, _) =>
+        {
+            if (_state != PadPlayState.Idle) { Keyboard.ClearFocus(); return; }
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+            CurrentTimeBox.Text = CurrentTimeBox.Text.Trim();
+            CurrentTimeBox.SelectAll();
+        };
+        CurrentTimeBox.LostFocus += (_, _) =>
+        {
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Colors.Transparent);
+            CommitTimeBox();
+        };
+        CurrentTimeBox.KeyDown += CurrentTimeBox_KeyDown;
+        CurrentTimeBox.PreviewMouseLeftButtonDown += CurrentTimeBox_MouseDown;
+        CurrentTimeBox.PreviewMouseMove += CurrentTimeBox_MouseMove;
+        CurrentTimeBox.PreviewMouseLeftButtonUp += CurrentTimeBox_MouseUp;
+        CurrentTimeBox.PreviewMouseWheel += CurrentTimeBox_MouseWheel;
 
         // 音量TextBoxのイベント
         VolumeLabel.GotFocus += (_, _) =>
@@ -237,6 +266,127 @@ public partial class PadButton : UserControl
         CommitVolumeLabel();
         e.Handled = true;
     }
+
+    // ------------------------------------------------------------------
+    // 現在時間TextBoxのイベントハンドラ
+    // ------------------------------------------------------------------
+    private void CurrentTimeBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Return or Key.Enter)
+        {
+            CommitTimeBox();
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            CurrentTimeBox.Text = FormatTimeFixed(_startSec);
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+    }
+
+    private void CurrentTimeBox_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_state != PadPlayState.Idle) { e.Handled = true; return; }
+        _timeDragStartY   = e.GetPosition(this).Y;
+        _timeDragging     = false;
+        _timeDragStartVal = _startSec;
+        CurrentTimeBox.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void CurrentTimeBox_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!CurrentTimeBox.IsMouseCaptured || e.LeftButton != MouseButtonState.Pressed) return;
+        double deltaY = _timeDragStartY - e.GetPosition(this).Y;
+        if (!_timeDragging && Math.Abs(deltaY) < 3) return;
+        _timeDragging = true;
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        int steps = (int)(deltaY / 5.0);
+        float stepSize = shift ? 10f : 1f;
+        float cap = _endSec > 0f ? _endSec : _totalSec;
+        float newVal = Math.Max(0f, _timeDragStartVal + steps * stepSize);
+        if (cap > 0f) newVal = Math.Min(newVal, cap - 0.1f);
+        if (Math.Abs(newVal - _startSec) > 0.05f)
+        {
+            _startSec = newVal;
+            CurrentTimeBox.Text = FormatTimeFixed(newVal);
+            StartPositionChanged?.Invoke(this, newVal);
+        }
+        e.Handled = true;
+    }
+
+    private void CurrentTimeBox_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        CurrentTimeBox.ReleaseMouseCapture();
+        if (_timeDragging)
+        {
+            CommitTimeBox();
+            e.Handled = true;
+        }
+        _timeDragging = false;
+    }
+
+    private void CurrentTimeBox_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_state != PadPlayState.Idle) { e.Handled = true; return; }
+        bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+        float step = e.Delta > 0 ? (shift ? 10f : 1f) : (shift ? -10f : -1f);
+        float cap = _endSec > 0f ? _endSec : _totalSec;
+        float newVal = Math.Max(0f, _startSec + step);
+        if (cap > 0f) newVal = Math.Min(newVal, cap - 0.1f);
+        _startSec = newVal;
+        CurrentTimeBox.Text = FormatTimeFixed(newVal);
+        StartPositionChanged?.Invoke(this, newVal);
+        CommitTimeBox();
+        e.Handled = true;
+    }
+
+    private void CommitTimeBox()
+    {
+        string raw = ToHalfWidth(CurrentTimeBox.Text).Trim();
+        if (TryParseSimpleTime(raw, out float secs))
+        {
+            float cap = _endSec > 0f ? _endSec : _totalSec;
+            secs = Math.Max(0f, secs);
+            if (cap > 0f) secs = Math.Min(secs, cap - 0.1f);
+            if (Math.Abs(secs - _startSec) > 0.05f)
+            {
+                _startSec = secs;
+                StartPositionChanged?.Invoke(this, secs);
+            }
+        }
+        CurrentTimeBox.Text = FormatTimeFixed(_startSec);
+    }
+
+    private static bool TryParseSimpleTime(string s, out float secs)
+    {
+        secs = 0;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        s = s.Trim();
+        int colonIdx = s.IndexOf(':');
+        if (colonIdx >= 0)
+        {
+            string mStr = s[..colonIdx].Trim();
+            string sStr = s[(colonIdx + 1)..].Trim();
+            if (int.TryParse(mStr, out int m) && int.TryParse(sStr, out int sec))
+            {
+                secs = m * 60f + sec;
+                return secs >= 0;
+            }
+            return false;
+        }
+        if (float.TryParse(s, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out float plain))
+        {
+            secs = plain;
+            return secs >= 0;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------
 
     private static string ToHalfWidth(string s)
     {
@@ -486,31 +636,43 @@ public partial class PadButton : UserControl
         float displayEnd = _endSec > 0f ? _endSec : _totalSec;
         if (displayEnd <= 0f) return;
         float currentSec = Math.Clamp(_seekDragFraction * _totalSec, 0f, displayEnd);
-        TimeLabel.Text = $"{FormatTimeMS(currentSec)}/{FormatTimeMS(displayEnd)}";
+        if (!CurrentTimeBox.IsFocused)
+            CurrentTimeBox.Text = FormatTimeFixed(currentSec);
         double w = _padWidth * Math.Clamp(_seekDragFraction, 0f, 1f);
         ProgressBar.Width = double.IsNaN(w) || w < 0 ? 0 : w;
     }
 
-    private static string FormatTimeMS(float secs)
+    private static string FormatTimeFixed(float secs)
     {
         if (secs < 0) secs = 0;
         int totalSec = (int)Math.Round(secs);
         int m = totalSec / 60;
         int s = totalSec % 60;
-        return $"{m}:{s:00}";
+        return m < 10 ? $" {m}:{s:00}" : $"{m}:{s:00}";
     }
 
     private void UpdateTimeLabel(PadPlayState state, float progress, float totalSec, float startSec, float endSec)
     {
         if (_seekDragging) return;
         float displayEnd = endSec > 0f ? endSec : totalSec;
-        if (displayEnd <= 0f) { TimeLabel.Text = ""; return; }
+        if (displayEnd <= 0f)
+        {
+            TimePanel.Visibility = Visibility.Collapsed;
+            return;
+        }
 
+        TimePanel.Visibility = Visibility.Visible;
         float displayCurrent = state == PadPlayState.Idle
             ? startSec
             : Math.Clamp(progress * totalSec, 0f, displayEnd);
 
-        TimeLabel.Text = $"{FormatTimeMS(displayCurrent)}/{FormatTimeMS(displayEnd)}";
+        if (!CurrentTimeBox.IsFocused)
+            CurrentTimeBox.Text = FormatTimeFixed(displayCurrent);
+        TotalTimeLabel.Text = "/" + FormatTimeFixed(displayEnd);
+
+        bool idle = state == PadPlayState.Idle;
+        CurrentTimeBox.IsReadOnly = !idle;
+        CurrentTimeBox.Cursor = idle ? Cursors.SizeNS : Cursors.Arrow;
     }
 
     private void UpdateProgress()
@@ -537,6 +699,7 @@ public partial class PadButton : UserControl
         ProgressBar.Width   = 0;
         ProgressBar.Opacity = 1.0;
         VolumeLabel.Visibility = Visibility.Collapsed;
+        TimePanel.Visibility   = Visibility.Collapsed;
     }
 }
 
