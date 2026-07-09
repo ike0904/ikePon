@@ -1,0 +1,200 @@
+<UserControl x:Class="ikePon.UI.Controls.PadButton"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="100" MinHeight="90">
+
+    <Border x:Name="BorderRoot"
+            Background="#3C3C3C"
+            BorderBrush="#555555"
+            BorderThickness="2"
+            CornerRadius="4"
+            Margin="2">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="10"/>
+            </Grid.RowDefinitions>
+
+            <!-- ユーザー設定背景色（デッドゾーンより上のみ） -->
+            <Border Grid.Row="0" x:Name="ContentBg" Background="#3C3C3C"/>
+
+            <!-- メインコンテンツ -->
+            <Grid Grid.Row="0" Margin="4,4,4,2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="18"/>
+                </Grid.RowDefinitions>
+
+                <!-- 上部バッジエリア（ON/OFF不可デッドゾーン） -->
+                <Border Grid.Row="0" x:Name="TopArea" Background="Transparent" Cursor="Arrow" Padding="0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 左グループ（カテゴリ + TapBehavior●） -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <!-- カテゴリバッジ（タップでカテゴリ循環変更） -->
+                            <Border x:Name="CategoryBadge"
+                                    Background="#444"
+                                    CornerRadius="2"
+                                    Padding="4,1"
+                                    MinWidth="36"
+                                    Cursor="Hand">
+                                <TextBlock x:Name="CategoryLabel"
+                                           Text="BGM"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Foreground="#999"
+                                           TextAlignment="Center"/>
+                            </Border>
+                            <!-- 再生中タップ設定アイコン（●） -->
+                            <Border x:Name="TapBehaviorBadge"
+                                    Background="#444"
+                                    CornerRadius="2"
+                                    Padding="6,3"
+                                    Margin="4,0,0,0"
+                                    Cursor="Hand">
+                                <Ellipse x:Name="TapBehaviorDot"
+                                         Width="10" Height="10"
+                                         Fill="#4488FF"/>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 音量表示（中央、クリック/ドラッグ/ホイールで変更可） -->
+                        <TextBox x:Name="VolumeLabel"
+                                 Grid.Column="1"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontSize="12" FontWeight="Bold"
+                                 FontFamily="Consolas"
+                                 Foreground="White"
+                                 Background="Transparent"
+                                 BorderBrush="Transparent"
+                                 BorderThickness="1"
+                                 CaretBrush="White"
+                                 SelectionBrush="#3A7FC1"
+                                 Width="52"
+                                 MaxLength="4"
+                                 TextAlignment="Center"
+                                 Padding="2,0"
+                                 Visibility="Collapsed"
+                                 Panel.ZIndex="2"/>
+
+                        <!-- 再生後アイコンバッジ（タップで循環変更） -->
+                        <Border x:Name="AfterPlaybackBadge"
+                                Grid.Column="2"
+                                Background="#444"
+                                CornerRadius="2"
+                                Padding="4,1"
+                                Cursor="Hand">
+                            <Grid Width="14" Height="14">
+                                <!-- 停止アイコン（■） -->
+                                <Rectangle x:Name="IconStop"
+                                           Width="9" Height="9"
+                                           Fill="#AAAAAA"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                                <!-- 一時停止アイコン（‖）-->
+                                <StackPanel x:Name="IconFreeze"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <Rectangle Width="3" Height="11" Fill="#AAAAAA" Margin="0,0,2,0"/>
+                                    <Rectangle Width="3" Height="11" Fill="#AAAAAA"/>
+                                </StackPanel>
+                                <!-- ループアイコン（Segoe MDL2 Assets RepeatAll） -->
+                                <TextBlock x:Name="IconLoop"
+                                           Text="&#xE8EE;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="13"
+                                           Foreground="#AAAAAA"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ファイル名 -->
+                <TextBlock x:Name="FileNameLabel"
+                           Grid.Row="1"
+                           Text="---"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           TextAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,4"/>
+
+                <!-- Row 2: クリック吸収ゾーン（時間表示エリア、誤タップ防止） -->
+                <Border Grid.Row="2" x:Name="TimeDeadZone" Background="Transparent" Cursor="Arrow"/>
+            </Grid>
+
+            <!-- デッドゾーン（誤タップ防止：クリックを吸収して何もしない） -->
+            <Border Grid.Row="1"
+                    x:Name="DeadZone"
+                    Cursor="Arrow"/>
+
+            <!-- プログレスバー（下端） -->
+            <Border Grid.Row="2"
+                    x:Name="ProgressBorder"
+                    Background="#222"
+                    CornerRadius="0,0,2,2"
+                    Cursor="Hand">
+                <Rectangle x:Name="ProgressBar"
+                           HorizontalAlignment="Left"
+                           Width="0"
+                           Fill="#3A7FC1"
+                           RadiusX="2" RadiusY="2"/>
+            </Border>
+
+            <!-- 現在時間／総時間（デッドゾーン内下端） -->
+            <StackPanel x:Name="TimePanel"
+                        Grid.Row="0" Grid.RowSpan="2"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Left"
+                        Orientation="Horizontal"
+                        Margin="4,0,0,0"
+                        Visibility="Collapsed">
+                <TextBox x:Name="CurrentTimeBox"
+                         Width="40"
+                         FontSize="12" FontWeight="Bold" FontFamily="Consolas"
+                         Foreground="White" Background="Transparent"
+                         BorderBrush="Transparent" BorderThickness="1"
+                         CaretBrush="White" SelectionBrush="#3A7FC1"
+                         MaxLength="5" TextAlignment="Right"
+                         Padding="0" IsReadOnly="True"
+                         Cursor="SizeNS"/>
+                <TextBlock x:Name="TotalTimeLabel"
+                           FontSize="12" FontWeight="Bold" FontFamily="Consolas"
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- ショートカットキーバッジ（デッドゾーンと重なる位置、右下） -->
+            <Border Grid.Row="0" Grid.RowSpan="2"
+                    x:Name="KeyBadge"
+                    Background="#1C1C1C"
+                    BorderBrush="#AAAAAA" BorderThickness="1"
+                    CornerRadius="2" Padding="4,1"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right"
+                    Margin="0,0,4,4">
+                <TextBlock x:Name="KeyLabel"
+                           Text="1"
+                           FontSize="16" FontWeight="Bold"
+                           FontFamily="Consolas"
+                           Foreground="#AAAAAA"/>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

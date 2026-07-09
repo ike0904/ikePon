@@ -224,7 +224,6 @@ public partial class MainWindow : Window
                 padSettings.StartPositionSec = secs;
                 MarkDirty();
             };
-            pad.PadVolumeDragStarted += (_, _) => Keyboard.ClearFocus();
             pad.PreviewMouseDown += (_, _) => Keyboard.ClearFocus();
 
             // タップ vs ドラッグ判定のため MouseDown でのみ状態を記録（DeadZone/TopArea クリックは除外）
@@ -610,7 +609,7 @@ public partial class MainWindow : Window
 
         // 確認待ちでなければ、通常インフォメーションをキー操作で消去
         bool anyPending = _pendingBankConfirm || _pendingMemOverwrite.HasValue ||
-                          _pendingIkpPath != null || _pendingOpenConfirm || _pendingNewConfirm || _pendingBankClearIndex >= 0;
+                          _pendingIkpPath != null || _pendingOpenConfirm || _pendingBankClearIndex >= 0;
         if (_infoClearPending && !anyPending) { _infoClearPending = false; SetInfo2(""); }
 
         // バンク確認中は Y/N のみ受け付け
@@ -639,13 +638,6 @@ public partial class MainWindow : Window
         {
             if (key == Key.Y) { ConfirmOpenLoad(); return true; }
             if (key == Key.N) { CancelOpenLoad();  return true; }
-        }
-
-        // 新規プロジェクト確認中
-        if (_pendingNewConfirm)
-        {
-            if (key == Key.Y) { ConfirmNew(); return true; }
-            if (key == Key.N) { CancelNew();  return true; }
         }
 
         // バンク削除確認中
@@ -1634,7 +1626,6 @@ public partial class MainWindow : Window
         else if (_pendingIkpPath != null)           ConfirmIkpLoad();
         else if (_pendingBankClearIndex >= 0)       ExecuteBankClear();
         else if (_pendingOpenConfirm)               ConfirmOpenLoad();
-        else if (_pendingNewConfirm)                ConfirmNew();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -1643,7 +1634,6 @@ public partial class MainWindow : Window
         else if (_pendingIkpPath != null)           CancelIkpLoad();
         else if (_pendingBankClearIndex >= 0)       { _pendingBankClearIndex = -1; SetInfo2(""); }
         else if (_pendingOpenConfirm)               CancelOpenLoad();
-        else if (_pendingNewConfirm)                CancelNew();
     }
 
     private void ConfirmMemOverwrite()
@@ -1691,8 +1681,7 @@ public partial class MainWindow : Window
         if (ikp == null) return;
 
         // 既存の確認が進行中なら ikp D&D を無視
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0
-            || _pendingOpenConfirm || _pendingNewConfirm) return;
+        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
 
         // 初期状態（未変更・未保存）なら確認なしで即読み込み
         if (!_projectDirty && _projectFilePath == null)
@@ -1703,7 +1692,7 @@ public partial class MainWindow : Window
         }
 
         _pendingIkpPath = ikp;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning("プロジェクトを読み込みますか？\n[Y] 確定  /  [N] キャンセル");
         e.Handled = true;
     }
 
@@ -1745,34 +1734,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void Menu_New(object sender, RoutedEventArgs e)
     {
-        if (!_projectDirty && _projectFilePath == null)
-        {
-            DoNewProject();
-            return;
-        }
-        if (_pendingBankConfirm || _pendingMemOverwrite.HasValue || _pendingIkpPath != null
-            || _pendingBankClearIndex >= 0 || _pendingOpenConfirm || _pendingNewConfirm) return;
-
-        _pendingNewConfirm = true;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
-    }
-
-    private void ConfirmNew()
-    {
-        if (!_pendingNewConfirm) return;
-        _pendingNewConfirm = false;
-        SetInfo2("");
-        DoNewProject();
-    }
-
-    private void CancelNew()
-    {
-        _pendingNewConfirm = false;
-        SetInfo2("");
-    }
-
-    private void DoNewProject()
-    {
+        if (!ConfirmDiscard()) return;
         _project = new ProjectData();
         _projectFilePath = null;
         _projectDirty = false;
@@ -1796,7 +1758,7 @@ public partial class MainWindow : Window
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
 
         _pendingOpenConfirm = true;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning("プロジェクトを読み込みますか？\n[Y] 確定  /  [N] キャンセル");
     }
 
     private async void ConfirmOpenLoad()
@@ -2085,6 +2047,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool ConfirmDiscard()
+    {
+        if (!_projectDirty) return true;
+        var r = MessageBox.Show("変更が保存されていません。続けますか？", "ikePon",
+            MessageBoxButton.YesNo, MessageBoxImage.Question);
+        return r == MessageBoxResult.Yes;
+    }
+
     private void SyncFadersFromProject()
     {
         for (int i = 0; i < 4; i++)
@@ -2118,7 +2088,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.96{fname}{dirty}";
+        Title = $"ikePon v1.0.95{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

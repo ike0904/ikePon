@@ -147,12 +147,6 @@ public partial class PadButton : UserControl
             SeekRequested?.Invoke(this, _seekDragFraction);
             e.Handled = true;
         };
-        ProgressBorder.LostMouseCapture += (s, e) =>
-        {
-            if (!_seekDragging) return;
-            _seekDragging = false;
-            SeekRequested?.Invoke(this, _seekDragFraction);
-        };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
 
         // TimePanel / TimeDeadZone クリックがパッドに伝わらないよう吸収
@@ -178,7 +172,6 @@ public partial class PadButton : UserControl
         CurrentTimeBox.PreviewMouseMove += CurrentTimeBox_MouseMove;
         CurrentTimeBox.PreviewMouseLeftButtonUp += CurrentTimeBox_MouseUp;
         CurrentTimeBox.PreviewMouseWheel += CurrentTimeBox_MouseWheel;
-        CurrentTimeBox.LostMouseCapture += (_, _) => { _timeDragging = false; };
 
         // 音量TextBoxのイベント
         VolumeLabel.GotFocus += (_, _) =>

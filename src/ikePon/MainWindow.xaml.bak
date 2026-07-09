@@ -107,10 +107,10 @@
                 <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
             </MenuItem>
             <MenuItem Header="編集(_E)">
-                <MenuItem Header="元に戻す(_Z)" InputGestureText="Ctrl+Z" Click="Menu_Undo"/>
-                <MenuItem Header="やり直し(_Y)" InputGestureText="Ctrl+Y" Click="Menu_Redo"/>
+                <MenuItem Header="元に戻す" InputGestureText="Ctrl+Z" Click="Menu_Undo"/>
+                <MenuItem Header="やり直し" InputGestureText="Ctrl+Y" Click="Menu_Redo"/>
                 <Separator/>
-                <MenuItem Header="全体設定...(_E)" InputGestureText="Ctrl+E" Click="Menu_Settings"/>
+                <MenuItem Header="全体設定..." InputGestureText="Ctrl+E" Click="Menu_Settings"/>
             </MenuItem>
         </Menu>
 
