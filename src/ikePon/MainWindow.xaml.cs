@@ -784,6 +784,7 @@ public partial class MainWindow : Window
             }
         }
 
+        cm.Closed += (_, _) => Dispatcher.BeginInvoke(Keyboard.ClearFocus);
         cm.IsOpen = true;
         e.Handled = true;
     }
@@ -2116,7 +2117,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.101{fname}{dirty}";
+        Title = $"ikePon v1.0.102{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

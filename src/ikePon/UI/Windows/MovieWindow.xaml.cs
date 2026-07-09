@@ -234,7 +234,12 @@ public partial class MovieWindow : Window
 
         if (!isVideo)
         {
-            Debug.WriteLine("[MW]   skipped: not video/image ext");
+            // 映像/静止画でないファイル（音声のみ等）→ スタンバイ画面を維持
+            LoadStandbyImage(_settings.MovieStandbyImagePath);
+            StandbyLayer.Opacity    = 1.0;
+            StandbyLayer.Visibility = Visibility.Visible;
+            IsBuffering = false;
+            Debug.WriteLine("[MW]   skipped: not video/image ext → show standby");
             return;
         }
 
@@ -270,11 +275,26 @@ public partial class MovieWindow : Window
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
 
-        // MovieWindow の表示範囲のみを覆う黒 Topmost オーバーレイウィンドウを生成
-        double overlayLeft   = Left;
-        double overlayTop    = Top;
-        double overlayWidth  = ActualWidth > 0 ? ActualWidth : Width;
-        double overlayHeight = ActualHeight > 0 ? ActualHeight : Height;
+        // 全画面時は WPF の Left/Top がリストア位置を返すため GetWindowRect で実座標を取得
+        double overlayLeft, overlayTop, overlayWidth, overlayHeight;
+        var myHwnd = new WindowInteropHelper(this).Handle;
+        if (_isFullScreen && myHwnd != IntPtr.Zero && GetWindowRect(myHwnd, out var rc))
+        {
+            var pSrc  = PresentationSource.FromVisual(this);
+            double dpiX = pSrc?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double dpiY = pSrc?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+            overlayLeft   = rc.left   / dpiX;
+            overlayTop    = rc.top    / dpiY;
+            overlayWidth  = (rc.right  - rc.left) / dpiX;
+            overlayHeight = (rc.bottom - rc.top)  / dpiY;
+        }
+        else
+        {
+            overlayLeft   = Left;
+            overlayTop    = Top;
+            overlayWidth  = ActualWidth > 0 ? ActualWidth : Width;
+            overlayHeight = ActualHeight > 0 ? ActualHeight : Height;
+        }
         _fadeOverlay = new Window
         {
             WindowStyle   = WindowStyle.None,
@@ -436,6 +456,15 @@ public partial class MovieWindow : Window
             if (_playSession != capturedSession)
             {
                 Logger.Log($"[MW] OnMediaPlaying timer: session mismatch ({capturedSession}!={_playSession}), skip");
+                return;
+            }
+            // 映像トラックが無い場合（音声のみファイル等）はスタンバイを維持
+            if (_mediaPlayer.VideoTrack < 0)
+            {
+                LoadStandbyImage(_settings.MovieStandbyImagePath);
+                StandbyLayer.Opacity    = 1.0;
+                StandbyLayer.Visibility = Visibility.Visible;
+                Logger.Log("[MW] OnMediaPlaying: no video track → maintain standby");
                 return;
             }
             StandbyLayer.Visibility = Visibility.Collapsed;

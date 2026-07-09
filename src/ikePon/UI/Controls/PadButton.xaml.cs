@@ -57,6 +57,7 @@ public partial class PadButton : UserControl
     private float _imageFadeGain = -1f;
     private bool _isMissing;
     private bool _blinkPhase;
+    private bool _isImagePad;
 
     public bool CanEdit { get; set; } = true;
 
@@ -500,10 +501,11 @@ public partial class PadButton : UserControl
 
     private void CycleTapBehavior()
     {
+        bool noPause = _category == AudioCategory.SE || _isImagePad;
         TapBehavior next = _tapBehavior switch
         {
             TapBehavior.CutOut      => TapBehavior.FadeOut,
-            TapBehavior.FadeOut     => _category == AudioCategory.SE ? TapBehavior.CutOut : TapBehavior.PauseResume,
+            TapBehavior.FadeOut     => noPause ? TapBehavior.CutOut : TapBehavior.PauseResume,
             TapBehavior.PauseResume => TapBehavior.CutOut,
             _                       => TapBehavior.FadeOut
         };
@@ -722,9 +724,10 @@ public partial class PadButton : UserControl
         ProgressBar.Opacity = (state == PadPlayState.FadingOut) ? Math.Clamp(fadeGain, 0f, 1f) : 1.0;
 
         UpdateProgress();
-        UpdateAfterPlaybackIcon();
         bool isImgPad = settings != null && !string.IsNullOrEmpty(settings.FilePath)
                         && ImageExts.Contains(System.IO.Path.GetExtension(settings.FilePath));
+        _isImagePad = isImgPad;
+        UpdateAfterPlaybackIcon();
         AfterPlaybackBadge.Visibility = isImgPad ? Visibility.Collapsed : Visibility.Visible;
         UpdateTapBehaviorIcon();
         UpdateTimeLabel(state, progress, totalSec, _startSec, newEndSec);
