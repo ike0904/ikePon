@@ -40,6 +40,10 @@ public partial class MovieWindow : Window
     private bool _videoVisible;
     private int  _playSession;
 
+    // PositionChanged によるループ検出（EndReached が発火しない場合の代替）
+    private float          _lastPosition;
+    private volatile bool  _loopEndHandled;
+
     public bool IsBuffering { get; private set; }
 
     // WH_MOUSE_LL フック（ダブルクリック検出）
@@ -107,8 +111,14 @@ public partial class MovieWindow : Window
         };
 
         _mediaPlayer.Playing          += (_, _) => Dispatcher.BeginInvoke(OnMediaPlaying);
-        _mediaPlayer.EndReached       += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
+        _mediaPlayer.EndReached       += (_, _) =>
+        {
+            Logger.Log("[MW] EndReached fired (VLC thread)");
+            Dispatcher.BeginInvoke(OnMediaEnded);
+        };
         _mediaPlayer.EncounteredError += (_, _) => Dispatcher.BeginInvoke(OnMediaError);
+        // EndReached が来ない .mov 対策：位置の後半→前半ジャンプでループ終端を検出する
+        _mediaPlayer.PositionChanged  += (_, e) => CheckLoopFromPosition(e.Position);
 
         if (_settings.MovieWindowX.HasValue)
         {
@@ -203,6 +213,8 @@ public partial class MovieWindow : Window
     private void PrepareForPlay()
     {
         _playSession++;
+        _loopEndHandled      = false; // 新しい再生サイクル開始：ループ検出フラグをリセット
+        _lastPosition        = 0f;
         IsBuffering          = true;
         _videoVisible        = false;
         VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でバッファリング中の黒画面を隠す
@@ -482,7 +494,7 @@ public partial class MovieWindow : Window
 
     private void OnMediaEnded()
     {
-        Logger.Log($"[MW] EndReached AfterPlayback={_afterPlayback}");
+        Logger.Log($"[MW] OnMediaEnded: AfterPlayback={_afterPlayback} handled={_loopEndHandled} fadeTimer={_fadeTimer != null}");
         switch (_afterPlayback)
         {
             case AfterPlaybackBehavior.FreezeLastFrame:
@@ -490,10 +502,10 @@ public partial class MovieWindow : Window
                 break;
             case AfterPlaybackBehavior.Loop:
                 // 映像終端に達したら黒画面を表示し、LoopEndReached でMainWindowに通知する。
-                // 音声停止・300ms待機・音声+映像再起動はMainWindowが担う（安定性向上）。
-                // フェードアウト中（_fadeTimer != null）は自然終端扱いせずに無視する。
-                if (_currentFilePath != null && _fadeTimer == null)
+                // フェードアウト中、またはPositionChangedで既に処理済みの場合はスキップ。
+                if (_currentFilePath != null && _fadeTimer == null && !_loopEndHandled)
                 {
+                    _loopEndHandled = true;
                     StopFadeTimer();
                     StopStandbyFadeIn();
                     _videoVisible        = false;
@@ -502,14 +514,35 @@ public partial class MovieWindow : Window
                     StandbyLayer.Opacity    = 1.0;
                     StandbyLayer.Visibility = Visibility.Visible;
                     Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-                    Logger.Log("[MW] Loop end: black screen, firing LoopEndReached");
+                    Logger.Log("[MW] Loop end via EndReached: black screen, firing LoopEndReached");
                     LoopEndReached?.Invoke();
+                }
+                else
+                {
+                    Logger.Log($"[MW] Loop end SKIPPED (handled={_loopEndHandled} fade={_fadeTimer != null} path={_currentFilePath != null})");
                 }
                 break;
             default:
                 ShowStandby();
                 break;
         }
+    }
+
+    // VLC が EndReached を発火せず内部でループした場合の代替検出。
+    // 位置が後半(>80%)から前半(<15%)へジャンプしたときループ終端とみなす。
+    private void CheckLoopFromPosition(float pos)
+    {
+        float prev = _lastPosition;
+        _lastPosition = pos;
+
+        if (_afterPlayback != AfterPlaybackBehavior.Loop) return;
+        if (!_videoVisible || _fadeTimer != null || _loopEndHandled) return;
+        if (!(prev > 0.80f && pos < 0.15f)) return;
+
+        _loopEndHandled = true;
+        Logger.Log($"[MW] Position jump detected: {prev:F3}→{pos:F3} (EndReached fallback) → triggering loop end");
+        Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+        Dispatcher.BeginInvoke(OnMediaEnded);
     }
 
     private void OnMediaError()
