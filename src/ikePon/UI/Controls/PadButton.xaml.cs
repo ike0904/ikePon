@@ -576,7 +576,7 @@ public partial class PadButton : UserControl
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f) ||
                        _isMissing != isMissing ||
                        (isMissing && _blinkPhase != newBlinkPhase) ||
-                       (state == PadPlayState.Paused && _blinkPhase != newBlinkPhase);
+                       state == PadPlayState.Paused;
         _initialized = true;
 
         var prevState = _state;
@@ -694,9 +694,14 @@ public partial class PadButton : UserControl
         }
         else if (state == PadPlayState.Paused)
         {
-            // 一時停止中: 黄色⇔グレー 0.5秒交互点滅
-            BorderRoot.BorderBrush     = newBlinkPhase ? BrushBorderPlay : BrushBorderNormal;
-            BorderRoot.BorderThickness = newBlinkPhase ? new Thickness(2.5) : new Thickness(1.5);
+            // 一時停止中: 黄色⇔グレー じんわり点滅（サイン波 1秒周期）
+            float t = (float)(Environment.TickCount64 % 1000) / 1000.0f;
+            float gain = (float)(0.5 - 0.5 * Math.Cos(2 * Math.PI * t));
+            byte br = Lerp(0x55, 0xFF, gain);
+            byte bg2 = Lerp(0x55, 0xD7, gain);
+            byte bb = Lerp(0x55, 0x00, gain);
+            BorderRoot.BorderBrush     = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
+            BorderRoot.BorderThickness = new Thickness(1.5 + gain * 1.0f);
             FileNameLabel.Foreground   = BrushTextNormal;
             KeyLabel.Foreground        = BrushKeyGray;
             KeyBadge.BorderBrush       = BrushKeyGray;

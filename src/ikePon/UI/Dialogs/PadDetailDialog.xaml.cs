@@ -294,7 +294,7 @@ public partial class PadDetailDialog : Window
             bool isGain = (tb == TbPadGain);
             if (isGain) CommitGainBox(tb);
             else CommitPosBox(tb);
-            tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            Keyboard.ClearFocus();
         }
         e.Handled = true;
     }
