@@ -214,7 +214,7 @@ public partial class MainWindow : Window
                 _playback.UpdatePadGain(captured, padSettings.PadGain);
                 MarkDirty();
             };
-            pad.PadVolumeDragStarted += (_, _) => Keyboard.ClearFocus();
+            pad.PadVolumeDragStarted += (_, _) => { PushUndo(); Keyboard.ClearFocus(); };
             pad.PreviewMouseDown += (_, _) => Keyboard.ClearFocus();
 
             // タップ vs ドラッグ判定のため MouseDown でのみ状態を記録（DeadZone/TopArea クリックは除外）
@@ -430,6 +430,7 @@ public partial class MainWindow : Window
             fader.Value = 1.0;
             int captured = i;
             fader.VolumeChanged += (_, v) => OnFaderChanged(captured, v);
+            fader.FaderDragStarted += (_, _) => PushUndo();
             fader.MemoryRecall += (_, args) => OnMemoryRecall(captured, args.slot, args.quick);
             fader.MuteChanged += (_, muted) => OnFaderMute(captured, muted);
             fader.MemoryRegisterRequested += (s, args) =>
@@ -567,7 +568,7 @@ public partial class MainWindow : Window
         {
             bool isOurKey = key == Key.Escape || key == Key.D9 || key == Key.D0 || key == Key.OemMinus ||
                             key == Key.Space || key == Key.Return ||
-                            key == Key.Y || key == Key.N ||
+                            key == Key.Y || key == Key.N || key == Key.Z ||
                             _keyMapper.GetPadIndex(key).HasValue ||
                             _keyMapper.GetBankIndex(key).HasValue;
             if (!isOurKey) return;
@@ -1160,12 +1161,14 @@ public partial class MainWindow : Window
     {
         var mem = _faders[faderIndex].GetMemory(slot);
         if (!mem.HasValue) return;
+        PushUndo();
         double duration = quick ? 0.0 : _settings.LongFadeDuration;
         _faders[faderIndex].SmoothMoveTo(mem.Value, duration);
     }
 
     private void OnFaderMute(int faderIndex, bool muted)
     {
+        PushUndo();
         switch (faderIndex)
         {
             case 0: _playback.MuteMovie  = muted; break;
@@ -1173,6 +1176,7 @@ public partial class MainWindow : Window
             case 2: _playback.MuteSe     = muted; break;
             case 3: _playback.MuteMaster = muted; break;
         }
+        MarkDirty();
     }
 
     // ------------------------------------------------------------------
@@ -1620,6 +1624,7 @@ public partial class MainWindow : Window
     private void ConfirmMemOverwrite()
     {
         if (!_pendingMemOverwrite.HasValue) return;
+        PushUndo();
         var (fader, slot, gain) = _pendingMemOverwrite.Value;
         _pendingMemOverwrite = null;
         fader.StoreMemory(slot, gain);
@@ -2066,17 +2071,27 @@ public partial class MainWindow : Window
                 if (_project.FaderMemories[f][m].HasValue)
                     _faders[f].StoreMemory(m, _project.FaderMemories[f][m]!.Value);
 
-        // フェーダー値をエンジンに反映
+        // フェーダー値・ミュートをエンジンに反映
         _playback.MovieVolume  = _project.FaderPositions[0];
         _playback.BgmVolume    = _project.FaderPositions[1];
         _playback.SeVolume     = _project.FaderPositions[2];
         _playback.MasterVolume = _project.FaderPositions[3];
+
+        for (int i = 0; i < 4; i++)
+            _faders[i].SetMuted(_project.FaderMutes[i]);
+        _playback.MuteMovie  = _project.FaderMutes[0];
+        _playback.MuteBgm    = _project.FaderMutes[1];
+        _playback.MuteSe     = _project.FaderMutes[2];
+        _playback.MuteMaster = _project.FaderMutes[3];
     }
 
     private void SyncFadersToProject()
     {
         for (int i = 0; i < 4; i++)
+        {
             _project.FaderPositions[i] = (float)_faders[i].Value;
+            _project.FaderMutes[i]     = _faders[i].IsMuted;
+        }
 
         for (int f = 0; f < 4; f++)
             for (int m = 0; m < 3; m++) // M1-M3 のみ（M4廃止）
@@ -2089,7 +2104,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.99{fname}{dirty}";
+        Title = $"ikePon v1.0.100{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

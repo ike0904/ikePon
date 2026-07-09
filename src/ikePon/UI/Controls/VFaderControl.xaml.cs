@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -42,6 +43,7 @@ public partial class VFaderControl : UserControl
     private static readonly SolidColorBrush BrushScaleWhite      = new(Color.FromRgb(0xFF, 0xFF, 0xFF));
 
     public event EventHandler<double>? VolumeChanged;
+    public event EventHandler? FaderDragStarted;
     public event EventHandler<(int slot, bool quick)>? MemoryRecall;
     public event EventHandler<(int slot, double gain)>? MemoryRegisterRequested;
     public event EventHandler<bool>? MuteChanged;
@@ -60,13 +62,29 @@ public partial class VFaderControl : UserControl
         }
     }
 
+    public bool IsMuted => _isMuted;
+
+    public void SetMuted(bool value)
+    {
+        if (_isMuted == value) return;
+        _isMuted = value;
+        UpdateMuteButton();
+    }
+
     public VFaderControl()
     {
         InitializeComponent();
         _animTimer = new DispatcherTimer(DispatcherPriority.Render)
             { Interval = TimeSpan.FromMilliseconds(16) };
         _animTimer.Tick += AnimTimer_Tick;
-        Loaded += (_, _) => { DrawScale(); UpdateMuteButton(); };
+        Loaded += (_, _) =>
+        {
+            DrawScale();
+            UpdateMuteButton();
+            // Thumb のドラッグ開始でUndo用イベントを発火
+            FaderSlider.AddHandler(Thumb.DragStartedEvent,
+                new DragStartedEventHandler((_, _) => FaderDragStarted?.Invoke(this, EventArgs.Empty)));
+        };
     }
 
     // ------------------------------------------------------------------
@@ -113,6 +131,7 @@ public partial class VFaderControl : UserControl
 
     private void FaderSlider_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
     {
+        FaderDragStarted?.Invoke(this, EventArgs.Empty);
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         double step = e.Delta > 0 ? FaderSlider.SmallChange : -FaderSlider.SmallChange;
         if (shift) step *= 10;

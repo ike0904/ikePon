@@ -19,6 +19,7 @@ public class ProjectData
         Enumerable.Range(0, 4).Select(_ => new float?[4]).ToArray();
 
     public float[] FaderPositions { get; set; } = [1.0f, 1.0f, 1.0f, 1.0f];
+    public bool[] FaderMutes { get; set; } = [false, false, false, false];
 
     private static readonly JsonSerializerOptions JsonOpts =
         new() { WriteIndented = true };
