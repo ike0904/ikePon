@@ -58,6 +58,7 @@ public partial class PadButton : UserControl
     private bool _isMissing;
     private bool _blinkPhase;
     private bool _isImagePad;
+    private bool _isPreparingVideo;
 
     public bool CanEdit { get; set; } = true;
 
@@ -558,7 +559,7 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f, bool isMissing = false)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f, bool isMissing = false, bool isPreparingVideo = false)
     {
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
@@ -581,6 +582,7 @@ public partial class PadButton : UserControl
                        Math.Abs(_endSec   - newEndSec)   > 0.05f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f) ||
                        _isMissing != isMissing ||
+                       _isPreparingVideo != isPreparingVideo ||
                        (isMissing && _blinkPhase != newBlinkPhase) ||
                        state == PadPlayState.Paused;
         _initialized = true;
@@ -592,6 +594,7 @@ public partial class PadButton : UserControl
         _imageDisplaying = imageDisplaying;
         _imageFadeGain = imageFadeGain;
         _isMissing = isMissing;
+        _isPreparingVideo = isPreparingVideo;
         _blinkPhase = newBlinkPhase;
         _syncedStartSec = newStartSec; // padSettings値を常に追跡（!changedでも更新）
 
@@ -602,7 +605,9 @@ public partial class PadButton : UserControl
             string label = settings.CustomLabel
                 ?? System.IO.Path.GetFileNameWithoutExtension(settings.FilePath ?? "");
             string displayName = string.IsNullOrEmpty(label) ? "---" : label;
-            FileNameLabel.Text = isMissing ? $"[未リンク] {displayName}" : displayName;
+            FileNameLabel.Text = isPreparingVideo ? "準備中..."
+                                 : isMissing      ? $"[未リンク] {displayName}"
+                                 : displayName;
 
             CategoryLabel.Text = settings.Category switch
             {
@@ -659,7 +664,16 @@ public partial class PadButton : UserControl
         DeadZone.Background = ContentBg.Background;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
-        if (isMissing)
+        if (isPreparingVideo)
+        {
+            // 動画バッファリング中: グレーボーダー（準備中）
+            BorderRoot.BorderBrush     = BrushBorderNormal;
+            BorderRoot.BorderThickness = new Thickness(1.5);
+            FileNameLabel.Foreground   = BrushTextNormal;
+            KeyLabel.Foreground        = BrushKeyGray;
+            KeyBadge.BorderBrush       = BrushKeyGray;
+        }
+        else if (isMissing)
         {
             // 未リンク: 赤点滅
             BorderRoot.BorderBrush     = newBlinkPhase ? BrushBorderMissing : BrushBorderNormal;

@@ -266,6 +266,22 @@ public sealed class PlaybackController
         ResetActivePads();
     }
 
+    public void StopMovieAudioPads()
+    {
+        if (_project == null) return;
+        int bank = _engine.ActiveBank;
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            var src = _engine.GetSource(bank, p);
+            if (src.State != PadPlayState.Idle &&
+                _project.Banks[bank].Pads[p].Category == AudioCategory.Movie)
+            {
+                src.StopImmediate();
+                _activePad[(int)AudioCategory.Movie] = -1;
+            }
+        }
+    }
+
     public void PanicStopAll()
     {
         int bank = _engine.ActiveBank;

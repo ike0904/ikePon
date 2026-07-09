@@ -34,6 +34,7 @@ public partial class MovieWindow : Window
     private bool   _isFullScreen;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
 
+    private string? _currentFilePath;
     private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private bool _videoVisible;
@@ -243,8 +244,9 @@ public partial class MovieWindow : Window
             return;
         }
 
-        _pendingStartSec = startSec;
-        _afterPlayback   = afterPlayback;
+        _pendingStartSec  = startSec;
+        _afterPlayback    = afterPlayback;
+        _currentFilePath  = filePath;
 
         using var media = new Media(_libVLC, new Uri(filePath));
         _mediaPlayer.Play(media);
@@ -442,13 +444,22 @@ public partial class MovieWindow : Window
 
     private void OnMediaPlaying()
     {
-        Logger.Log($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2} session={_playSession}");
+        Logger.Log($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2} videoVisible={_videoVisible} session={_playSession}");
         if (_pendingStartSec > 0)
             _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
 
-        // 300ms待ってからVideoViewを表示（バッファリング完了待ち・黒画面防止）
+        // 既に映像表示中（ループ再生）→ スタンバイ切替不要・遅延なし
+        if (_videoVisible)
+        {
+            IsBuffering = false;
+            Logger.Log("[MW] OnMediaPlaying: loop restart, skip standby transition");
+            return;
+        }
+
+        // 途中再生（シーク後の映像表示）はシーク完了に時間がかかるため遅延を延長
+        int delayMs = _pendingStartSec > 0 ? 800 : 300;
         int capturedSession = _playSession;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delayMs) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
@@ -470,7 +481,7 @@ public partial class MovieWindow : Window
             StandbyLayer.Visibility = Visibility.Collapsed;
             VideoView.Visibility    = Visibility.Visible;
             _videoVisible = true;
-            Logger.Log("[MW] OnMediaPlaying (300ms): VideoView=Visible, StandbyLayer=Collapsed");
+            Logger.Log($"[MW] OnMediaPlaying ({delayMs}ms): VideoView=Visible, StandbyLayer=Collapsed");
         };
         timer.Start();
     }
@@ -484,8 +495,13 @@ public partial class MovieWindow : Window
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
-                _mediaPlayer.Play();
+                // EndReached 後は Play() だけでは再開できないため新規 Media を生成して再生
+                if (_currentFilePath != null)
+                {
+                    using var loopMedia = new Media(_libVLC, new Uri(_currentFilePath));
+                    _mediaPlayer.Play(loopMedia);
+                    Logger.Log($"[MW] Loop: restart {_currentFilePath} from {_pendingStartSec:F2}s");
+                }
                 break;
             default:
                 ShowStandby();

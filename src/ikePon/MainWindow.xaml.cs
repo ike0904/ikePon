@@ -53,6 +53,7 @@ public partial class MainWindow : Window
 
     private int _imageDisplayingPadIndex = -1;
     private int _imageFadingPadIndex = -1;
+    private int _videoBufferingPadIndex = -1;
     private long _imageFadeStartTick;
     private float _imageFadeDuration;
 
@@ -486,6 +487,9 @@ public partial class MainWindow : Window
             }
         }
 
+        if (!_movieCtrl.IsBuffering && _videoBufferingPadIndex >= 0)
+            _videoBufferingPadIndex = -1;
+
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state    = _playback.GetPadState(i);
@@ -496,7 +500,8 @@ public partial class MainWindow : Window
             bool imageDisplaying = _imageDisplayingPadIndex == i;
             float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
             bool isMissing = _missingPads[_playback.ActiveBank, i];
-            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing);
+            bool isPreparingVideo = _videoBufferingPadIndex == i;
+            _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing, isPreparingVideo);
         }
         UpdateActionButtons();
     }
@@ -826,7 +831,8 @@ public partial class MainWindow : Window
             }
             else
             {
-                // 新規表示（DISPLAY OFF中でも index を記録しておき、ON時に再表示）
+                // 新規表示の前に同カテゴリの音声再生を停止（音声→静止画の順で操作したとき）
+                _playback.StopMovieAudioPads();
                 _movieCtrl.PlayVideo(pad!.FilePath!, pad.StartPositionSec, pad.AfterPlayback);
                 _imageDisplayingPadIndex = padIndex;
             }
@@ -885,6 +891,9 @@ public partial class MainWindow : Window
         {
             _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
+            // 動画ファイル再生時はバッファリング完了まで準備中を表示
+            _videoBufferingPadIndex = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath))
+                                      && !IsImageFile(pad.FilePath) ? padIndex : -1;
         }
     }
 
@@ -2117,7 +2126,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.102{fname}{dirty}";
+        Title = $"ikePon v1.0.103{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
