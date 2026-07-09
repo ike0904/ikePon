@@ -511,8 +511,7 @@ public partial class MovieWindow : Window
                 _mediaPlayer.Pause();
                 break;
             case AfterPlaybackBehavior.Loop:
-                // 映像終端に達したら黒画面を表示し、LoopEndReached でMainWindowに通知する。
-                // フェードアウト中、またはPositionChangedで既に処理済みの場合はスキップ。
+                // FireLoopEnd が先に処理済みの場合はスキップ。フェードアウト中も無視。
                 if (_currentFilePath != null && _fadeTimer == null && !_loopEndHandled)
                 {
                     _loopEndHandled = true;
@@ -520,16 +519,16 @@ public partial class MovieWindow : Window
                     StopStandbyFadeIn();
                     _videoVisible        = false;
                     VideoView.Visibility = Visibility.Collapsed;
-                    StandbyImage.Source  = null;   // 黒（スタンバイ画像なし）
+                    StandbyImage.Source  = null;
                     StandbyLayer.Opacity    = 1.0;
                     StandbyLayer.Visibility = Visibility.Visible;
                     Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-                    Logger.Log("[MW] Loop end via EndReached: black screen, firing LoopEndReached");
+                    Logger.Log("[MW] Loop end via EndReached → LoopEndReached");
                     LoopEndReached?.Invoke();
                 }
                 else
                 {
-                    Logger.Log($"[MW] Loop end SKIPPED (handled={_loopEndHandled} fade={_fadeTimer != null} path={_currentFilePath != null})");
+                    Logger.Log($"[MW] EndReached SKIPPED (handled={_loopEndHandled} fade={_fadeTimer != null})");
                 }
                 break;
             default:
@@ -538,9 +537,25 @@ public partial class MovieWindow : Window
         }
     }
 
-    // VLC が EndReached を発火しない場合の代替検出（PositionChanged イベントから呼ばれる）。
-    // パターン1: 位置が後半→前半ジャンプ（VLC 内部自動ループ）
-    // パターン2: _videoEndSec 指定時に現在時刻が endSec に到達（:stop-time のフォールバック）
+    // PositionChanged から LoopEndReached を直接発火するハンドラ（UI スレッドで実行）。
+    // OnMediaEnded を経由しないため _loopEndHandled チェックに引っかからない。
+    private void FireLoopEnd()
+    {
+        if (_currentFilePath == null || _fadeTimer != null) return;
+        StopFadeTimer();
+        StopStandbyFadeIn();
+        _videoVisible        = false;
+        VideoView.Visibility = Visibility.Collapsed; // VLC FGW を即座に 0×0 にして白画面を隠す
+        StandbyImage.Source  = null;
+        StandbyLayer.Opacity    = 1.0;
+        StandbyLayer.Visibility = Visibility.Visible;
+        Logger.Log("[MW] FireLoopEnd → black screen, LoopEndReached");
+        LoopEndReached?.Invoke();
+        // VLC 停止は PrepareForPlay（次の PlayVideo 内）で行う（レース防止）
+    }
+
+    // VLC が EndReached を発火しない場合の代替検出（PositionChanged から呼ばれる、VLC スレッド）。
+    // 【重要】FireLoopEnd をディスパッチする。OnMediaEnded は _loopEndHandled でスキップされるため不可。
     private void CheckLoopFromPosition(float pos)
     {
         float prev = _lastPosition;
@@ -549,28 +564,27 @@ public partial class MovieWindow : Window
         if (_afterPlayback != AfterPlaybackBehavior.Loop) return;
         if (!_videoVisible || _fadeTimer != null || _loopEndHandled) return;
 
-        // パターン1: 位置が後半→前半にジャンプ（VLC が内部でループ）
+        // パターン1: 位置が後半→前半にジャンプ（VLC 内部自動ループ）
         if (prev > 0.80f && pos < 0.15f)
         {
             _loopEndHandled = true;
-            Logger.Log($"[MW] Position jump: {prev:F3}→{pos:F3} → triggering loop end");
-            Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-            Dispatcher.BeginInvoke(OnMediaEnded);
+            Logger.Log($"[MW] Position jump: {prev:F3}→{pos:F3} → FireLoopEnd");
+            Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } }); // VLC 内部ループを即停止
+            Dispatcher.BeginInvoke(FireLoopEnd);
             return;
         }
 
-        // パターン2: endSec 指定あり → 時刻が endSec に達したら強制終端
-        // （:stop-time が効かなかった場合や EndReached が発火しなかった場合のフォールバック）
+        // パターン2: endSec の 300ms 前に先手で VideoView を隠す
+        // EndReached が白画面を出す前に FGW を 0×0 にするための先手対策。
         if (_videoEndSec > 0)
         {
             long   timeMs  = _mediaPlayer.Time;
             double timeSec = timeMs / 1000.0;
-            if (timeMs > 0 && timeSec >= _videoEndSec - 0.15)
+            if (timeMs > 0 && timeSec >= _videoEndSec - 0.30)
             {
                 _loopEndHandled = true;
-                Logger.Log($"[MW] Time-based loop end: {timeSec:F2}s >= endSec={_videoEndSec:F2}s");
-                Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
-                Dispatcher.BeginInvoke(OnMediaEnded);
+                Logger.Log($"[MW] Time-based: {timeSec:F2}s >= endSec-0.30={_videoEndSec - 0.30:F2}s → FireLoopEnd");
+                Dispatcher.BeginInvoke(FireLoopEnd); // VLC はまだ再生中、PrepareForPlay で停止
             }
         }
     }
