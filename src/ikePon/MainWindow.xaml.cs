@@ -595,6 +595,9 @@ public partial class MainWindow : Window
     // true を返した場合は e.Handled = true にする
     private bool HandleKeyDown(Key key)
     {
+        // TextBox フォーカス中（文字入力モード）はすべてのショートカットを無効化
+        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox) return false;
+
         // 確認待ちでなければ、通常インフォメーションをキー操作で消去
         bool anyPending = _pendingBankConfirm || _pendingMemOverwrite.HasValue ||
                           _pendingIkpPath != null || _pendingOpenConfirm || _pendingBankClearIndex >= 0;
@@ -2008,7 +2011,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.90{fname}{dirty}";
+        Title = $"ikePon v1.0.91{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
