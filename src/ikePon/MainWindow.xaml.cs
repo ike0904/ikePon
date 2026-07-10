@@ -1582,8 +1582,7 @@ public partial class MainWindow : Window
             _engine.SetPadCategory(srcIdx, p, _project.Banks[srcIdx].Pads[p].Category);
             _engine.SetPadCategory(dstIdx, p, _project.Banks[dstIdx].Pads[p].Category);
         }
-        _playback.LoadBank(srcIdx);
-        _playback.LoadBank(dstIdx);
+        _engine.SwapBankSources(srcIdx, dstIdx);
         RefreshBankLabel(srcIdx);
         RefreshBankLabel(dstIdx);
         UpdateBankHighlight();
