@@ -1627,7 +1627,7 @@ public partial class MainWindow : Window
 
             // 画面遷移が完了するまでグレーアウト（ON時は黄色枠維持・OFF時はすぐ暗く）
             FullButton.IsEnabled = false;
-            if (_fullBd   != null) { _fullBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _fullBd.BorderBrush = _movieCtrl.IsFullScreen ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)); }
+            if (_fullBd   != null) { _fullBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _fullBd.BorderBrush = _movieCtrl.IsFullScreen ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x2A, 0x7A, 0x2A)); }
             if (_fullText != null) _fullText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             await Task.Delay(1000);
         }
@@ -1658,7 +1658,7 @@ public partial class MainWindow : Window
 
             // VLC が安定するまでグレーアウト（ON時は黄色枠維持・OFF時はすぐ暗く）
             DispButton.IsEnabled = false;
-            if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = _movieCtrl.DisplayActive ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)); }
+            if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = _movieCtrl.DisplayActive ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x2A, 0x7A, 0x2A)); }
             if (_dispText != null) _dispText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             await Task.Delay(3000);
         }
@@ -1719,7 +1719,7 @@ public partial class MainWindow : Window
         else
         {
             _fullBd.Background      = new SolidColorBrush(Color.FromRgb(0x0E, 0x3A, 0x0E));
-            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            _fullBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x2A, 0x7A, 0x2A));
             _fullBd.BorderThickness = new Thickness(2);
             _fullText.Foreground    = new SolidColorBrush(Colors.White);
         }
@@ -1741,7 +1741,7 @@ public partial class MainWindow : Window
         else
         {
             _dispBd.Background      = new SolidColorBrush(Color.FromRgb(0x0E, 0x3A, 0x0E));
-            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+            _dispBd.BorderBrush     = new SolidColorBrush(Color.FromRgb(0x2A, 0x7A, 0x2A));
             _dispBd.BorderThickness = new Thickness(2);
             _dispText.Foreground    = new SolidColorBrush(Colors.White);
         }
@@ -2429,14 +2429,14 @@ public partial class MainWindow : Window
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.0.125 by Ike-san";
+            Title = "ikePon v1.0.126 by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.125{fname}{dirty}";
+        Title = $"ikePon v1.0.126{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
