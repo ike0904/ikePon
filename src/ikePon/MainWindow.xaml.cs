@@ -1559,8 +1559,8 @@ public partial class MainWindow : Window
 
         _engine.SetPadCategory(bankIdx, srcIdx, bank.Pads[srcIdx].Category);
         _engine.SetPadCategory(bankIdx, dstIdx, bank.Pads[dstIdx].Category);
-        string msg = $"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました";
-        _playback.LoadBank(bankIdx, () => SetInfo2(msg));
+        _engine.SwapSources(bankIdx, srcIdx, dstIdx);
+        SetInfo2($"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました");
         MarkDirty();
     }
 

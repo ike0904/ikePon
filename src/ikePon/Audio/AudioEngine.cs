@@ -121,6 +121,13 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         _padCategories[bankIdx, padIdx] = cat;
     }
 
+    // 同バンク内の2スロットのオーディオソース参照を入れ替える（再ロード不要）
+    public void SwapSources(int bankIdx, int padA, int padB)
+    {
+        (_sources[bankIdx, padA], _sources[bankIdx, padB]) =
+            (_sources[bankIdx, padB], _sources[bankIdx, padA]);
+    }
+
     public int ActiveBank
     {
         get => _activeBank;
