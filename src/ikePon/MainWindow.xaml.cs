@@ -2429,14 +2429,14 @@ public partial class MainWindow : Window
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.1.1 by Ike-san";
+            Title = "ikePon v1.1.0 by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.1.1{fname}{dirty}";
+        Title = $"ikePon v1.1.0{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
