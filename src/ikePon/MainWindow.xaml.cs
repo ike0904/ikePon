@@ -66,6 +66,13 @@ public partial class MainWindow : Window
     private int  _videoSyncMismatchFrames;
     private long _vlcLastKnownTimeMs = -1;  // 前回 VLC から取得した Time 値
 
+    // 動画表示時間の壁掛け時計（VLC更新間隔のラグを回避して1秒単位で表示）
+    private long   _movieWallClockStartTick = -1;
+    private double _movieWallClockOffsetSec  = 0;
+    private long   _movieWallClockPausedMs   = 0;
+    private bool   _movieWallClockPaused     = false;
+    private long   _movieWallClockPauseTick  = 0;
+
     private readonly DispatcherTimer _uiTimer;
 
     // LOCK/FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
@@ -522,6 +529,10 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
+            // 動画パッドは壁掛け時計で位置表示（VLC更新ラグ回避）
+            if (i == _currentMoviePadIndex && _movieWallClockStartTick >= 0
+                && pad?.Category == AudioCategory.Movie && !IsImageFile(pad.FilePath) && totalSec > 0)
+                pos = (float)Math.Clamp(GetMovieWallClockSec() / totalSec, 0.0, 1.0);
             bool imageDisplaying = _imageDisplayingPadIndex == i;
             float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
             bool isMissing = _missingPads[_playback.ActiveBank, i];
@@ -554,6 +565,19 @@ public partial class MainWindow : Window
         if (rawVlcMs == _vlcLastKnownTimeMs) return;
         _vlcLastKnownTimeMs = rawVlcMs;
 
+        // 壁掛け時計をVLC実時間で補正（小さな誤差のみ対象）
+        if (_movieWallClockStartTick >= 0 && !_movieWallClockPaused)
+        {
+            double wallSec = GetMovieWallClockSec();
+            double vlcSec  = rawVlcMs / 1000.0;
+            double diff    = vlcSec - wallSec;
+            if (Math.Abs(diff) > 0.3 && Math.Abs(diff) < 3.0)
+            {
+                _movieWallClockOffsetSec += diff;
+                Logger.Log($"[WallClock] corrected by {diff:+0.000;-0.000}s (vlc={vlcSec:F2} wall={wallSec:F2})");
+            }
+        }
+
         var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
         float totalSec = src.FileTotalSec;
         if (totalSec <= 0f) return;
@@ -575,6 +599,39 @@ public partial class MainWindow : Window
         {
             _videoSyncMismatchFrames = 0;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // 動画壁掛け時計（VLC報告遅延に関わらず1秒単位でカウントアップ）
+    // ------------------------------------------------------------------
+    private double GetMovieWallClockSec()
+    {
+        if (_movieWallClockStartTick < 0) return 0;
+        long pauseExtra = _movieWallClockPaused ? (Environment.TickCount64 - _movieWallClockPauseTick) : 0;
+        long elapsedMs  = Environment.TickCount64 - _movieWallClockStartTick - _movieWallClockPausedMs - pauseExtra;
+        return _movieWallClockOffsetSec + Math.Max(0, elapsedMs) / 1000.0;
+    }
+
+    private void StartMovieWallClock(double startSec)
+    {
+        _movieWallClockStartTick = Environment.TickCount64;
+        _movieWallClockOffsetSec = startSec;
+        _movieWallClockPausedMs  = 0;
+        _movieWallClockPaused    = false;
+    }
+
+    private void PauseMovieWallClock()
+    {
+        if (_movieWallClockPaused) return;
+        _movieWallClockPaused    = true;
+        _movieWallClockPauseTick = Environment.TickCount64;
+    }
+
+    private void ResumeMovieWallClock()
+    {
+        if (!_movieWallClockPaused) return;
+        _movieWallClockPausedMs += Environment.TickCount64 - _movieWallClockPauseTick;
+        _movieWallClockPaused   = false;
     }
 
     private void UpdateActionButtons()
@@ -898,6 +955,8 @@ public partial class MainWindow : Window
             if (_movieLoopSession != capturedSess) return; // キャンセルされた
             if (!_movieCtrl.DisplayActive) return;         // ディスプレイが閉じられた
 
+            StartMovieWallClock(restartSec); // ループ再起動で壁掛け時計もリセット
+
             // 音声再開（NAudio）
             _engine.GetSource(_playback.ActiveBank, capturedPad)
                 .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
@@ -992,10 +1051,8 @@ public partial class MainWindow : Window
         {
             // 一時停止／再開: 音声は TriggerPad 内で処理済み。映像をそれに同期
             var stateAfter = _playback.GetPadState(padIndex);
-            if (stateAfter == PadPlayState.Paused)
-                _movieCtrl.PauseVideo();
-            else if (stateAfter == PadPlayState.Playing)
-                _movieCtrl.ResumeVideo();
+            if (stateAfter == PadPlayState.Paused) { _movieCtrl.PauseVideo(); PauseMovieWallClock(); }
+            else if (stateAfter == PadPlayState.Playing) { _movieCtrl.ResumeVideo(); ResumeMovieWallClock(); }
         }
         else if (wasActive)
         {
@@ -1011,6 +1068,7 @@ public partial class MainWindow : Window
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
             ++_movieLoopSession; _currentMoviePadIndex = padIndex; // 新規動画再生：ループ追跡開始
+            StartMovieWallClock(startSecOverride); // 壁掛け時計スタート
             _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
             _imageDisplayingPadIndex = -1;
             // 動画ファイル再生時はバッファリング完了まで準備中を表示
@@ -1051,8 +1109,8 @@ public partial class MainWindow : Window
         if (pad?.Category == AudioCategory.Movie)
         {
             var newState = _playback.GetPadState(padIndex);
-            if (newState == PadPlayState.Paused)  _movieCtrl.PauseVideo();
-            else if (newState == PadPlayState.Playing) _movieCtrl.ResumeVideo();
+            if (newState == PadPlayState.Paused)  { _movieCtrl.PauseVideo(); PauseMovieWallClock(); }
+            else if (newState == PadPlayState.Playing) { _movieCtrl.ResumeVideo(); ResumeMovieWallClock(); }
         }
     }
 
@@ -1061,7 +1119,12 @@ public partial class MainWindow : Window
         _engine.GetSource(_playback.ActiveBank, padIndex).SeekToFraction(fraction);
         var pad = _playback.GetPadSettings(padIndex);
         if (pad?.Category == AudioCategory.Movie)
+        {
             _movieCtrl.SeekVideo(fraction);
+            bool wasPaused = _movieWallClockPaused;
+            StartMovieWallClock(fraction * (double)_playback.GetPadTotalTime(padIndex));
+            if (wasPaused) PauseMovieWallClock(); // シーク後も一時停止状態を維持
+        }
     }
 
     private void CyclePadCategory(int padIndex)
@@ -1714,12 +1777,14 @@ public partial class MainWindow : Window
             _isPauseAllActive = false;
             _playback.ResumeAllPaused();
             _movieCtrl.ResumeVideo();
+            ResumeMovieWallClock();
         }
         else
         {
             _isPauseAllActive = true;
             _playback.PauseAllMovieBgm();
             _movieCtrl.PauseVideo();
+            PauseMovieWallClock();
         }
         UpdateActionButtons(); // 押した直後にボタン状態を即座に反映
     }
@@ -2281,7 +2346,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.117{fname}{dirty}";
+        Title = $"ikePon v1.0.118{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

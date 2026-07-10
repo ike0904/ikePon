@@ -30,6 +30,8 @@
                         Value="100"
                         SmallChange="1"
                         LargeChange="8"
+                        TickFrequency="1"
+                        IsSnapToTickEnabled="True"
                         HorizontalAlignment="Center"
                         Width="40"
                         ValueChanged="FaderSlider_ValueChanged"

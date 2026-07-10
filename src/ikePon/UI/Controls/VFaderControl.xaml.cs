@@ -58,7 +58,7 @@ public partial class VFaderControl : UserControl
         set
         {
             _suppressEvent = true;
-            FaderSlider.Value = Math.Clamp(GainToSlider(value), 0, SLIDER_MAX);
+            FaderSlider.Value = Math.Round(Math.Clamp(GainToSlider(value), 0, SLIDER_MAX));
             _suppressEvent = false;
         }
     }
@@ -139,7 +139,7 @@ public partial class VFaderControl : UserControl
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         double step = e.Delta > 0 ? FaderSlider.SmallChange : -FaderSlider.SmallChange;
         if (shift) step *= 10;
-        FaderSlider.Value = Math.Clamp(FaderSlider.Value + step, 0, SLIDER_MAX);
+        FaderSlider.Value = Math.Round(Math.Clamp(FaderSlider.Value + step, 0, SLIDER_MAX));
         e.Handled = true;
     }
 

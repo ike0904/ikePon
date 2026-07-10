@@ -98,7 +98,7 @@ public sealed class MovieController : IDisposable
         }
 
         DisplayActiveChanged?.Invoke(false);
-        FullScreenChanged?.Invoke(false);
+        FullScreenChanged?.Invoke(IsFullScreen);
     }
 
     public void ToggleDisplay()
@@ -190,6 +190,6 @@ public sealed class MovieController : IDisposable
         DisplayActive = false;
         _settings.DisplayOutputActive = false;
         DisplayActiveChanged?.Invoke(false);
-        FullScreenChanged?.Invoke(false);
+        FullScreenChanged?.Invoke(IsFullScreen);
     }
 }
