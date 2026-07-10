@@ -16,6 +16,7 @@
 | 項目 | 仕様 |
 |:---|:---|
 | 対応 OS | Windows 10/11 x64 |
+| 動作要件 | .NET 9 デスクトップランタイム（[ダウンロード](https://dotnet.microsoft.com/ja-jp/download/dotnet/9.0)） |
 | 開発環境 | C# / WPF / .NET 9 |
 | オーディオエンジン | NAudio（WASAPI Shared モード） |
 | 映像エンジン | LibVLCSharp |
