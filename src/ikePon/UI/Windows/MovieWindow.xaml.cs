@@ -626,9 +626,9 @@ public partial class MovieWindow : Window
 
         StopFadeTimer();
         StopStandbyFadeIn();
-        // スタンバイ表示中にフルスクリーン切替するとフェードインが中断される → 不透明度を確定
-        if (!_videoVisible && StandbyLayer.Visibility == Visibility.Visible)
-            StandbyLayer.Opacity = 1.0;
+        // 遷移中のフラッシュ防止: スタンバイレイヤーを一時的に非表示にして、カバー閉鎖後に復元する
+        bool standbyWasVisible = StandbyLayer.Visibility == Visibility.Visible;
+        StandbyLayer.Visibility = Visibility.Collapsed;
         VideoView.Visibility = Visibility.Hidden;
 
         Window cover;
@@ -679,8 +679,13 @@ public partial class MovieWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
             cover.Close();
-            if (_videoVisible && StandbyLayer.Visibility != Visibility.Visible)
+            if (_videoVisible)
                 VideoView.Visibility = Visibility.Visible;
+            else if (standbyWasVisible)
+            {
+                StandbyLayer.Opacity    = 1.0;
+                StandbyLayer.Visibility = Visibility.Visible;
+            }
             Debug.WriteLine($"[MW] SetFullScreen: cover closed, VideoView={VideoView.Visibility}");
         }));
 

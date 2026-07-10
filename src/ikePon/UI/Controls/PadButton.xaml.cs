@@ -97,6 +97,9 @@ public partial class PadButton : UserControl
         ContentBg.Background = BrushPadDefault;
         DeadZone.Background = BrushPadDefault;
 
+        // ContentBg（内部Gridの余白部分）でのタップを吸収（余白誤タップ防止）
+        ContentBg.MouseLeftButtonDown += (_, e) => e.Handled = true;
+
         // 上部エリア全体でON/OFFを防ぐ
         TopArea.MouseLeftButtonDown += (_, e) => e.Handled = true;
 

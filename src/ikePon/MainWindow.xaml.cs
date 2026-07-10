@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     // 動画ループ制御：現在再生中の Movie パッドと、ループ再起動キャンセル用セッション番号
     private int _currentMoviePadIndex = -1;
     private int _movieLoopSession;
+    private int _videoLoopingPadIndex = -1; // ループ間の300ms黒画面中、黄色枠を維持するため
 
     // 映像↔音声同期補正
     private int  _videoSyncMismatchFrames;
@@ -514,6 +515,9 @@ public partial class MainWindow : Window
             float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
             bool isMissing = _missingPads[_playback.ActiveBank, i];
             bool isPreparingVideo = _videoBufferingPadIndex == i;
+            // 動画ループの300ms黒画面中はオーディオ状態がIdleになるが、黄色枠を維持する
+            if (state == PadPlayState.Idle && _videoLoopingPadIndex == i)
+                state = PadPlayState.Playing;
             _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing, isPreparingVideo);
         }
         UpdateActionButtons();
@@ -864,6 +868,7 @@ public partial class MainWindow : Window
 
         // 音声を即座に停止（NAudioループを中断して黒画面期間中は無音にする）
         _engine.GetSource(_playback.ActiveBank, padIdx).StopImmediate();
+        _videoLoopingPadIndex = padIdx; // 300ms間、黄色枠を維持する
 
         string capturedPath  = pad.FilePath;
         float  capturedEnd   = pad.EndPositionSec;
@@ -878,6 +883,7 @@ public partial class MainWindow : Window
         t.Tick += (_, _) =>
         {
             t.Stop();
+            _videoLoopingPadIndex = -1; // 300ms経過、黄色枠維持を解除
             if (_movieLoopSession != capturedSess) return; // キャンセルされた
             if (!_movieCtrl.DisplayActive) return;         // ディスプレイが閉じられた
 
@@ -1465,15 +1471,25 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void LockButton_Click(object sender, RoutedEventArgs e) => SetLocked(!_isLocked);
 
+    private bool _fullButtonBusy;
+
     private async void FullButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isLocked) return;
-        // 先に黄色ボーダーを表示してからウィンドウ準備を開始
-        _fullBd ??= FullButton.Template.FindName("FullBd", FullButton) as System.Windows.Controls.Border;
-        if (_fullBd != null) { _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _fullBd.BorderThickness = new Thickness(2.5); }
-        await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
-        _movieCtrl.ToggleFullScreen();
-        UpdateFullButton(_movieCtrl.IsFullScreen);
+        if (_isLocked || _fullButtonBusy) return;
+        _fullButtonBusy = true;
+        try
+        {
+            // 先に黄色ボーダーを表示してからウィンドウ準備を開始
+            _fullBd ??= FullButton.Template.FindName("FullBd", FullButton) as System.Windows.Controls.Border;
+            if (_fullBd != null) { _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _fullBd.BorderThickness = new Thickness(2.5); }
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+            _movieCtrl.ToggleFullScreen();
+            UpdateFullButton(_movieCtrl.IsFullScreen);
+        }
+        finally
+        {
+            _fullButtonBusy = false;
+        }
     }
 
     private async void DispButton_Click(object sender, RoutedEventArgs e)
@@ -2244,7 +2260,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.114{fname}{dirty}";
+        Title = $"ikePon v1.0.115{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

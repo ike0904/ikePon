@@ -153,6 +153,9 @@
                            TextTrimming="CharacterEllipsis"
                            Margin="0,4"/>
 
+                <!-- メインタップゾーン（このエリアのみメインタップに反応、余白部分はContentBgでブロック） -->
+                <Border Grid.Row="1" x:Name="TapZone" Background="Transparent"/>
+
                 <!-- Row 2: クリック吸収ゾーン（時間表示エリア、誤タップ防止） -->
                 <Border Grid.Row="2" x:Name="TimeDeadZone" Background="Transparent" Cursor="Arrow"/>
             </Grid>
