@@ -565,19 +565,6 @@ public partial class MainWindow : Window
         if (rawVlcMs == _vlcLastKnownTimeMs) return;
         _vlcLastKnownTimeMs = rawVlcMs;
 
-        // 壁掛け時計をVLC実時間で補正（小さな誤差のみ対象）
-        if (_movieWallClockStartTick >= 0 && !_movieWallClockPaused)
-        {
-            double wallSec = GetMovieWallClockSec();
-            double vlcSec  = rawVlcMs / 1000.0;
-            double diff    = vlcSec - wallSec;
-            if (Math.Abs(diff) > 0.3 && Math.Abs(diff) < 3.0)
-            {
-                _movieWallClockOffsetSec += diff;
-                Logger.Log($"[WallClock] corrected by {diff:+0.000;-0.000}s (vlc={vlcSec:F2} wall={wallSec:F2})");
-            }
-        }
-
         var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
         float totalSec = src.FileTotalSec;
         if (totalSec <= 0f) return;
@@ -2346,7 +2333,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.118{fname}{dirty}";
+        Title = $"ikePon v1.0.119{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
