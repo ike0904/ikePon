@@ -285,7 +285,7 @@
         </Grid>
 
         <!-- 再生中タップ -->
-        <Grid Margin="0,0,0,8">
+        <Grid x:Name="TapBehaviorRow" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="130"/>
                 <ColumnDefinition Width="*"/>

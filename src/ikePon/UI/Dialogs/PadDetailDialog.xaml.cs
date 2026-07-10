@@ -291,7 +291,8 @@ public partial class PadDetailDialog : Window
     {
         if (CbTapBehavior == null || CbTapPauseResume == null) return;
         bool isSE = CbCategory.SelectedIndex == 2;
-        CbTapPauseResume.IsEnabled = !isSE;
+        TapBehaviorRow.IsEnabled = !isSE;
+        TapBehaviorRow.Opacity   = isSE ? 0.4 : 1.0;
         if (isSE && CbTapBehavior.SelectedIndex == 2)
             CbTapBehavior.SelectedIndex = 0;
     }

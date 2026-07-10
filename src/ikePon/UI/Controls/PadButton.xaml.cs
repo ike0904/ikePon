@@ -520,12 +520,15 @@ public partial class PadButton : UserControl
 
     private void UpdateTapBehaviorIcon()
     {
-        TapBehaviorDot.Fill = _tapBehavior switch
-        {
-            TapBehavior.CutOut      => BrushTapCut,
-            TapBehavior.PauseResume => BrushTapPause,
-            _                       => BrushTapFade
-        };
+        bool isSE = _category == AudioCategory.SE;
+        TapBehaviorBadge.Visibility = isSE ? Visibility.Collapsed : Visibility.Visible;
+        if (!isSE)
+            TapBehaviorDot.Fill = _tapBehavior switch
+            {
+                TapBehavior.CutOut      => BrushTapCut,
+                TapBehavior.PauseResume => BrushTapPause,
+                _                       => BrushTapFade
+            };
     }
 
     private AfterPlaybackBehavior GetNextAfterPlayback(AfterPlaybackBehavior current)
