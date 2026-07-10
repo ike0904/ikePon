@@ -1625,9 +1625,9 @@ public partial class MainWindow : Window
             _movieCtrl.ToggleFullScreen();
             UpdateFullButton(_movieCtrl.IsFullScreen);
 
-            // 画面遷移が完了するまでグレーアウト（黄色枠は維持）
+            // 画面遷移が完了するまでグレーアウト（ON時は黄色枠維持・OFF時はすぐ暗く）
             FullButton.IsEnabled = false;
-            if (_fullBd   != null) { _fullBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); }
+            if (_fullBd   != null) { _fullBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _fullBd.BorderBrush = _movieCtrl.IsFullScreen ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)); }
             if (_fullText != null) _fullText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             await Task.Delay(1000);
         }
@@ -1656,9 +1656,9 @@ public partial class MainWindow : Window
             if (_movieCtrl.DisplayActive && !wasActive)
                 ResumeMovieIfPlaying();
 
-            // VLC が安定するまでグレーアウト（黄色枠は維持）
+            // VLC が安定するまでグレーアウト（ON時は黄色枠維持・OFF時はすぐ暗く）
             DispButton.IsEnabled = false;
-            if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); }
+            if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = _movieCtrl.DisplayActive ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)); }
             if (_dispText != null) _dispText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
             await Task.Delay(3000);
         }
@@ -2429,14 +2429,14 @@ public partial class MainWindow : Window
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.0.124 by Ike-san";
+            Title = "ikePon v1.0.125 by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.124{fname}{dirty}";
+        Title = $"ikePon v1.0.125{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
