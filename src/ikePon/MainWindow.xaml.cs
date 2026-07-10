@@ -30,8 +30,10 @@ public partial class MainWindow : Window
     private string? _projectFilePath;
     private bool _projectDirty;
     private bool _initComplete;
-    private bool _authorTitleActive;   // 起動直後のみ "by Ike-san" 表示
-    private string? _assocFilePath;    // 関連付けで渡された .ikp パス
+    private bool _authorTitleActive;      // 起動直後のみ "by Ike-san" 表示
+    private string? _assocFilePath;      // 関連付けで渡された .ikp パス
+    private bool _blackScreenWarning;    // 黒画面警告表示中フラグ
+    private const string BlackScreenMsg = "映像ウィンドウが黒画面です（DISP を OFF→ON で復旧）";
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -563,6 +565,7 @@ public partial class MainWindow : Window
         }
         UpdateActionButtons();
         SyncMovieAudio();
+        CheckBlackScreen();
     }
 
     // VLC（映像）と NAudio（音声）の再生位置を比較し、ズレが続くときだけ音声をシークして補正する。
@@ -616,6 +619,36 @@ public partial class MainWindow : Window
         else
         {
             _videoSyncMismatchFrames = 0;
+        }
+    }
+
+    // 黒画面状態を監視して警告を表示する
+    private void CheckBlackScreen()
+    {
+        bool isBlack = _movieCtrl.IsBlackScreen;
+        if (isBlack == _blackScreenWarning) return;
+
+        _blackScreenWarning = isBlack;
+        if (isBlack)
+        {
+            Logger.Log("[Display] Black screen detected");
+            // 確認ダイアログ表示中でなければ警告を表示
+            if (!_infoClearPending && BankConfirmPanel.Visibility != Visibility.Visible)
+            {
+                InfoLine2.Text             = BlackScreenMsg;
+                InfoLine2.Foreground       = BrushInfoWarnText;
+                InfoLine2Border.Background = BrushInfoWarnBg;
+            }
+        }
+        else
+        {
+            Logger.Log("[Display] Black screen cleared");
+            if (InfoLine2.Text == BlackScreenMsg)
+            {
+                InfoLine2.Text             = "";
+                InfoLine2.Foreground       = BrushInfoNormal;
+                InfoLine2Border.Background = System.Windows.Media.Brushes.Transparent;
+            }
         }
     }
 
