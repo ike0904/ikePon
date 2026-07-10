@@ -64,7 +64,6 @@ public partial class MainWindow : Window
     // 映像↔音声同期補正
     private int  _videoSyncMismatchFrames;
     private long _vlcLastKnownTimeMs = -1;  // 前回 VLC から取得した Time 値
-    private long _vlcLastUpdateTick;         // その取得時の TickCount64
 
     private readonly DispatcherTimer _uiTimer;
 
@@ -522,7 +521,7 @@ public partial class MainWindow : Window
     }
 
     // VLC（映像）と NAudio（音声）の再生位置を比較し、ズレが続くときだけ音声をシークして補正する。
-    // VLC の Time プロパティは ~500ms 間隔でしか更新されないため、前回値＋経過時間で補間して比較する。
+    // VLC の Time は ~500ms ごとにしか更新されないため、値が変わったときだけ比較する。
     private void SyncMovieAudio()
     {
         int padIdx = _currentMoviePadIndex;
@@ -534,32 +533,27 @@ public partial class MainWindow : Window
         if (_playback.GetPadState(padIdx) != PadPlayState.Playing) return;
 
         long rawVlcMs = _movieCtrl.GetCurrentVideoTimeMs();
-        if (rawVlcMs < 0) { _vlcLastKnownTimeMs = -1; return; }
+        if (rawVlcMs < 0) { _vlcLastKnownTimeMs = -1; _videoSyncMismatchFrames = 0; return; }
 
-        // VLC の Time が更新されたタイミングを記録し、更新間隔は壁時計で補間する
-        long now = Environment.TickCount64;
-        if (rawVlcMs != _vlcLastKnownTimeMs)
-        {
-            _vlcLastKnownTimeMs = rawVlcMs;
-            _vlcLastUpdateTick  = now;
-        }
-        long vlcMs = _vlcLastKnownTimeMs + (now - _vlcLastUpdateTick);
+        // VLC の Time が更新されていなければスキップ（~500ms ごとに1回だけ比較）
+        if (rawVlcMs == _vlcLastKnownTimeMs) return;
+        _vlcLastKnownTimeMs = rawVlcMs;
 
         var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
         float totalSec = src.FileTotalSec;
         if (totalSec <= 0f) return;
 
         long naudioMs = (long)(src.PlaybackPosition * totalSec * 1000f);
-        long diffMs   = vlcMs - naudioMs;
+        long diffMs   = rawVlcMs - naudioMs;
 
         if (Math.Abs(diffMs) > 300)
         {
-            if (++_videoSyncMismatchFrames >= 5)
+            if (++_videoSyncMismatchFrames >= 2)
             {
-                float fraction = Math.Clamp((float)(vlcMs / 1000.0) / totalSec, 0f, 1f);
+                float fraction = Math.Clamp((float)(rawVlcMs / 1000.0) / totalSec, 0f, 1f);
                 src.SeekToFraction(fraction);
                 _videoSyncMismatchFrames = 0;
-                Logger.Log($"[Sync] audio corrected: vlc={vlcMs}ms audio={naudioMs}ms diff={diffMs:+#;-#;0}ms");
+                Logger.Log($"[Sync] audio corrected: vlc={rawVlcMs}ms audio={naudioMs}ms diff={diffMs:+#;-#;0}ms");
             }
         }
         else
@@ -2240,7 +2234,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.112{fname}{dirty}";
+        Title = $"ikePon v1.0.113{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
