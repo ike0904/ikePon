@@ -32,6 +32,7 @@ public partial class MovieWindow : Window
     private long _standbyFadeInStartTick;
 
     private bool   _isFullScreen;
+    private bool   _isFullScreenTransitioning; // 高速連打による状態破損防止
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
 
     private string? _currentFilePath;
@@ -628,6 +629,8 @@ public partial class MovieWindow : Window
     public void SetFullScreen(bool full)
     {
         if (full == _isFullScreen) return;
+        if (_isFullScreenTransitioning) { Debug.WriteLine("[MW] SetFullScreen: transition in progress, skip"); return; }
+        _isFullScreenTransitioning = true;
         Debug.WriteLine($"[MW] SetFullScreen: {_isFullScreen}→{full}");
 
         StopFadeTimer();
@@ -694,6 +697,7 @@ public partial class MovieWindow : Window
                 StandbyLayer.Opacity    = 1.0;
                 StandbyLayer.Visibility = Visibility.Visible;
             }
+            _isFullScreenTransitioning = false;
             Debug.WriteLine($"[MW] SetFullScreen: cover closed, VideoView={VideoView.Visibility}");
         }));
 

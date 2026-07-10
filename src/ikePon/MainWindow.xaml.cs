@@ -32,8 +32,10 @@ public partial class MainWindow : Window
     private bool _initComplete;
     private bool _authorTitleActive;      // 起動直後のみ "by Ike-san" 表示
     private string? _assocFilePath;      // 関連付けで渡された .ikp パス
-    private bool _blackScreenWarning;    // 黒画面警告表示中フラグ
+    private bool _blackScreenWarning;     // 黒画面警告表示中フラグ
     private const string BlackScreenMsg = "映像ウィンドウが黒画面です（DISP を OFF→ON で復旧）";
+    private int    _displayOffPadIndex = -1; // DISP OFF 時に再生中だったパッドIndex
+    private double _displayOffSec      = 0;  // DISP OFF 時の壁掛け時計位置
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -179,7 +181,39 @@ public partial class MainWindow : Window
             void updateDisp()
             {
                 UpdateDispButton(on);
-                if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; } // display閉時にループ再起動キャンセル
+                if (!on)
+                {
+                    // DISP OFF: 再生中動画の情報を保存してからクリア
+                    if (_currentMoviePadIndex >= 0 &&
+                        _playback.GetPadState(_currentMoviePadIndex) == PadPlayState.Playing)
+                    {
+                        _displayOffPadIndex = _currentMoviePadIndex;
+                        _displayOffSec      = _movieDisplayedSec;
+                        Logger.Log($"[Display] OFF: saved pad={_displayOffPadIndex} sec={_displayOffSec:F1}");
+                    }
+                    else
+                    {
+                        _displayOffPadIndex = -1;
+                    }
+                    ++_movieLoopSession; _currentMoviePadIndex = -1;
+                }
+                else if (_displayOffPadIndex >= 0)
+                {
+                    // DISP ON: 動画が再生中だった場合は現在位置から自動再起動
+                    var pad   = _playback.GetPadSettings(_displayOffPadIndex);
+                    var state = _playback.GetPadState(_displayOffPadIndex);
+                    if (pad?.Category == AudioCategory.Movie && state == PadPlayState.Playing
+                        && !string.IsNullOrEmpty(pad.FilePath))
+                    {
+                        ++_movieLoopSession;
+                        _currentMoviePadIndex = _displayOffPadIndex;
+                        StartMovieWallClock(_displayOffSec);
+                        _movieCtrl.PlayVideo(pad.FilePath, _displayOffSec,
+                            pad.EndPositionSec, pad.AfterPlayback);
+                        Logger.Log($"[Display] ON: auto-restart pad={_displayOffPadIndex} sec={_displayOffSec:F1}");
+                    }
+                    _displayOffPadIndex = -1;
+                }
             }
             if (Dispatcher.CheckAccess()) updateDisp();
             else Dispatcher.Invoke(updateDisp);
@@ -2387,14 +2421,14 @@ public partial class MainWindow : Window
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.0.120 by Ike-san";
+            Title = "ikePon v1.0.122 by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.120{fname}{dirty}";
+        Title = $"ikePon v1.0.122{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
