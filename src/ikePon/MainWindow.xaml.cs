@@ -165,12 +165,23 @@ public partial class MainWindow : Window
         _uiTimer.Tick += UiTimer_Tick;
         _uiTimer.Start();
 
-        _movieCtrl.DisplayActiveChanged += on => Dispatcher.Invoke(() =>
+        _movieCtrl.DisplayActiveChanged += on =>
         {
-            UpdateDispButton(on);
-            if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; } // display閉時にループ再起動キャンセル
-        });
-        _movieCtrl.FullScreenChanged    += on => Dispatcher.Invoke(() => UpdateFullButton(on));
+            void updateDisp()
+            {
+                UpdateDispButton(on);
+                if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; } // display閉時にループ再起動キャンセル
+            }
+            if (Dispatcher.CheckAccess()) updateDisp();
+            else Dispatcher.Invoke(updateDisp);
+        };
+        _movieCtrl.FullScreenChanged += on =>
+        {
+            // Dispatcher.Invoke を UI スレッドから呼ぶと Normal 優先度での再入が起き得るため、
+            // UI スレッド上では直接呼び出す
+            if (Dispatcher.CheckAccess()) UpdateFullButton(on);
+            else Dispatcher.Invoke(() => UpdateFullButton(on));
+        };
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
         _movieCtrl.VideoLoopEndReached  += OnVideoLoopEndReached;
 
@@ -550,7 +561,7 @@ public partial class MainWindow : Window
         long naudioMs = (long)(src.PlaybackPosition * totalSec * 1000f);
         long diffMs   = rawVlcMs - naudioMs;
 
-        if (Math.Abs(diffMs) > 300)
+        if (Math.Abs(diffMs) > 300 && Math.Abs(diffMs) <= 3000)
         {
             if (++_videoSyncMismatchFrames >= 2)
             {
@@ -1492,17 +1503,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool _dispButtonBusy;
+
     private async void DispButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isLocked) return;
-        // 先に黄色ボーダーを表示してからウィンドウ準備を開始
-        _dispBd ??= DispButton.Template.FindName("DispBd", DispButton) as System.Windows.Controls.Border;
-        if (_dispBd != null) { _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _dispBd.BorderThickness = new Thickness(2.5); }
-        await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
-        bool wasActive = _movieCtrl.DisplayActive;
-        _movieCtrl.ToggleDisplay();
-        if (_movieCtrl.DisplayActive && !wasActive)
-            ResumeMovieIfPlaying();
+        if (_isLocked || _dispButtonBusy) return;
+        _dispButtonBusy = true;
+        try
+        {
+            // 先に黄色ボーダーを表示してからウィンドウ準備を開始
+            _dispBd ??= DispButton.Template.FindName("DispBd", DispButton) as System.Windows.Controls.Border;
+            if (_dispBd != null) { _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); _dispBd.BorderThickness = new Thickness(2.5); }
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+            bool wasActive = _movieCtrl.DisplayActive;
+            _movieCtrl.ToggleDisplay();
+            if (_movieCtrl.DisplayActive && !wasActive)
+                ResumeMovieIfPlaying();
+        }
+        finally
+        {
+            _dispButtonBusy = false;
+        }
     }
 
     // DISP を開き直した際に静止画 or 動画を再開する
@@ -2260,7 +2281,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.116{fname}{dirty}";
+        Title = $"ikePon v1.0.117{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
