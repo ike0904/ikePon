@@ -521,7 +521,7 @@ public partial class PadButton : UserControl
     private void UpdateTapBehaviorIcon()
     {
         bool isSE = _category == AudioCategory.SE;
-        TapBehaviorBadge.Visibility = isSE ? Visibility.Collapsed : Visibility.Visible;
+        TapBehaviorDot.Visibility = isSE ? Visibility.Hidden : Visibility.Visible;
         if (!isSE)
             TapBehaviorDot.Fill = _tapBehavior switch
             {
