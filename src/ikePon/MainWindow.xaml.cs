@@ -30,6 +30,8 @@ public partial class MainWindow : Window
     private string? _projectFilePath;
     private bool _projectDirty;
     private bool _initComplete;
+    private bool _authorTitleActive;   // 起動直後のみ "by Ike-san" 表示
+    private string? _assocFilePath;    // 関連付けで渡された .ikp パス
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -66,12 +68,10 @@ public partial class MainWindow : Window
     private int  _videoSyncMismatchFrames;
     private long _vlcLastKnownTimeMs = -1;  // 前回 VLC から取得した Time 値
 
-    // 動画表示時間の壁掛け時計（VLC更新間隔のラグを回避して1秒単位で表示）
-    private long   _movieWallClockStartTick = -1;
-    private double _movieWallClockOffsetSec  = 0;
-    private long   _movieWallClockPausedMs   = 0;
-    private bool   _movieWallClockPaused     = false;
-    private long   _movieWallClockPauseTick  = 0;
+    // 動画表示時間の壁掛け時計（整数秒カウンタ・VLC補正対応）
+    private int  _movieDisplayedSec = 0;    // 表示用再生秒数（整数）
+    private long _movieSecTick      = -1;   // 直近1秒起算点のTickCount64
+    private bool _movieSecPaused    = false; // ポーズ中フラグ
 
     private readonly DispatcherTimer _uiTimer;
 
@@ -195,13 +195,25 @@ public partial class MainWindow : Window
         WireMidi();
         _midi.SetDevice(_settings.SelectedMidiDeviceName);
 
+        // 関連付け起動の検出（.ikp ファイルがコマンドライン引数で渡された場合）
+        string[] cmdArgs = Environment.GetCommandLineArgs();
+        if (cmdArgs.Length >= 2 && System.IO.File.Exists(cmdArgs[1]) &&
+            System.IO.Path.GetExtension(cmdArgs[1]).Equals(".ikp", StringComparison.OrdinalIgnoreCase))
+            _assocFilePath = cmdArgs[1];
+
+        _authorTitleActive = _assocFilePath == null; // 関連付け起動では著者名を表示しない
+
         UpdateBankHighlight();
         UpdateTitle();
         UpdateFullButton(_movieCtrl.IsFullScreen);
         UpdateDispButton(_movieCtrl.DisplayActive);
         UpdateLockButton();
         SetInfo2("準備完了");
-        Loaded += (_, _) => _initComplete = true;
+        Loaded += async (_, _) =>
+        {
+            _initComplete = true;
+            if (_assocFilePath != null) await LoadProjectAsync(_assocFilePath);
+        };
     }
 
     // ------------------------------------------------------------------
@@ -529,10 +541,17 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
-            // 動画パッドは壁掛け時計で位置表示（VLC更新ラグ回避）
-            if (i == _currentMoviePadIndex && _movieWallClockStartTick >= 0
+            // 動画パッドは整数秒カウンタで位置表示（VLC更新ラグ回避・長尺動画対応）
+            if (i == _currentMoviePadIndex && _movieSecTick >= 0
                 && pad?.Category == AudioCategory.Movie && !IsImageFile(pad.FilePath) && totalSec > 0)
-                pos = (float)Math.Clamp(GetMovieWallClockSec() / totalSec, 0.0, 1.0);
+            {
+                if (!_movieSecPaused)
+                {
+                    long elapsed = (Environment.TickCount64 - _movieSecTick) / 1000;
+                    if (elapsed > 0) { _movieDisplayedSec += (int)elapsed; _movieSecTick += elapsed * 1000; }
+                }
+                pos = (float)Math.Clamp((double)_movieDisplayedSec / totalSec, 0.0, 1.0);
+            }
             bool imageDisplaying = _imageDisplayingPadIndex == i;
             float iGain = (fadingIdx == i) ? imageFadeGainForPad : -1f;
             bool isMissing = _missingPads[_playback.ActiveBank, i];
@@ -565,6 +584,18 @@ public partial class MainWindow : Window
         if (rawVlcMs == _vlcLastKnownTimeMs) return;
         _vlcLastKnownTimeMs = rawVlcMs;
 
+        // 壁掛け時計を VLC で補正（2秒以上ずれた場合のみ）
+        if (_movieSecTick >= 0 && !_movieSecPaused)
+        {
+            int vlcSec = (int)(rawVlcMs / 1000);
+            if (Math.Abs(vlcSec - _movieDisplayedSec) >= 2)
+            {
+                Logger.Log($"[WallClock] corrected: {_movieDisplayedSec}s→{vlcSec}s");
+                _movieDisplayedSec = vlcSec;
+                _movieSecTick      = Environment.TickCount64;
+            }
+        }
+
         var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
         float totalSec = src.FileTotalSec;
         if (totalSec <= 0f) return;
@@ -589,36 +620,26 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
-    // 動画壁掛け時計（VLC報告遅延に関わらず1秒単位でカウントアップ）
+    // 動画壁掛け時計（整数秒カウンタ・1秒ごとにインクリメント・VLC補正対応）
     // ------------------------------------------------------------------
-    private double GetMovieWallClockSec()
-    {
-        if (_movieWallClockStartTick < 0) return 0;
-        long pauseExtra = _movieWallClockPaused ? (Environment.TickCount64 - _movieWallClockPauseTick) : 0;
-        long elapsedMs  = Environment.TickCount64 - _movieWallClockStartTick - _movieWallClockPausedMs - pauseExtra;
-        return _movieWallClockOffsetSec + Math.Max(0, elapsedMs) / 1000.0;
-    }
-
     private void StartMovieWallClock(double startSec)
     {
-        _movieWallClockStartTick = Environment.TickCount64;
-        _movieWallClockOffsetSec = startSec;
-        _movieWallClockPausedMs  = 0;
-        _movieWallClockPaused    = false;
+        _movieDisplayedSec = (int)startSec;
+        _movieSecTick      = Environment.TickCount64;
+        _movieSecPaused    = false;
     }
 
     private void PauseMovieWallClock()
     {
-        if (_movieWallClockPaused) return;
-        _movieWallClockPaused    = true;
-        _movieWallClockPauseTick = Environment.TickCount64;
+        if (_movieSecPaused) return;
+        _movieSecPaused = true;
     }
 
     private void ResumeMovieWallClock()
     {
-        if (!_movieWallClockPaused) return;
-        _movieWallClockPausedMs += Environment.TickCount64 - _movieWallClockPauseTick;
-        _movieWallClockPaused   = false;
+        if (!_movieSecPaused) return;
+        _movieSecPaused = false;
+        _movieSecTick   = Environment.TickCount64; // 再開時点から1秒計測を再スタート
     }
 
     private void UpdateActionButtons()
@@ -649,6 +670,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_authorTitleActive) { _authorTitleActive = false; UpdateTitle(); }
         // 通常インフォメーションを次のアクション（クリック）で消去
         if (_infoClearPending) { _infoClearPending = false; SetInfo2(""); }
         // メインウィンドウ内の任意のクリックでミキサースライダーのキーボードフォーカスをリセット
@@ -670,6 +692,7 @@ public partial class MainWindow : Window
     {
         const int WM_KEYDOWN = 0x0100;
         if (msg.message != WM_KEYDOWN || handled) return;
+        if (_authorTitleActive) { _authorTitleActive = false; UpdateTitle(); }
 
         // このアプリのどのウィンドウもアクティブでない場合は他アプリの入力を妨げない
         if (!IsActive && !_movieCtrl.DisplayActive) return;
@@ -1108,7 +1131,7 @@ public partial class MainWindow : Window
         if (pad?.Category == AudioCategory.Movie)
         {
             _movieCtrl.SeekVideo(fraction);
-            bool wasPaused = _movieWallClockPaused;
+            bool wasPaused = _movieSecPaused;
             StartMovieWallClock(fraction * (double)_playback.GetPadTotalTime(padIndex));
             if (wasPaused) PauseMovieWallClock(); // シーク後も一時停止状態を維持
         }
@@ -2329,11 +2352,16 @@ public partial class MainWindow : Window
 
     private void UpdateTitle()
     {
+        if (_authorTitleActive)
+        {
+            Title = "ikePon v1.0.120 by Ike-san";
+            return;
+        }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.119{fname}{dirty}";
+        Title = $"ikePon v1.0.120{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------

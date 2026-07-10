@@ -57,13 +57,19 @@ public partial class PadButton : UserControl
     private float _imageFadeGain = -1f;
     private bool _isMissing;
     private bool _blinkPhase;
+    private bool _isImagePad;
+    private bool _isPreparingVideo;
 
     public bool CanEdit { get; set; } = true;
+
+    /// <summary>現在時間表示値（ドラッグ/ホイール/入力で設定された再生開始位置）</summary>
+    public float CurrentStartSec => _startSec;
 
     // 音量ドラッグ状態
     private double _volumeDragStartY;
     private int _volumeDragStartVal;
     private bool _volumeDragging;
+    private long _lastVolumeWheelTick;
 
     // シークバードラッグ状態
     private bool _seekDragging;
@@ -83,7 +89,6 @@ public partial class PadButton : UserControl
     public event EventHandler<float>? SeekRequested;
     public event EventHandler<int>? PadVolumeChanged;
     public event EventHandler? PadVolumeDragStarted;
-    public event EventHandler<float>? StartPositionChanged;
 
     public PadButton()
     {
@@ -91,6 +96,9 @@ public partial class PadButton : UserControl
         SizeChanged += (_, e) => { _padWidth = e.NewSize.Width - 8; UpdateProgress(); };
         ContentBg.Background = BrushPadDefault;
         DeadZone.Background = BrushPadDefault;
+
+        // ContentBg（内部Gridの余白部分）でのタップを吸収（余白誤タップ防止）
+        ContentBg.MouseLeftButtonDown += (_, e) => e.Handled = true;
 
         // 上部エリア全体でON/OFFを防ぐ
         TopArea.MouseLeftButtonDown += (_, e) => e.Handled = true;
@@ -147,6 +155,12 @@ public partial class PadButton : UserControl
             SeekRequested?.Invoke(this, _seekDragFraction);
             e.Handled = true;
         };
+        ProgressBorder.LostMouseCapture += (s, e) =>
+        {
+            if (!_seekDragging) return;
+            _seekDragging = false;
+            SeekRequested?.Invoke(this, _seekDragFraction);
+        };
         DeadZone.MouseLeftButtonDown += (_, e) => e.Handled = true;
 
         // TimePanel / TimeDeadZone クリックがパッドに伝わらないよう吸収
@@ -172,6 +186,7 @@ public partial class PadButton : UserControl
         CurrentTimeBox.PreviewMouseMove += CurrentTimeBox_MouseMove;
         CurrentTimeBox.PreviewMouseLeftButtonUp += CurrentTimeBox_MouseUp;
         CurrentTimeBox.PreviewMouseWheel += CurrentTimeBox_MouseWheel;
+        CurrentTimeBox.LostMouseCapture += (_, _) => { _timeDragging = false; };
 
         // 音量TextBoxのイベント
         VolumeLabel.GotFocus += (_, _) =>
@@ -263,7 +278,10 @@ public partial class PadButton : UserControl
 
     private void VolumeLabel_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        PadVolumeDragStarted?.Invoke(this, EventArgs.Empty);
+        long now = Environment.TickCount64;
+        if (now - _lastVolumeWheelTick > 1000)
+            PadVolumeDragStarted?.Invoke(this, EventArgs.Empty);
+        _lastVolumeWheelTick = now;
         bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
         int step = e.Delta > 0 ? (shift ? 10 : 1) : (shift ? -10 : -1);
         string raw = VolumeLabel.Text.TrimEnd('%').Trim();
@@ -282,12 +300,14 @@ public partial class PadButton : UserControl
         if (e.Key is Key.Return or Key.Enter)
         {
             CommitTimeBox();
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Colors.Transparent);
             Keyboard.ClearFocus();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
         {
             CurrentTimeBox.Text = FormatTimeFixed(_startSec);
+            CurrentTimeBox.BorderBrush = new SolidColorBrush(Colors.Transparent);
             Keyboard.ClearFocus();
             e.Handled = true;
         }
@@ -415,11 +435,7 @@ public partial class PadButton : UserControl
             float cap = _endSec > 0f ? _endSec : _totalSec;
             secs = Math.Max(0f, secs);
             if (cap > 0f) secs = Math.Min(secs, cap - 0.1f);
-            if (Math.Abs(secs - _startSec) > 0.05f)
-            {
-                _startSec = secs;
-                StartPositionChanged?.Invoke(this, secs);
-            }
+            _startSec = secs; // ローカル表示値のみ更新（padSettingsには反映しない）
         }
         CurrentTimeBox.Text = FormatTimeFixed(_startSec);
     }
@@ -489,10 +505,11 @@ public partial class PadButton : UserControl
 
     private void CycleTapBehavior()
     {
+        bool noPause = _category == AudioCategory.SE || _isImagePad;
         TapBehavior next = _tapBehavior switch
         {
             TapBehavior.CutOut      => TapBehavior.FadeOut,
-            TapBehavior.FadeOut     => _category == AudioCategory.SE ? TapBehavior.CutOut : TapBehavior.PauseResume,
+            TapBehavior.FadeOut     => noPause ? TapBehavior.CutOut : TapBehavior.PauseResume,
             TapBehavior.PauseResume => TapBehavior.CutOut,
             _                       => TapBehavior.FadeOut
         };
@@ -545,7 +562,7 @@ public partial class PadButton : UserControl
 
     public void SetKey(string label) => KeyLabel.Text = label;
 
-    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f, bool isMissing = false)
+    public void UpdateState(PadPlayState state, float progress, PadSettings? settings, float fadeGain = 1f, float totalSec = 0f, bool imageDisplaying = false, float imageFadeGain = -1f, bool isMissing = false, bool isPreparingVideo = false)
     {
         int newGainInt = settings != null ? Math.Clamp((int)Math.Round(settings.PadGain * 100), 0, 500) : 100;
         bool fileExists = settings != null && !string.IsNullOrEmpty(settings.FilePath);
@@ -562,13 +579,17 @@ public partial class PadButton : UserControl
                        Math.Abs(_imageFadeGain - imageFadeGain) > 0.01f ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
-                       Math.Abs(_progress - progress) > 0.001f ||
+                       (settings?.Category == AudioCategory.Movie && totalSec > 0f
+                           ? (int)(progress * totalSec) != (int)(_progress * _totalSec)
+                           : Math.Abs(_progress - progress) > 0.001f) ||
                        Math.Abs(_totalSec - totalSec) > 0.5f ||
                        startSecChanged ||
                        Math.Abs(_endSec   - newEndSec)   > 0.05f ||
                        (state == PadPlayState.FadingOut && Math.Abs(_fadeGain - fadeGain) > 0.01f) ||
                        _isMissing != isMissing ||
-                       (isMissing && _blinkPhase != newBlinkPhase);
+                       _isPreparingVideo != isPreparingVideo ||
+                       (isMissing && _blinkPhase != newBlinkPhase) ||
+                       state == PadPlayState.Paused;
         _initialized = true;
 
         var prevState = _state;
@@ -578,6 +599,7 @@ public partial class PadButton : UserControl
         _imageDisplaying = imageDisplaying;
         _imageFadeGain = imageFadeGain;
         _isMissing = isMissing;
+        _isPreparingVideo = isPreparingVideo;
         _blinkPhase = newBlinkPhase;
         _syncedStartSec = newStartSec; // padSettings値を常に追跡（!changedでも更新）
 
@@ -588,7 +610,9 @@ public partial class PadButton : UserControl
             string label = settings.CustomLabel
                 ?? System.IO.Path.GetFileNameWithoutExtension(settings.FilePath ?? "");
             string displayName = string.IsNullOrEmpty(label) ? "---" : label;
-            FileNameLabel.Text = isMissing ? $"[未リンク] {displayName}" : displayName;
+            FileNameLabel.Text = isPreparingVideo ? "準備中..."
+                                 : isMissing      ? $"[未リンク] {displayName}"
+                                 : displayName;
 
             CategoryLabel.Text = settings.Category switch
             {
@@ -645,7 +669,16 @@ public partial class PadButton : UserControl
         DeadZone.Background = ContentBg.Background;
 
         // ボーダー色・テキスト色（ショートカットキーは状態によらず常時グレー）
-        if (isMissing)
+        if (isPreparingVideo)
+        {
+            // 動画バッファリング中: グレーボーダー（準備中）
+            BorderRoot.BorderBrush     = BrushBorderNormal;
+            BorderRoot.BorderThickness = new Thickness(1.5);
+            FileNameLabel.Foreground   = BrushTextNormal;
+            KeyLabel.Foreground        = BrushKeyGray;
+            KeyBadge.BorderBrush       = BrushKeyGray;
+        }
+        else if (isMissing)
         {
             // 未リンク: 赤点滅
             BorderRoot.BorderBrush     = newBlinkPhase ? BrushBorderMissing : BrushBorderNormal;
@@ -684,6 +717,20 @@ public partial class PadButton : UserControl
             KeyLabel.Foreground  = BrushKeyGray;
             KeyBadge.BorderBrush = BrushKeyGray;
         }
+        else if (state == PadPlayState.Paused)
+        {
+            // 一時停止中: 黄色⇔グレー じんわり点滅（サイン波 1秒周期）
+            float t = (float)(Environment.TickCount64 % 1000) / 1000.0f;
+            float gain = (float)(0.5 - 0.5 * Math.Cos(2 * Math.PI * t));
+            byte br = Lerp(0x55, 0xFF, gain);
+            byte bg2 = Lerp(0x55, 0xD7, gain);
+            byte bb = Lerp(0x55, 0x00, gain);
+            BorderRoot.BorderBrush     = new SolidColorBrush(Color.FromRgb(br, bg2, bb));
+            BorderRoot.BorderThickness = new Thickness(2.5);
+            FileNameLabel.Foreground   = BrushTextNormal;
+            KeyLabel.Foreground        = BrushKeyGray;
+            KeyBadge.BorderBrush       = BrushKeyGray;
+        }
         else
         {
             BorderRoot.BorderBrush = playing ? BrushBorderPlay : BrushBorderNormal;
@@ -696,7 +743,11 @@ public partial class PadButton : UserControl
         ProgressBar.Opacity = (state == PadPlayState.FadingOut) ? Math.Clamp(fadeGain, 0f, 1f) : 1.0;
 
         UpdateProgress();
+        bool isImgPad = settings != null && !string.IsNullOrEmpty(settings.FilePath)
+                        && ImageExts.Contains(System.IO.Path.GetExtension(settings.FilePath));
+        _isImagePad = isImgPad;
         UpdateAfterPlaybackIcon();
+        AfterPlaybackBadge.Visibility = isImgPad ? Visibility.Collapsed : Visibility.Visible;
         UpdateTapBehaviorIcon();
         UpdateTimeLabel(state, progress, totalSec, _startSec, newEndSec);
     }

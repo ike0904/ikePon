@@ -579,7 +579,9 @@ public partial class PadButton : UserControl
                        Math.Abs(_imageFadeGain - imageFadeGain) > 0.01f ||
                        (settings != null && _category != settings.Category) ||
                        (settings != null && _afterPlayback != settings.AfterPlayback) ||
-                       Math.Abs(_progress - progress) > 0.001f ||
+                       (settings?.Category == AudioCategory.Movie && totalSec > 0f
+                           ? (int)(progress * totalSec) != (int)(_progress * _totalSec)
+                           : Math.Abs(_progress - progress) > 0.001f) ||
                        Math.Abs(_totalSec - totalSec) > 0.5f ||
                        startSecChanged ||
                        Math.Abs(_endSec   - newEndSec)   > 0.05f ||
