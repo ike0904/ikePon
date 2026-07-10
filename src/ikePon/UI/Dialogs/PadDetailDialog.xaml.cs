@@ -60,8 +60,9 @@ public partial class PadDetailDialog : Window
         SetResetMenu(TbDisplayName, () =>
             string.IsNullOrEmpty(TbFilePath.Text) ? "" : Path.GetFileNameWithoutExtension(TbFilePath.Text));
         SetResetMenu(TbPadGain,  "100");
-        SetResetMenu(TbStartPos, "0:00.00");
-        SetResetMenu(TbEndPos,   "");
+        SetResetMenu(TbStartPos,  "0:00.00");
+        SetResetMenu(TbEndPos,    "");
+        SetResetMenu(TbLoopStart, "");
 
         foreach (var tb in new[] { TbPadGain, TbStartPos, TbEndPos, TbLoopStart })
         {

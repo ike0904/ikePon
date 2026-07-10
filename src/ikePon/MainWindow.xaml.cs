@@ -1188,6 +1188,16 @@ public partial class MainWindow : Window
         _playback.LoadBank(_playback.ActiveBank, () =>
         {
             var src = _engine.GetSource(_playback.ActiveBank, padIndex);
+
+            // 新ファイルの総時間を超えている位置値をデフォルトにリセット
+            float total = src.FileTotalSec;
+            if (total > 0)
+            {
+                if (pad.StartPositionSec > total) pad.StartPositionSec = 0f;
+                if (pad.EndPositionSec   > total) pad.EndPositionSec   = -1f;
+                if (pad.LoopStartSec     > total) pad.LoopStartSec     = -1f;
+            }
+
             if (src.WasTruncated)
                 SetInfo2Warning($"Pad {padIndex + 1}: {fname} は99:59を超えるため99:59で打ち切りました");
             else
@@ -2234,7 +2244,7 @@ public partial class MainWindow : Window
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.113{fname}{dirty}";
+        Title = $"ikePon v1.0.114{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
