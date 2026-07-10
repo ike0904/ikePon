@@ -995,14 +995,36 @@ public partial class MainWindow : Window
         {
             t.Stop();
             _videoLoopingPadIndex = -1; // 300ms経過、黄色枠維持を解除
-            if (_movieLoopSession != capturedSess) return; // キャンセルされた
-            if (!_movieCtrl.DisplayActive) return;         // ディスプレイが閉じられた
 
-            StartMovieWallClock(restartSec); // ループ再起動で壁掛け時計もリセット
-
-            // 音声再開（NAudio）
+            // NAudio は常に再起動（DISP 切り替えタイミングで止まりっぱなしになるのを防ぐ）
             _engine.GetSource(_playback.ActiveBank, capturedPad)
                 .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
+
+            if (_movieLoopSession != capturedSess)
+            {
+                // DISP 切り替え等でセッションが変わった → DISP ON 中なら映像も再起動
+                if (_movieCtrl.DisplayActive)
+                {
+                    ++_movieLoopSession;
+                    _currentMoviePadIndex = capturedPad;
+                    StartMovieWallClock(restartSec);
+                    _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
+                    Logger.Log($"[MW] Video loop: session changed, full restart (pad={capturedPad})");
+                }
+                else
+                {
+                    Logger.Log($"[MW] Video loop: session changed, audio-only restart (pad={capturedPad})");
+                }
+                return;
+            }
+
+            if (!_movieCtrl.DisplayActive)
+            {
+                Logger.Log($"[MW] Video loop: display off, audio-only restart (pad={capturedPad})");
+                return;
+            }
+
+            StartMovieWallClock(restartSec); // ループ再起動で壁掛け時計もリセット
 
             // 映像再開（LibVLC）
             _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
@@ -1607,7 +1629,7 @@ public partial class MainWindow : Window
             FullButton.IsEnabled = false;
             if (_fullBd   != null) { _fullBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _fullBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); }
             if (_fullText != null) _fullText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
-            await Task.Delay(300);
+            await Task.Delay(1000);
         }
         finally
         {
@@ -1638,7 +1660,7 @@ public partial class MainWindow : Window
             DispButton.IsEnabled = false;
             if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)); }
             if (_dispText != null) _dispText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
-            await Task.Delay(600);
+            await Task.Delay(3000);
         }
         finally
         {
@@ -2407,14 +2429,14 @@ public partial class MainWindow : Window
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.0.123 by Ike-san";
+            Title = "ikePon v1.0.124 by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : " — 未保存";
-        Title = $"ikePon v1.0.123{fname}{dirty}";
+        Title = $"ikePon v1.0.124{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
