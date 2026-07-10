@@ -626,10 +626,13 @@ public partial class MovieWindow : Window
 
         StopFadeTimer();
         StopStandbyFadeIn();
-        // 遷移中のフラッシュ防止: スタンバイレイヤーを一時的に非表示にして、カバー閉鎖後に復元する
+        // 遷移中のフラッシュ防止: 各レイヤーの現在の状態を保存して、カバー閉鎖後に正確に復元する
         bool standbyWasVisible = StandbyLayer.Visibility == Visibility.Visible;
+        Visibility savedVideoViewVis = VideoView.Visibility;
         StandbyLayer.Visibility = Visibility.Collapsed;
-        VideoView.Visibility = Visibility.Hidden;
+        // 動画再生中（Visible）はHiddenでFGWサイズを保持。それ以外（Collapsed）はそのまま0×0維持。
+        if (savedVideoViewVis == Visibility.Visible)
+            VideoView.Visibility = Visibility.Hidden;
 
         Window cover;
         if (full)
@@ -679,9 +682,8 @@ public partial class MovieWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
             cover.Close();
-            if (_videoVisible)
-                VideoView.Visibility = Visibility.Visible;
-            else if (standbyWasVisible)
+            VideoView.Visibility = savedVideoViewVis;  // 元の状態（Visible/Collapsed）を正確に復元
+            if (standbyWasVisible)
             {
                 StandbyLayer.Opacity    = 1.0;
                 StandbyLayer.Visibility = Visibility.Visible;
