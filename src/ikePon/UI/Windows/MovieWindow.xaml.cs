@@ -97,6 +97,10 @@ public partial class MovieWindow : Window
     // 動画がループ終端に達したとき（AfterPlayback=Loop）に発火。再起動はMainWindowが担う。
     public event Action? LoopEndReached;
 
+    // VLC の現在再生位置をミリ秒で返す。再生中でなければ -1。
+    public long GetCurrentTimeMs() =>
+        _mediaPlayer.State == VLCState.Playing ? _mediaPlayer.Time : -1L;
+
     public MovieWindow(AppSettings settings, LibVLC libVLC)
     {
         _settings    = settings;

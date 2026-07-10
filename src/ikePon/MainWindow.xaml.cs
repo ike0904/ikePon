@@ -61,6 +61,9 @@ public partial class MainWindow : Window
     private int _currentMoviePadIndex = -1;
     private int _movieLoopSession;
 
+    // 映像↔音声同期補正
+    private int _videoSyncMismatchFrames;
+
     private readonly DispatcherTimer _uiTimer;
 
     // LOCK/FULL/DISP/FADE-CUT/PAUSEボタンのテンプレートパーツ（遅延キャッシュ）
@@ -513,6 +516,44 @@ public partial class MainWindow : Window
             _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing, isPreparingVideo);
         }
         UpdateActionButtons();
+        SyncMovieAudio();
+    }
+
+    // VLC（映像）と NAudio（音声）の再生位置を比較し、150ms 以上のズレが 3 フレーム連続したら音声をシークして補正する。
+    private void SyncMovieAudio()
+    {
+        int padIdx = _currentMoviePadIndex;
+        if (padIdx < 0 || _movieCtrl.IsBuffering) return;
+
+        var pad = _playback.GetPadSettings(padIdx);
+        if (pad == null || IsImageFile(pad.FilePath)) return;
+
+        if (_playback.GetPadState(padIdx) != PadPlayState.Playing) return;
+
+        long vlcMs = _movieCtrl.GetCurrentVideoTimeMs();
+        if (vlcMs < 0) return;
+
+        var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
+        float totalSec = src.FileTotalSec;
+        if (totalSec <= 0f) return;
+
+        long naudioMs = (long)(src.PlaybackPosition * totalSec * 1000f);
+        long diffMs   = vlcMs - naudioMs;
+
+        if (Math.Abs(diffMs) > 150)
+        {
+            if (++_videoSyncMismatchFrames >= 3)
+            {
+                float fraction = Math.Clamp((float)(vlcMs / 1000.0) / totalSec, 0f, 1f);
+                src.SeekToFraction(fraction);
+                _videoSyncMismatchFrames = 0;
+                Logger.Log($"[Sync] audio corrected: vlc={vlcMs}ms audio={naudioMs}ms diff={diffMs:+#;-#;0}ms");
+            }
+        }
+        else
+        {
+            _videoSyncMismatchFrames = 0;
+        }
     }
 
     private void UpdateActionButtons()

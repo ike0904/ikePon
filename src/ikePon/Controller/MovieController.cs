@@ -157,6 +157,8 @@ public sealed class MovieController : IDisposable
         _window?.SeekVideo(fraction);
     }
 
+    public long GetCurrentVideoTimeMs() => _window?.GetCurrentTimeMs() ?? -1L;
+
     public void UpdateAfterPlayback(AfterPlaybackBehavior afterPlayback)
     {
         _window?.UpdateAfterPlayback(afterPlayback);
