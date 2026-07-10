@@ -62,7 +62,9 @@ public partial class MainWindow : Window
     private int _movieLoopSession;
 
     // 映像↔音声同期補正
-    private int _videoSyncMismatchFrames;
+    private int  _videoSyncMismatchFrames;
+    private long _vlcLastKnownTimeMs = -1;  // 前回 VLC から取得した Time 値
+    private long _vlcLastUpdateTick;         // その取得時の TickCount64
 
     private readonly DispatcherTimer _uiTimer;
 
@@ -519,7 +521,8 @@ public partial class MainWindow : Window
         SyncMovieAudio();
     }
 
-    // VLC（映像）と NAudio（音声）の再生位置を比較し、150ms 以上のズレが 3 フレーム連続したら音声をシークして補正する。
+    // VLC（映像）と NAudio（音声）の再生位置を比較し、ズレが続くときだけ音声をシークして補正する。
+    // VLC の Time プロパティは ~500ms 間隔でしか更新されないため、前回値＋経過時間で補間して比較する。
     private void SyncMovieAudio()
     {
         int padIdx = _currentMoviePadIndex;
@@ -530,8 +533,17 @@ public partial class MainWindow : Window
 
         if (_playback.GetPadState(padIdx) != PadPlayState.Playing) return;
 
-        long vlcMs = _movieCtrl.GetCurrentVideoTimeMs();
-        if (vlcMs < 0) return;
+        long rawVlcMs = _movieCtrl.GetCurrentVideoTimeMs();
+        if (rawVlcMs < 0) { _vlcLastKnownTimeMs = -1; return; }
+
+        // VLC の Time が更新されたタイミングを記録し、更新間隔は壁時計で補間する
+        long now = Environment.TickCount64;
+        if (rawVlcMs != _vlcLastKnownTimeMs)
+        {
+            _vlcLastKnownTimeMs = rawVlcMs;
+            _vlcLastUpdateTick  = now;
+        }
+        long vlcMs = _vlcLastKnownTimeMs + (now - _vlcLastUpdateTick);
 
         var   src      = _engine.GetSource(_playback.ActiveBank, padIdx);
         float totalSec = src.FileTotalSec;
@@ -540,9 +552,9 @@ public partial class MainWindow : Window
         long naudioMs = (long)(src.PlaybackPosition * totalSec * 1000f);
         long diffMs   = vlcMs - naudioMs;
 
-        if (Math.Abs(diffMs) > 150)
+        if (Math.Abs(diffMs) > 300)
         {
-            if (++_videoSyncMismatchFrames >= 3)
+            if (++_videoSyncMismatchFrames >= 5)
             {
                 float fraction = Math.Clamp((float)(vlcMs / 1000.0) / totalSec, 0f, 1f);
                 src.SeekToFraction(fraction);
