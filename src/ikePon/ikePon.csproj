@@ -14,6 +14,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,5 +25,10 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
+
+
+  <Target Name="RemoveX86LibVLC" AfterTargets="Build">
+    <RemoveDir Directories="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\libvlc\win-x86" />
+  </Target>
 
 </Project>
