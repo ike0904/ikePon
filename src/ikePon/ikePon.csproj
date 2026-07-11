@@ -35,4 +35,13 @@
     <RemoveDir Directories="$(PublishDir)libvlc\win-x86" />
   </Target>
 
+  <!-- Release publish後: bin\Release\net9.0-windows 直下の loose ファイルと libvlc を削除 -->
+  <Target Name="CleanReleaseOutputDir" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_LooseOutputFiles Include="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\*.*" />
+    </ItemGroup>
+    <Delete Files="@(_LooseOutputFiles)" />
+    <RemoveDir Directories="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\libvlc" />
+  </Target>
+
 </Project>
