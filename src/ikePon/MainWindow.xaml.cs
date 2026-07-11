@@ -498,13 +498,32 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
-    // アスペクト比固定（WM_SIZING フック）
+    // アスペクト比固定（WM_SIZING / WM_GETMINMAXINFO フック）
     // ------------------------------------------------------------------
     [StructLayout(LayoutKind.Sequential)]
     private struct Win32Rect { public int Left, Top, Right, Bottom; }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Win32Point { public int X, Y; public Win32Point(int x, int y) { X = x; Y = y; } }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public Win32Point ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MonitorInfoEx
+    {
+        public int cbSize;
+        public Win32Rect rcMonitor, rcWork;
+        public uint dwFlags;
+    }
+
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Win32Rect r);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out Win32Rect r);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(IntPtr hMon, ref MonitorInfoEx mi);
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -518,42 +537,79 @@ public partial class MainWindow : Window
         HwndSource.FromHwnd(hwnd)?.AddHook(AspectRatioWndProc);
     }
 
-    private const int WM_SIZING = 0x0214;
+    private const int WM_SIZING        = 0x0214;
+    private const int WM_GETMINMAXINFO = 0x0024;
 
     private IntPtr AspectRatioWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg != WM_SIZING) return IntPtr.Zero;
-
-        var rc = Marshal.PtrToStructure<Win32Rect>(lParam);
-        int edge = wParam.ToInt32();
-        int cw = rc.Right  - rc.Left - _mainNcW;
-        int ch = rc.Bottom - rc.Top  - _mainNcH;
-
-        switch (edge)
+        if (msg == WM_GETMINMAXINFO && _mainAspectRatio > 0)
         {
-            case 1: // WMSZ_LEFT
-            case 2: // WMSZ_RIGHT
-                rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
-                break;
-            case 3: // WMSZ_TOP
-                rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
-                break;
-            case 6: // WMSZ_BOTTOM
-                rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
-                break;
-            case 4: // WMSZ_TOPLEFT
-            case 5: // WMSZ_TOPRIGHT
-                rc.Top    = rc.Bottom - (int)Math.Round(cw / _mainAspectRatio) - _mainNcH;
-                break;
-            case 7: // WMSZ_BOTTOMLEFT
-            case 8: // WMSZ_BOTTOMRIGHT
-                rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
-                break;
+            var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            var mi  = new MonitorInfoEx { cbSize = Marshal.SizeOf<MonitorInfoEx>() };
+            GetMonitorInfo(MonitorFromWindow(hwnd, 2 /*DEFAULTTONEAREST*/), ref mi);
+
+            int workW = mi.rcWork.Right  - mi.rcWork.Left;
+            int workH = mi.rcWork.Bottom - mi.rcWork.Top;
+
+            // 作業領域に収まる最大ウィンドウサイズを計算（アスペクト比維持）
+            int totalW, totalH;
+            if ((workW - _mainNcW) / _mainAspectRatio + _mainNcH <= workH)
+            {
+                totalW = workW;
+                totalH = (int)Math.Round((workW - _mainNcW) / _mainAspectRatio) + _mainNcH;
+            }
+            else
+            {
+                totalH = workH;
+                totalW = (int)Math.Round((workH - _mainNcH) * _mainAspectRatio) + _mainNcW;
+            }
+
+            mmi.ptMaxSize     = new Win32Point(totalW, totalH);
+            mmi.ptMaxPosition = new Win32Point(
+                mi.rcWork.Left + (workW - totalW) / 2,
+                mi.rcWork.Top  + (workH - totalH) / 2);
+            mmi.ptMaxTrackSize = mmi.ptMaxSize;
+
+            Marshal.StructureToPtr(mmi, lParam, false);
+            handled = true;
+            return IntPtr.Zero;
         }
 
-        Marshal.StructureToPtr(rc, lParam, false);
-        handled = true;
-        return new IntPtr(1);
+        if (msg == WM_SIZING)
+        {
+            var rc   = Marshal.PtrToStructure<Win32Rect>(lParam);
+            int edge = wParam.ToInt32();
+            int cw   = rc.Right  - rc.Left - _mainNcW;
+            int ch   = rc.Bottom - rc.Top  - _mainNcH;
+
+            switch (edge)
+            {
+                case 1: // WMSZ_LEFT
+                case 2: // WMSZ_RIGHT
+                    rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                    break;
+                case 3: // WMSZ_TOP
+                    rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
+                    break;
+                case 6: // WMSZ_BOTTOM
+                    rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
+                    break;
+                case 4: // WMSZ_TOPLEFT
+                case 5: // WMSZ_TOPRIGHT
+                    rc.Top    = rc.Bottom - (int)Math.Round(cw / _mainAspectRatio) - _mainNcH;
+                    break;
+                case 7: // WMSZ_BOTTOMLEFT
+                case 8: // WMSZ_BOTTOMRIGHT
+                    rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                    break;
+            }
+
+            Marshal.StructureToPtr(rc, lParam, false);
+            handled = true;
+            return new IntPtr(1);
+        }
+
+        return IntPtr.Zero;
     }
 
     private void WireEvents()
