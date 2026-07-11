@@ -20,7 +20,7 @@
     <sys:String x:Key="Str_Btn_ResetDefault">初期値に戻す</sys:String>
 
     <!-- 設定ダイアログ -->
-    <sys:String x:Key="Str_Dlg_Settings_Title">設定</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Title">全体設定</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_FadeOutTime">フェードアウト時間</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Sec">秒</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_StandbyImage">スタンバイ画像</sys:String>
