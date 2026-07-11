@@ -12,11 +12,11 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("ikePon")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("1.2.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.2.2+6668a51e32ef4d26e3a9ec75c5bcf88a67d4e930")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.2.3.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.2.3+f7c1ac778983ddf0f99ad5b9232cb5ebf62ae2ff")]
 [assembly: System.Reflection.AssemblyProductAttribute("ikePon")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ikePon")]
-[assembly: System.Reflection.AssemblyVersionAttribute("1.2.2.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.2.3.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
 

@@ -14,11 +14,13 @@ public static class L
     public static void Load(ResourceDictionary resources)
     {
         var dict = new Dictionary<string, string>();
+        foreach (var merged in resources.MergedDictionaries)
+            foreach (object key in merged.Keys)
+                if (key is string k && merged[k] is string v)
+                    dict[k] = v;
         foreach (object key in resources.Keys)
-        {
             if (key is string k && resources[k] is string v)
                 dict[k] = v;
-        }
         _strings = dict;
     }
 
