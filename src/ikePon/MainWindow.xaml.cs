@@ -135,6 +135,10 @@ public partial class MainWindow : Window
     // 確認待ち（新規プロジェクト）
     private bool _pendingNewConfirm;
 
+    // アスペクト比固定（WM_SIZING フック用）
+    private double _mainAspectRatio;
+    private int _mainNcW, _mainNcH;
+
     private static readonly SolidColorBrush BrushBankNormal   = new(Color.FromRgb(0x30, 0x30, 0x30));
     private static readonly SolidColorBrush BrushBankBorderN  = new(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly SolidColorBrush BrushBankBorderS  = new(Color.FromRgb(0xFF, 0xD7, 0x00)); // 黄色ボーダー（選択中）
@@ -491,6 +495,65 @@ public partial class MainWindow : Window
             _faders[i] = fader;
             MixerGrid.Children.Add(fader);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // アスペクト比固定（WM_SIZING フック）
+    // ------------------------------------------------------------------
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Win32Rect { public int Left, Top, Right, Bottom; }
+
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Win32Rect r);
+    [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out Win32Rect r);
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var hwnd = new WindowInteropHelper(this).Handle;
+        GetWindowRect(hwnd, out var wr);
+        GetClientRect(hwnd, out var cr);
+        _mainNcW = (wr.Right - wr.Left) - cr.Right;
+        _mainNcH = (wr.Bottom - wr.Top) - cr.Bottom;
+        _mainAspectRatio = MinWidth / MinHeight; // 1200 / 720 = 5:3
+        HwndSource.FromHwnd(hwnd)?.AddHook(AspectRatioWndProc);
+    }
+
+    private const int WM_SIZING = 0x0214;
+
+    private IntPtr AspectRatioWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_SIZING) return IntPtr.Zero;
+
+        var rc = Marshal.PtrToStructure<Win32Rect>(lParam);
+        int edge = wParam.ToInt32();
+        int cw = rc.Right  - rc.Left - _mainNcW;
+        int ch = rc.Bottom - rc.Top  - _mainNcH;
+
+        switch (edge)
+        {
+            case 1: // WMSZ_LEFT
+            case 2: // WMSZ_RIGHT
+                rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                break;
+            case 3: // WMSZ_TOP
+                rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
+                break;
+            case 6: // WMSZ_BOTTOM
+                rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
+                break;
+            case 4: // WMSZ_TOPLEFT
+            case 5: // WMSZ_TOPRIGHT
+                rc.Top    = rc.Bottom - (int)Math.Round(cw / _mainAspectRatio) - _mainNcH;
+                break;
+            case 7: // WMSZ_BOTTOMLEFT
+            case 8: // WMSZ_BOTTOMRIGHT
+                rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                break;
+        }
+
+        Marshal.StructureToPtr(rc, lParam, false);
+        handled = true;
+        return new IntPtr(1);
     }
 
     private void WireEvents()
