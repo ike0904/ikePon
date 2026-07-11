@@ -1,0 +1,139 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Menu -->
+    <sys:String x:Key="Str_Menu_File">File(_F)</sys:String>
+    <sys:String x:Key="Str_Menu_New">New Project(_N)</sys:String>
+    <sys:String x:Key="Str_Menu_Open">Open(_O)...</sys:String>
+    <sys:String x:Key="Str_Menu_Save">Save(_S)</sys:String>
+    <sys:String x:Key="Str_Menu_SaveAs">Save As(_A)...</sys:String>
+    <sys:String x:Key="Str_Menu_Exit">Exit(_X)</sys:String>
+    <sys:String x:Key="Str_Menu_Edit">Edit(_E)</sys:String>
+    <sys:String x:Key="Str_Menu_Undo">Undo(_Z)</sys:String>
+    <sys:String x:Key="Str_Menu_Redo">Redo(_Y)</sys:String>
+    <sys:String x:Key="Str_Menu_Settings">Settings(_E)...</sys:String>
+
+    <!-- Buttons (shared) -->
+    <sys:String x:Key="Str_Btn_OK">OK</sys:String>
+    <sys:String x:Key="Str_Btn_Cancel">Cancel</sys:String>
+    <sys:String x:Key="Str_Btn_ResetDefault">Reset to default</sys:String>
+
+    <!-- Settings dialog -->
+    <sys:String x:Key="Str_Dlg_Settings_Title">Settings</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_FadeOutTime">Fade Out Duration</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Sec">sec</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_StandbyImage">Standby Image</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_StandbyHint">Change file: Drag &amp; drop here</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_FadeInTime">Fade In Duration</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_PaSeparate">PA Separate Mode</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_MidiDevice">MIDI Input Device</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Interlock">Interlock</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_RapidFire">Rapid Fire Prevention</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Audio">Audio Settings</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_WasapiLatency">WASAPI Latency</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Preload">Preload Limit</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_AudioNote">* Audio setting changes take effect after app restart.</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Language">言語 / Language</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_LangNote">* Language changes take effect after app restart.</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_MidiNone">None (disabled)</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_ErrorRange">Invalid value. Enter a value in the range {0}.</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_ErrorTitle">Input Error</sys:String>
+
+    <!-- Pad detail dialog -->
+    <sys:String x:Key="Str_Dlg_Pad_Title">Pad Settings</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_FilePath">File Path</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_FileHint">Change file: Drag &amp; drop here</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_Category">Category</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_DisplayName">Display Name</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_PadColor">Pad Color</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_Volume">Volume</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_VolumeHint">(100%=standard)</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_StartPos">Start Position</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_EndPos">End Position</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_EndHint">(empty=end of file)</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopStart">Loop Start Position</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopHint">(empty=from beginning)</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterPlay">After Playback</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterStop">Stop</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterFreeze">Freeze Last Frame</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterLoop">Loop</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapBehavior">Tap While Playing</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapFade">Fade Out</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapCut">Cut Out</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapPause">Pause/Resume</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TotalTime">/ {0}  (total)</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_GainError">Volume: integer 0–500</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_PosError">Enter a time after the start position</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_ErrorTitle">Input Error</sys:String>
+
+    <!-- Bank detail dialog -->
+    <sys:String x:Key="Str_Dlg_Bank_Title">Bank Settings</sys:String>
+    <sys:String x:Key="Str_Dlg_Bank_DisplayName">Display Name</sys:String>
+    <sys:String x:Key="Str_Dlg_Bank_Color">Background Color</sys:String>
+
+    <!-- Info messages -->
+    <sys:String x:Key="Str_Info_Ready">Ready</sys:String>
+    <sys:String x:Key="Str_Info_Loading">Loading</sys:String>
+    <sys:String x:Key="Str_Info_BlackScreen">Display window is black (toggle DISP OFF→ON to fix)</sys:String>
+    <sys:String x:Key="Str_Info_Buffering">Buffering...</sys:String>
+    <sys:String x:Key="Str_Info_SwapBankPlaying">Cannot swap banks while playing</sys:String>
+    <sys:String x:Key="Str_Info_UndoLimit">Nothing more to undo</sys:String>
+    <sys:String x:Key="Str_Info_RedoLimit">Nothing to redo</sys:String>
+    <sys:String x:Key="Str_Info_Undone">Undone</sys:String>
+    <sys:String x:Key="Str_Info_Redone">Redone</sys:String>
+    <sys:String x:Key="Str_Info_SwitchPlaying">Cannot switch banks while playing</sys:String>
+    <sys:String x:Key="Str_Info_DiscardConfirm">Discard current project?&#xA;[Y] Confirm  /  [N] Cancel</sys:String>
+    <sys:String x:Key="Str_Info_NewProject">New project created.</sys:String>
+    <sys:String x:Key="Str_Info_LoadFailed">Failed to load.</sys:String>
+    <sys:String x:Key="Str_Info_Saved">Saved: {0}</sys:String>
+    <sys:String x:Key="Str_Info_Loaded">Loaded project: {0}</sys:String>
+    <sys:String x:Key="Str_Info_SettingsSaved">Settings saved.</sys:String>
+    <sys:String x:Key="Str_Info_BankCleared">Bank {0} cleared.</sys:String>
+    <sys:String x:Key="Str_Info_BankClearConfirm">Clear all contents of Bank {0}?&#xA;[Y] Confirm  /  [N] Cancel</sys:String>
+    <sys:String x:Key="Str_Info_PadPasted">Pasted settings to Pad {0}.</sys:String>
+    <sys:String x:Key="Str_Info_PadUpdated">Pad {0}: Settings updated.</sys:String>
+    <sys:String x:Key="Str_Info_PadTruncated"> (truncated at 99:59)</sys:String>
+    <sys:String x:Key="Str_Info_FileTruncated">Pad {0}: {1} was truncated at 99:59</sys:String>
+    <sys:String x:Key="Str_Info_FileLoaded">Pad {0}: {1} loaded</sys:String>
+    <sys:String x:Key="Str_Info_FileLoading">Pad {0}: Loading {1}...</sys:String>
+    <sys:String x:Key="Str_Info_SwapPads">Swapped Pads {0} and {1}</sys:String>
+    <sys:String x:Key="Str_Info_SwapBanks">Swapped Banks {0} and {1}</sys:String>
+    <sys:String x:Key="Str_Info_BankSwitched">Switched to Bank {0}</sys:String>
+    <sys:String x:Key="Str_Info_BankPasted">Pasted settings to Bank {0}.</sys:String>
+    <sys:String x:Key="Str_Info_MemOverwrite">{0} M{1} overwrite?&#xA;[Y] Confirm  /  [N] Cancel</sys:String>
+    <sys:String x:Key="Str_Info_Unsaved">(unsaved)</sys:String>
+
+    <!-- Context menus -->
+    <sys:String x:Key="Str_CM_FadeOut">Fade Out</sys:String>
+    <sys:String x:Key="Str_CM_CutOut">Cut Out</sys:String>
+    <sys:String x:Key="Str_CM_PauseResume">Pause/Resume</sys:String>
+    <sys:String x:Key="Str_CM_Detail">Details...</sys:String>
+    <sys:String x:Key="Str_CM_Copy">Copy</sys:String>
+    <sys:String x:Key="Str_CM_Paste">Paste</sys:String>
+    <sys:String x:Key="Str_CM_Delete">Delete</sys:String>
+
+    <!-- File dialogs -->
+    <sys:String x:Key="Str_File_OpenProject">Open Project</sys:String>
+    <sys:String x:Key="Str_File_SaveAs">Save As</sys:String>
+    <sys:String x:Key="Str_File_SelectPad">Select file for Pad {0}</sys:String>
+    <sys:String x:Key="Str_File_SelectManual">Manually select file: {0}</sys:String>
+    <sys:String x:Key="Str_File_FilterProject">ikePon Project (*.ikp)|*.ikp|All Files|*.*</sys:String>
+    <sys:String x:Key="Str_File_FilterMedia">Audio/Video/Image Files|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|All Files|*.*</sys:String>
+
+    <!-- Message boxes -->
+    <sys:String x:Key="Str_Msg_UnhandledError">An unexpected error occurred:&#xA;{0}</sys:String>
+    <sys:String x:Key="Str_Msg_UnhandledErrorTitle">ikePon - Error</sys:String>
+    <sys:String x:Key="Str_Msg_UnsavedClose">Unsaved changes. Save before closing?</sys:String>
+    <sys:String x:Key="Str_Msg_SaveFailed">Failed to save:&#xA;{0}</sys:String>
+
+    <!-- Controller messages -->
+    <sys:String x:Key="Str_Ctrl_RelocateStart">Searching for missing files... (0/{0})</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateProgress">Searching for missing files... ({0}/{1})</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateProgressScan">Searching for missing files... ({0}/{1})  Scanning folders...</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateManual">{0} file(s) not found. Please manually specify one...</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateDone">Auto-repaired {0} missing file(s).</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateMissing">{0} file(s) not found. Check the pads.</sys:String>
+    <sys:String x:Key="Str_Ctrl_MovieInit">Initializing video engine...</sys:String>
+
+</ResourceDictionary>

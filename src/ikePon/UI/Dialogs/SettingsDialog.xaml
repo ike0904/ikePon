@@ -1,7 +1,7 @@
 <Window x:Class="ikePon.UI.Dialogs.SettingsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="設定" Width="480" SizeToContent="Height"
+        Title="{StaticResource Str_Dlg_Settings_Title}" Width="480" SizeToContent="Height"
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E" Foreground="#CCCCCC"
@@ -114,18 +114,18 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="フェードアウト時間" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_FadeOutTime}" Grid.Column="0"/>
             <TextBox  x:Name="TbLongFade" Grid.Column="1"
                       KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                       PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
                       PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
-            <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
+            <Label    Content="{StaticResource Str_Dlg_Settings_Sec}" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
         <Separator Background="#383838" Margin="0,0,0,12"/>
 
         <!-- スタンバイ画像 -->
-        <TextBlock Text="スタンバイ画像" FontWeight="Bold" FontSize="12"
+        <TextBlock Text="{StaticResource Str_Dlg_Settings_StandbyImage}" FontWeight="Bold" FontSize="12"
                    Foreground="#AAAAAA" Margin="0,0,0,8"/>
 
         <Grid Margin="0,0,0,2">
@@ -154,7 +154,7 @@
                     Background="#3C3C3C" BorderBrush="#555" Foreground="#CCC"
                     Padding="0"/>
         </Grid>
-        <TextBlock Text="別ファイルに変更：ここへドラッグ＆ドロップ"
+        <TextBlock Text="{StaticResource Str_Dlg_Settings_StandbyHint}"
                    FontSize="10" Foreground="#666" Margin="0,2,0,6" TextWrapping="Wrap"/>
 
         <Grid Margin="0,0,0,0">
@@ -163,12 +163,12 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="フェードイン時間" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_FadeInTime}" Grid.Column="0"/>
             <TextBox x:Name="TbStandbyFadeIn" Grid.Column="1"
                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                      PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
                      PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
-            <Label Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
+            <Label Content="{StaticResource Str_Dlg_Settings_Sec}" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
         <Separator Background="#383838" Margin="0,8,0,8"/>
@@ -180,7 +180,7 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="PAセパレートモード" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_PaSeparate}" Grid.Column="0"/>
             <ComboBox x:Name="CbPaSeparate" Grid.Column="1" Width="70">
                 <ComboBoxItem Content="OFF"/>
                 <ComboBoxItem Content="ON"/>
@@ -196,14 +196,14 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="180"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="MIDI入力デバイス" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_MidiDevice}" Grid.Column="0"/>
             <ComboBox x:Name="CbMidiDevice" Grid.Column="1"/>
         </Grid>
 
         <Separator Background="#383838" Margin="0,8"/>
 
         <!-- インターロック -->
-        <TextBlock Text="インターロック" FontWeight="Bold" FontSize="12"
+        <TextBlock Text="{StaticResource Str_Dlg_Settings_Interlock}" FontWeight="Bold" FontSize="12"
                    Foreground="#AAAAAA" Margin="0,0,0,8"/>
 
         <Grid Margin="0,0,0,6">
@@ -212,7 +212,7 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="連打防止時間" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_RapidFire}" Grid.Column="0"/>
             <TextBox  x:Name="TbInterlock" Grid.Column="1"
                       KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                       PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
@@ -223,7 +223,7 @@
         <Separator Background="#383838" Margin="0,8"/>
 
         <!-- オーディオ設定 -->
-        <TextBlock Text="オーディオ設定" FontWeight="Bold" FontSize="12"
+        <TextBlock Text="{StaticResource Str_Dlg_Settings_Audio}" FontWeight="Bold" FontSize="12"
                    Foreground="#AAAAAA" Margin="0,0,0,8"/>
 
         <Grid Margin="0,0,0,6">
@@ -232,7 +232,7 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="WASAPIレイテンシ" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_WasapiLatency}" Grid.Column="0"/>
             <TextBox  x:Name="TbLatency" Grid.Column="1"
                       KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                       PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
@@ -246,26 +246,46 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="プリロード上限" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_Preload}" Grid.Column="0"/>
             <TextBox  x:Name="TbPreload" Grid.Column="1"
                       KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
                       PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
                       PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
-            <Label    Content="秒" Grid.Column="2" Margin="4,0,0,0"/>
+            <Label    Content="{StaticResource Str_Dlg_Settings_Sec}" Grid.Column="2" Margin="4,0,0,0"/>
         </Grid>
 
-        <TextBlock Text="※ オーディオ設定の変更はアプリ再起動後に反映されます。"
+        <TextBlock Text="{StaticResource Str_Dlg_Settings_AudioNote}"
                    FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"/>
+
+        <Separator Background="#383838" Margin="0,8"/>
+
+        <!-- 言語 / Language -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="180"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_Language}" Grid.Column="0"/>
+            <ComboBox x:Name="CbLanguage" Grid.Column="1">
+                <ComboBoxItem Content="日本語" Tag="ja"/>
+                <ComboBoxItem Content="English" Tag="en"/>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock x:Name="TbLangNote"
+                   Text="{StaticResource Str_Dlg_Settings_LangNote}"
+                   FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"
+                   Visibility="Collapsed"/>
 
         <Separator Background="#383838" Margin="0,12"/>
 
         <!-- OK / キャンセル -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="BtnOk" Content="OK" Width="80" Margin="0,0,8,0"
+            <Button x:Name="BtnOk" Content="{StaticResource Str_Btn_OK}" Width="80" Margin="0,0,8,0"
                     Click="BtnOk_Click"
                     Background="#1C446E" BorderBrush="#3A9FFF" Foreground="White"
                     Padding="0,4" Cursor="Hand"/>
-            <Button x:Name="BtnCancel" Content="キャンセル" Width="80"
+            <Button x:Name="BtnCancel" Content="{StaticResource Str_Btn_Cancel}" Width="80"
                     Click="BtnCancel_Click"
                     Background="#3C3C3C" BorderBrush="#555" Foreground="#CCC"
                     Padding="0,4" Cursor="Hand"/>

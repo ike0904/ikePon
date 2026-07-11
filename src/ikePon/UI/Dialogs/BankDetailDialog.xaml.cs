@@ -35,7 +35,7 @@ public partial class BankDetailDialog : Window
         TbDisplayName.SelectAll();
 
         var cm   = new ContextMenu();
-        var item = new MenuItem { Header = "初期値に戻す" };
+        var item = new MenuItem { Header = L.S("Str_Btn_ResetDefault") };
         item.Click += (_, _) => TbDisplayName.Text = "";
         cm.Items.Add(item);
         TbDisplayName.ContextMenu = cm;

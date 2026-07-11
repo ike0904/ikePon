@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using ikePon.Model;
 
 namespace ikePon;
 
@@ -9,15 +10,27 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        // 言語設定を読み込んで辞書をマージ（MainWindow 生成より前に実行）
+        var settings = AppSettings.Load();
+        string lang = settings.Language is "en" or "ja" ? settings.Language : "ja";
+        var langDict = new System.Windows.ResourceDictionary
+        {
+            Source = new Uri($"Resources/Strings.{lang}.xaml", UriKind.Relative)
+        };
+        Resources.MergedDictionaries.Add(langDict);
+        L.Load(Resources);
+
         base.OnStartup(e);
 
         // 未処理例外をキャッチしてクラッシュを防ぐ
         DispatcherUnhandledException += (_, ex) =>
         {
-            MessageBox.Show($"予期しないエラーが発生しました:\n{ex.Exception.Message}",
-                "ikePon - エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(L.F("Str_Msg_UnhandledError", ex.Exception.Message),
+                L.S("Str_Msg_UnhandledErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
             ex.Handled = true;
         };
+
+        new MainWindow().Show();
     }
 
     // タイトルバーを白背景・黒テキストに設定する

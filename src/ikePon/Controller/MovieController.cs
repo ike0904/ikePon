@@ -60,7 +60,7 @@ public sealed class MovieController : IDisposable
     {
         if (!_vlcReady)
         {
-            StatusMessage?.Invoke("映像エンジン初期化中...");
+            StatusMessage?.Invoke(L.S("Str_Ctrl_MovieInit"));
             _pendingOpen = true;
             return;
         }

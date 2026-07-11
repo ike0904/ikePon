@@ -74,7 +74,7 @@ public partial class PadDetailDialog : Window
     private static void SetResetMenu(TextBox tb, string defaultValue)
     {
         var cm   = new ContextMenu();
-        var item = new MenuItem { Header = "初期値に戻す" };
+        var item = new MenuItem { Header = L.S("Str_Btn_ResetDefault") };
         item.Click += (_, _) => tb.Text = defaultValue;
         cm.Items.Add(item);
         tb.ContextMenu = cm;
@@ -83,7 +83,7 @@ public partial class PadDetailDialog : Window
     private static void SetResetMenu(TextBox tb, Func<string> getDefault)
     {
         var cm   = new ContextMenu();
-        var item = new MenuItem { Header = "初期値に戻す" };
+        var item = new MenuItem { Header = L.S("Str_Btn_ResetDefault") };
         item.Click += (_, _) => tb.Text = getDefault();
         cm.Items.Add(item);
         tb.ContextMenu = cm;
@@ -128,7 +128,7 @@ public partial class PadDetailDialog : Window
         UpdateLoopStartState();
 
         if (_fileTotalSec > 0)
-            LblTotalTime.Content = $"/ {SecsToTimestamp(_fileTotalSec)}  （総時間）";
+            LblTotalTime.Content = L.F("Str_Dlg_Pad_TotalTime", SecsToTimestamp(_fileTotalSec));
 
         _selectedBgColor = _padSettings.PadBackgroundColor;
         BuildBgColorSwatches();
@@ -209,7 +209,7 @@ public partial class PadDetailDialog : Window
         };
 
         if (!TryParseGainInt(TbPadGain.Text, out int padGainInt))
-        { ShowError(TbPadGain, "音量: 0〜500の整数"); return; }
+        { ShowError(TbPadGain, L.S("Str_Dlg_Pad_GainError")); return; }
 
         CommitPosBox(TbStartPos);
         CommitPosBox(TbEndPos);
@@ -226,7 +226,7 @@ public partial class PadDetailDialog : Window
         if (!string.IsNullOrWhiteSpace(TbEndPos.Text))
         {
             if (!TryParseTimestampLenient(TbEndPos.Text, out endSec) || endSec <= startSec)
-            { ShowError(TbEndPos, "開始位置より後の時刻を入力してください"); return; }
+            { ShowError(TbEndPos, L.S("Str_Dlg_Pad_PosError")); return; }
         }
 
         float loopStartSec = -1f;
@@ -627,7 +627,7 @@ public partial class PadDetailDialog : Window
 
     private static void ShowError(TextBox tb, string message)
     {
-        MessageBox.Show(message, "入力エラー", MessageBoxButton.OK, MessageBoxImage.Warning);
+        MessageBox.Show(message, L.S("Str_Dlg_Pad_ErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
         tb.Focus();
         tb.SelectAll();
     }

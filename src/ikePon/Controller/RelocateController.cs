@@ -41,7 +41,7 @@ public sealed class RelocateController
         int total = missing.Select(x => x.origPath).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var resolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        StatusMessage?.Invoke($"行方不明のファイルを自動再検索中... (0/{total}本)");
+        StatusMessage?.Invoke(L.F("Str_Ctrl_RelocateStart", total));
         Logger.Log($"[Relocate] Start: {total} unique missing paths");
 
         // ─── Phase 1: ヒントフォルダを自動探索（バックグラウンドスレッドで進捗をリアルタイム更新）
@@ -54,7 +54,7 @@ public sealed class RelocateController
                 if (resolved.Count >= total) break;
 
                 Logger.Log($"[Relocate] Searching: {hintDir}");
-                StatusMessage?.Invoke($"行方不明のファイルを自動再検索中... ({resolved.Count}/{total}本)  フォルダ走査中...");
+                StatusMessage?.Invoke(L.F("Str_Ctrl_RelocateProgressScan", resolved.Count, total));
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 var index = BuildFileIndex(hintDir, cts.Token);
@@ -79,7 +79,7 @@ public sealed class RelocateController
 
                         // バックグラウンドスレッドから Dispatcher.Invoke 経由でUI更新
                         StatusMessage?.Invoke(
-                            $"行方不明のファイルを自動再検索中... ({resolved.Count}/{total}本)");
+                            L.F("Str_Ctrl_RelocateProgress", resolved.Count, total));
                     }
                 }
             }
@@ -93,8 +93,7 @@ public sealed class RelocateController
 
         if (unresolved.Count > 0)
         {
-            StatusMessage?.Invoke(
-                $"{unresolved.Count}本のファイルが見つかりません。手動で1つ指定してください...");
+            StatusMessage?.Invoke(L.F("Str_Ctrl_RelocateManual", unresolved.Count));
 
             string? selected = await promptUserForFile(unresolved[0].origPath);
 
@@ -143,10 +142,9 @@ public sealed class RelocateController
             }
 
         if (finalMissing.Count == 0)
-            StatusMessage?.Invoke($"{resolved.Count}本の行方不明ファイルを自動修復しました。");
+            StatusMessage?.Invoke(L.F("Str_Ctrl_RelocateDone", resolved.Count));
         else
-            StatusMessage?.Invoke(
-                $"{finalMissing.Count}本のファイルが見つかりません。パッドを確認してください。");
+            StatusMessage?.Invoke(L.F("Str_Ctrl_RelocateMissing", finalMissing.Count));
 
         Logger.Log($"[Relocate] Done: resolved={resolved.Count}, stillMissing={finalMissing.Count}");
         return finalMissing;

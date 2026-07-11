@@ -32,13 +32,17 @@ public partial class SettingsDialog : Window
         TbMovieStandby.Text = settings.MovieStandbyImagePath ?? "";
 
         // MIDIデバイス一覧を列挙
-        CbMidiDevice.Items.Add("なし（無効）");
+        CbMidiDevice.Items.Add(L.S("Str_Dlg_Settings_MidiNone"));
         foreach (var name in MidiController.GetDeviceNames())
             CbMidiDevice.Items.Add(name);
         // 保存済みデバイスを選択
         int midiIdx = CbMidiDevice.Items.Cast<string>()
             .ToList().IndexOf(settings.SelectedMidiDeviceName);
         CbMidiDevice.SelectedIndex = midiIdx >= 0 ? midiIdx : 0;
+
+        // 言語選択
+        CbLanguage.SelectedIndex = settings.Language == "en" ? 1 : 0;
+        CbLanguage.SelectionChanged += CbLanguage_SelectionChanged;
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
@@ -48,10 +52,18 @@ public partial class SettingsDialog : Window
         SetResetMenu(TbMovieStandby,  "");
     }
 
+    private void CbLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        string selected = CbLanguage.SelectedIndex == 1 ? "en" : "ja";
+        TbLangNote.Visibility = selected != _settings.Language
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
     private static void SetResetMenu(TextBox tb, string defaultValue)
     {
         var cm   = new ContextMenu();
-        var item = new MenuItem { Header = "初期値に戻す" };
+        var item = new MenuItem { Header = L.S("Str_Btn_ResetDefault") };
         item.Click += (_, _) => tb.Text = defaultValue;
         cm.Items.Add(item);
         tb.ContextMenu = cm;
@@ -99,6 +111,7 @@ public partial class SettingsDialog : Window
         _settings.SelectedMidiDeviceName  = CbMidiDevice.SelectedIndex > 0
             ? (CbMidiDevice.SelectedItem as string ?? "")
             : "";
+        _settings.Language = CbLanguage.SelectedIndex == 1 ? "en" : "ja";
 
         DialogResult = true;
     }
@@ -227,7 +240,8 @@ public partial class SettingsDialog : Window
 
     private static void ShowError(System.Windows.Controls.TextBox tb, string range)
     {
-        MessageBox.Show($"値が無効です。{range} の範囲で入力してください。", "入力エラー",
+        MessageBox.Show(L.F("Str_Dlg_Settings_ErrorRange", range),
+            L.S("Str_Dlg_Settings_ErrorTitle"),
             MessageBoxButton.OK, MessageBoxImage.Warning);
         tb.Focus();
         tb.SelectAll();

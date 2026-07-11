@@ -887,3 +887,6 @@ E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\U
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Windows\MovieWindow.g.cs
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\BankDetailDialog.baml
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\UI\Dialogs\BankDetailDialog.g.cs
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\Resources\Strings.en.baml
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\Resources\Strings.ja.baml
+E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\obj\Debug\net9.0-windows\App.baml

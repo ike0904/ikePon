@@ -33,7 +33,7 @@ public partial class MainWindow : Window
     private bool _authorTitleActive;      // 起動直後のみ "by Ike-san" 表示
     private string? _assocFilePath;      // 関連付けで渡された .ikp パス
     private bool _blackScreenWarning;     // 黒画面警告表示中フラグ
-    private const string BlackScreenMsg = "映像ウィンドウが黒画面です（DISP を OFF→ON で復旧）";
+    private string BlackScreenMsg => L.S("Str_Info_BlackScreen");
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
     private readonly Button[] _bankButtons = new Button[ProjectData.BankCount];
@@ -214,7 +214,7 @@ public partial class MainWindow : Window
         UpdateFullButton(_movieCtrl.IsFullScreen);
         UpdateDispButton(_movieCtrl.DisplayActive);
         UpdateLockButton();
-        SetInfo2("準備完了");
+        SetInfo2(L.S("Str_Info_Ready"));
         Loaded += async (_, _) =>
         {
             _initComplete = true;
@@ -489,7 +489,7 @@ public partial class MainWindow : Window
                 if (_pendingMemOverwrite.HasValue || _pendingBankClearIndex >= 0) return;
                 var f = (VFaderControl)s!;
                 _pendingMemOverwrite = (f, args.slot, args.gain);
-                SetInfo2Warning($"{f.Label} M{args.slot + 1} 上書き登録しますか？\n[Y] 確定  /  [N] キャンセル");
+                SetInfo2Warning(L.F("Str_Info_MemOverwrite", f.Label, args.slot + 1));
             };
 
             _faders[i] = fader;
@@ -635,10 +635,11 @@ public partial class MainWindow : Window
     private void UiTimer_Tick(object? sender, EventArgs e)
     {
         // 読み込み中アニメーション（ドット数を 1→2→3→1 でサイクル）
-        if (_bankLoading && InfoLine2.Text.StartsWith("読み込み中"))
+        string loadingPrefix = L.S("Str_Info_Loading");
+        if (_bankLoading && InfoLine2.Text.StartsWith(loadingPrefix))
         {
             int dots = (int)(Environment.TickCount64 / 400) % 3 + 1;
-            InfoLine2.Text = "読み込み中" + new string('.', dots);
+            InfoLine2.Text = loadingPrefix + new string('.', dots);
         }
 
         // 静止画フェード進行を計算（フェード完了したらリセット）
@@ -1001,7 +1002,7 @@ public partial class MainWindow : Window
             if (padCat == AudioCategory.Movie && !IsImageFile(padSets0?.FilePath) && _movieCtrl.IsBuffering)
             {
                 Logger.Log($"[MW] Pad{padIdx.Value + 1} blocked: buffering");
-                SetInfo2("バッファリング中...");
+                SetInfo2(L.S("Str_Info_Buffering"));
                 return true;
             }
 
@@ -1043,9 +1044,9 @@ public partial class MainWindow : Window
         {
             bool duringPauseAll = _isPauseAllActive;
             // PAUSE中はカットアウト以外をグレーアウト
-            var fadeOut = new MenuItem { Header = "フェードアウト", IsEnabled = !duringPauseAll };
+            var fadeOut = new MenuItem { Header = L.S("Str_CM_FadeOut"), IsEnabled = !duringPauseAll };
             fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
-            var cutOut = new MenuItem { Header = "カットアウト" };
+            var cutOut = new MenuItem { Header = L.S("Str_CM_CutOut") };
             cutOut.Click += (_, _) =>
             {
                 TriggerPadWithMovie(padIndex, stopImmediate: true);
@@ -1054,7 +1055,7 @@ public partial class MainWindow : Window
                     Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
             };
             bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !duringPauseAll;
-            var pauseResume = new MenuItem { Header = "一時停止／再開", IsEnabled = pauseEnabled };
+            var pauseResume = new MenuItem { Header = L.S("Str_CM_PauseResume"), IsEnabled = pauseEnabled };
             pauseResume.Click += (_, _) => PausePadWithMovie(padIndex);
             cm.Items.Add(fadeOut);
             cm.Items.Add(cutOut);
@@ -1064,7 +1065,7 @@ public partial class MainWindow : Window
         {
             var pad = _playback.GetPadSettings(padIndex);
 
-            var detail = new MenuItem { Header = "詳細設定..." };
+            var detail = new MenuItem { Header = L.S("Str_CM_Detail") };
             detail.Click += (_, _) => OpenPadDetail(padIndex);
             cm.Items.Add(detail);
 
@@ -1072,15 +1073,15 @@ public partial class MainWindow : Window
             {
                 cm.Items.Add(new Separator());
 
-                var copyItem = new MenuItem { Header = "コピー", IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
+                var copyItem = new MenuItem { Header = L.S("Str_CM_Copy"), IsEnabled = !string.IsNullOrEmpty(pad.FilePath) };
                 copyItem.Click += (_, _) => { _clipboardPad = pad.Clone(); };
                 cm.Items.Add(copyItem);
 
-                var pasteItem = new MenuItem { Header = "ペースト", IsEnabled = _clipboardPad != null };
+                var pasteItem = new MenuItem { Header = L.S("Str_CM_Paste"), IsEnabled = _clipboardPad != null };
                 pasteItem.Click += (_, _) => PastePadSettings(padIndex);
                 cm.Items.Add(pasteItem);
 
-                var clear = new MenuItem { Header = "削除" };
+                var clear = new MenuItem { Header = L.S("Str_CM_Delete") };
                 clear.Click += (_, _) => ClearPad(padIndex);
                 cm.Items.Add(clear);
             }
@@ -1286,7 +1287,7 @@ public partial class MainWindow : Window
         dest.TapBehavior        = _clipboardPad.TapBehavior;
         dest.LoopStartSec       = _clipboardPad.LoopStartSec;
         _engine.SetPadCategory(_playback.ActiveBank, padIndex, dest.Category);
-        string padMsg = $"Pad {padIndex + 1} に設定をペーストしました。";
+        string padMsg = L.F("Str_Info_PadPasted", padIndex + 1);
         _playback.LoadBank(_playback.ActiveBank, () => SetInfo2(padMsg));
         MarkDirty();
     }
@@ -1403,10 +1404,10 @@ public partial class MainWindow : Window
             }
             _playback.LoadBank(_playback.ActiveBank, () =>
             {
-                string msg = $"Pad {padIndex + 1}: 詳細設定を更新しました。";
+                string msg = L.F("Str_Info_PadUpdated", padIndex + 1);
                 var src = _engine.GetSource(_playback.ActiveBank, padIndex);
                 if (src.WasTruncated)
-                    SetInfo2Warning(msg + "（99:59を超えるため打ち切りました）");
+                    SetInfo2Warning(msg + L.S("Str_Info_PadTruncated"));
                 else
                     SetInfo2(msg);
             });
@@ -1414,7 +1415,7 @@ public partial class MainWindow : Window
         else
         {
             _playback.UpdatePadGain(padIndex, pad.PadGain);
-            SetInfo2($"Pad {padIndex + 1}: 詳細設定を更新しました。");
+            SetInfo2(L.F("Str_Info_PadUpdated", padIndex + 1));
         }
 
         MarkDirty();
@@ -1424,8 +1425,8 @@ public partial class MainWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = $"パッド {padIndex + 1} のファイルを選択",
-            Filter = "音声・動画・画像ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|すべてのファイル|*.*"
+            Title  = L.F("Str_File_SelectPad", padIndex + 1),
+            Filter = L.S("Str_File_FilterMedia")
         };
         if (dlg.ShowDialog() != true) return;
         AssignFileToPad(padIndex, dlg.FileName);
@@ -1455,7 +1456,7 @@ public partial class MainWindow : Window
         string? resDir = System.IO.Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(resDir)) _settings.LastSelectedResourceDirectory = resDir;
         string fname = System.IO.Path.GetFileName(filePath);
-        SetInfo2($"Pad {padIndex + 1}: {fname} を読み込み中...");
+        SetInfo2(L.F("Str_Info_FileLoading", padIndex + 1, fname));
         _playback.LoadBank(_playback.ActiveBank, () =>
         {
             var src = _engine.GetSource(_playback.ActiveBank, padIndex);
@@ -1470,9 +1471,9 @@ public partial class MainWindow : Window
             }
 
             if (src.WasTruncated)
-                SetInfo2Warning($"Pad {padIndex + 1}: {fname} は99:59を超えるため99:59で打ち切りました");
+                SetInfo2Warning(L.F("Str_Info_FileTruncated", padIndex + 1, fname));
             else
-                SetInfo2($"Pad {padIndex + 1}: {fname} を読み込みました");
+                SetInfo2(L.F("Str_Info_FileLoaded", padIndex + 1, fname));
         });
         MarkDirty();
     }
@@ -1521,18 +1522,18 @@ public partial class MainWindow : Window
 
     private void ExecuteUndo()
     {
-        if (_undoStack.Count == 0) { SetInfo2("これ以上元に戻せません"); _infoClearPending = true; return; }
+        if (_undoStack.Count == 0) { SetInfo2(L.S("Str_Info_UndoLimit")); _infoClearPending = true; return; }
         SyncFadersToProject();
         _redoStack.Push(System.Text.Json.JsonSerializer.Serialize(_project));
-        ApplyProjectSnapshot(_undoStack.Pop(), "元に戻しました");
+        ApplyProjectSnapshot(_undoStack.Pop(), L.S("Str_Info_Undone"));
     }
 
     private void ExecuteRedo()
     {
-        if (_redoStack.Count == 0) { SetInfo2("やり直せる操作がありません"); _infoClearPending = true; return; }
+        if (_redoStack.Count == 0) { SetInfo2(L.S("Str_Info_RedoLimit")); _infoClearPending = true; return; }
         SyncFadersToProject();
         _undoStack.Push(System.Text.Json.JsonSerializer.Serialize(_project));
-        ApplyProjectSnapshot(_redoStack.Pop(), "やり直しました");
+        ApplyProjectSnapshot(_redoStack.Pop(), L.S("Str_Info_Redone"));
     }
 
     private void Menu_Undo(object sender, RoutedEventArgs e) => ExecuteUndo();
@@ -1596,7 +1597,7 @@ public partial class MainWindow : Window
             var padSets1 = _playback.GetPadSettings(idx);
             var padCat1 = padSets1?.Category;
             if (padCat1 == AudioCategory.Movie && !IsImageFile(padSets1?.FilePath) && _movieCtrl.IsBuffering)
-            { SetInfo2("バッファリング中..."); return; }
+            { SetInfo2(L.S("Str_Info_Buffering")); return; }
             TriggerPadWithMovie(idx);
         };
         _midi.AllCutTriggered    += ExecutePanic;
@@ -1655,13 +1656,13 @@ public partial class MainWindow : Window
             pad.Opacity = opacity;
         if (loading)
         {
-            InfoLine2.Text = "読み込み中...";
+            InfoLine2.Text = L.S("Str_Info_Loading") + "...";
             InfoLine2.Foreground = BrushInfoWarnText;
             InfoLine2Border.Background = BrushInfoWarnBg;
             BankConfirmPanel.Visibility = Visibility.Collapsed;
             _infoClearPending = false;
         }
-        else if (InfoLine2.Text.StartsWith("読み込み中"))
+        else if (InfoLine2.Text.StartsWith(L.S("Str_Info_Loading")))
         {
             string? pendingMsg = _pendingBankSwitchMsg;
             _pendingBankSwitchMsg = null;
@@ -1686,7 +1687,7 @@ public partial class MainWindow : Window
         _engine.SetPadCategory(bankIdx, srcIdx, bank.Pads[srcIdx].Category);
         _engine.SetPadCategory(bankIdx, dstIdx, bank.Pads[dstIdx].Category);
         _engine.SwapSources(bankIdx, srcIdx, dstIdx);
-        SetInfo2($"パッド {srcIdx + 1} と {dstIdx + 1} を入れ替えました");
+        SetInfo2(L.F("Str_Info_SwapPads", srcIdx + 1, dstIdx + 1));
         MarkDirty();
     }
 
@@ -1695,7 +1696,7 @@ public partial class MainWindow : Window
         if (srcIdx == dstIdx) return;
         if (IsAnyPadActive())
         {
-            SetInfo2("再生中はバンクの入れ替えができません");
+            SetInfo2(L.S("Str_Info_SwapBankPlaying"));
             return;
         }
         PushUndo();
@@ -1713,7 +1714,7 @@ public partial class MainWindow : Window
         RefreshBankLabel(dstIdx);
         UpdateBankHighlight();
         MarkDirty();
-        SetInfo2($"Bank {BankNames[srcIdx]} と Bank {BankNames[dstIdx]} を入れ替えました");
+        SetInfo2(L.F("Str_Info_SwapBanks", BankNames[srcIdx], BankNames[dstIdx]));
     }
 
     // PAUSE中カットアウト後にPAUSE可能パッドが残っていなければPAUSE解除
@@ -2007,13 +2008,13 @@ public partial class MainWindow : Window
         if (bankIndex == _playback.ActiveBank) return;
         if (IsAnyPadActive())
         {
-            SetInfo2("再生中のバンク切り替えは出来ません");
+            SetInfo2(L.S("Str_Info_SwitchPlaying"));
             return;
         }
         ++_movieLoopSession; _currentMoviePadIndex = -1; // ループ再起動キャンセル
         _playback.SwitchBank(bankIndex);
         UpdateBankHighlight();
-        _pendingBankSwitchMsg = $"Bank {BankNames[bankIndex]} に切り替えました";
+        _pendingBankSwitchMsg = L.F("Str_Info_BankSwitched", BankNames[bankIndex]);
     }
 
     private bool IsAnyPadActive() =>
@@ -2131,7 +2132,7 @@ public partial class MainWindow : Window
         }
 
         _pendingIkpPath = ikp;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning(L.S("Str_Info_DiscardConfirm"));
         e.Handled = true;
     }
 
@@ -2182,7 +2183,7 @@ public partial class MainWindow : Window
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm || _pendingNewConfirm) return;
 
         _pendingNewConfirm = true;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning(L.S("Str_Info_DiscardConfirm"));
     }
 
     private void ConfirmNew()
@@ -2208,7 +2209,7 @@ public partial class MainWindow : Window
         _playback.SetProject(_project);
         SyncFadersFromProject();
         UpdateTitle();
-        SetInfo2("新規プロジェクトを作成しました。");
+        SetInfo2(L.S("Str_Info_NewProject"));
     }
 
     private async void Menu_Open(object sender, RoutedEventArgs e)
@@ -2224,7 +2225,7 @@ public partial class MainWindow : Window
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
 
         _pendingOpenConfirm = true;
-        SetInfo2Warning("現在のプロジェクトを破棄しますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning(L.S("Str_Info_DiscardConfirm"));
     }
 
     private async void ConfirmOpenLoad()
@@ -2245,8 +2246,8 @@ public partial class MainWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "プロジェクトを開く",
-            Filter = "ikePon プロジェクト (*.ikp)|*.ikp|すべてのファイル|*.*",
+            Title      = L.S("Str_File_OpenProject"),
+            Filter     = L.S("Str_File_FilterProject"),
             DefaultExt = ".ikp"
         };
         if (dlg.ShowDialog() != true) return;
@@ -2263,10 +2264,10 @@ public partial class MainWindow : Window
     {
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "名前を付けて保存",
-            Filter = "ikePon プロジェクト (*.ikp)|*.ikp",
+            Title      = L.S("Str_File_SaveAs"),
+            Filter     = L.S("Str_File_FilterProject"),
             DefaultExt = ".ikp",
-            FileName = _project.ProjectName
+            FileName   = _project.ProjectName
         };
         if (dlg.ShowDialog() != true) return;
         _projectFilePath = dlg.FileName;
@@ -2284,20 +2285,20 @@ public partial class MainWindow : Window
         if (_isLocked) { e.Handled = true; return; }
         var cm = new ContextMenu();
 
-        var detail = new MenuItem { Header = "詳細設定..." };
+        var detail = new MenuItem { Header = L.S("Str_CM_Detail") };
         detail.Click += (_, _) => OpenBankDetail(bankIdx);
         cm.Items.Add(detail);
         cm.Items.Add(new Separator());
 
-        var copy = new MenuItem { Header = "コピー" };
+        var copy = new MenuItem { Header = L.S("Str_CM_Copy") };
         copy.Click += (_, _) => { _bankClipboard = _project.Banks[bankIdx].Clone(); };
         cm.Items.Add(copy);
 
-        var paste = new MenuItem { Header = "ペースト", IsEnabled = _bankClipboard != null };
+        var paste = new MenuItem { Header = L.S("Str_CM_Paste"), IsEnabled = _bankClipboard != null };
         paste.Click += (_, _) => PasteBankSettings(bankIdx);
         cm.Items.Add(paste);
 
-        var delete = new MenuItem { Header = "削除" };
+        var delete = new MenuItem { Header = L.S("Str_CM_Delete") };
         delete.Click += (_, _) => RequestBankClear(bankIdx);
         cm.Items.Add(delete);
 
@@ -2310,7 +2311,7 @@ public partial class MainWindow : Window
         if (_pendingMemOverwrite.HasValue || _pendingIkpPath != null
             || _pendingBankClearIndex >= 0 || _pendingOpenConfirm) return;
         _pendingBankClearIndex = bankIdx;
-        SetInfo2Warning($"Bank {BankNames[bankIdx]} の内容をすべてクリアしますか？\n[Y] 確定  /  [N] キャンセル");
+        SetInfo2Warning(L.F("Str_Info_BankClearConfirm", BankNames[bankIdx]));
     }
 
     private void ExecuteBankClear()
@@ -2342,7 +2343,7 @@ public partial class MainWindow : Window
         RefreshBankLabel(bankIdx);
         UpdateBankHighlight();
         MarkDirty();
-        SetInfo2($"Bank {BankNames[bankIdx]} をクリアしました。");
+        SetInfo2(L.F("Str_Info_BankCleared", BankNames[bankIdx]));
     }
 
     private void OpenBankDetail(int bankIdx)
@@ -2383,7 +2384,7 @@ public partial class MainWindow : Window
             _project.Banks[bankIdx].Pads[p] = _bankClipboard.Pads[p].Clone();
             _engine.SetPadCategory(bankIdx, p, _project.Banks[bankIdx].Pads[p].Category);
         }
-        string bankMsg = $"Bank {BankNames[bankIdx]} に設定をペーストしました。";
+        string bankMsg = L.F("Str_Info_BankPasted", BankNames[bankIdx]);
         _playback.LoadBank(bankIdx, () => SetInfo2(bankMsg));
         RefreshBankLabel(bankIdx);
         UpdateBankHighlight();
@@ -2412,7 +2413,7 @@ public partial class MainWindow : Window
         var ok     = new Button { Content = "OK", Width = 64, Margin = new Thickness(0, 0, 8, 0),
             Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x44, 0x6E)),
             Foreground = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x9F, 0xFF)) };
-        var cancel = new Button { Content = "キャンセル", Width = 80,
+        var cancel = new Button { Content = L.S("Str_Btn_Cancel"), Width = 80,
             Background = new SolidColorBrush(Color.FromRgb(0x3C, 0x3C, 0x3C)),
             Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)) };
@@ -2438,7 +2439,7 @@ public partial class MainWindow : Window
             _movieCtrl.ReloadStandbyImage();
             _midi.SetDevice(_settings.SelectedMidiDeviceName);
             _settings.Save();
-            SetInfo2("設定を保存しました。");
+            SetInfo2(L.S("Str_Info_SettingsSaved"));
         }
     }
 
@@ -2450,7 +2451,7 @@ public partial class MainWindow : Window
         var loaded = ProjectData.Load(path);
         if (loaded == null)
         {
-            SetInfo2Warning("読み込みに失敗しました。");
+            SetInfo2Warning(L.S("Str_Info_LoadFailed"));
             return;
         }
 
@@ -2468,8 +2469,8 @@ public partial class MainWindow : Window
                 {
                     var dlg = new Microsoft.Win32.OpenFileDialog
                     {
-                        Title = $"ファイルを手動で指定してください：{System.IO.Path.GetFileName(missingPath)}",
-                        Filter = "音声・動画・画像ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|すべてのファイル|*.*",
+                        Title    = L.F("Str_File_SelectManual", System.IO.Path.GetFileName(missingPath)),
+                        Filter   = L.S("Str_File_FilterMedia"),
                         FileName = System.IO.Path.GetFileName(missingPath)
                     };
                     if (dlg.ShowDialog() == true) result = dlg.FileName;
@@ -2489,7 +2490,7 @@ public partial class MainWindow : Window
         _projectDirty    = false;
         string fileName = System.IO.Path.GetFileName(path);
         Action? onComplete = relocator.AnyMissingFound ? null
-            : () => SetInfo2($"プロジェクトを読み込みました: {fileName}");
+            : () => SetInfo2(L.F("Str_Info_Loaded", fileName));
         _playback.SetProject(_project, onComplete);
         SyncFadersFromProject();
         RefreshAllBankLabels();
@@ -2505,11 +2506,11 @@ public partial class MainWindow : Window
             _project.Save(path);
             _projectDirty = false;
             UpdateTitle();
-            SetInfo2($"保存しました: {System.IO.Path.GetFileName(path)}");
+            SetInfo2(L.F("Str_Info_Saved", System.IO.Path.GetFileName(path)));
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"保存に失敗しました:\n{ex.Message}", "ikePon", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(L.F("Str_Msg_SaveFailed", ex.Message), "ikePon", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -2560,7 +2561,7 @@ public partial class MainWindow : Window
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
-            : " — 未保存";
+            : $" — {L.S("Str_Info_Unsaved")}";
         Title = $"ikePon v1.2.0{fname}{dirty}";
     }
 
@@ -2571,7 +2572,7 @@ public partial class MainWindow : Window
     {
         if (_projectDirty)
         {
-            var r = MessageBox.Show("変更が保存されていません。保存しますか？", "ikePon",
+            var r = MessageBox.Show(L.S("Str_Msg_UnsavedClose"), "ikePon",
                 MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
             if (r == MessageBoxResult.Yes) Menu_Save(this, new RoutedEventArgs());

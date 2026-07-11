@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "4TFOix2Yz/g=",
+  "dgSpecHash": "di9X1SJHV64=",
   "success": true,
   "projectFilePath": "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ike09\\.nuget\\packages\\libvlcsharp\\3.9.0\\libvlcsharp.3.9.0.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\libvlcsharp.wpf\\3.9.0\\libvlcsharp.wpf.3.9.0.nupkg.sha512",
+    "C:\\Users\\ike09\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.17\\microsoft.net.illink.tasks.9.0.17.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\microsoft.netcore.platforms\\3.1.0\\microsoft.netcore.platforms.3.1.0.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\microsoft.win32.registry\\4.7.0\\microsoft.win32.registry.4.7.0.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\naudio\\2.2.1\\naudio.2.2.1.nupkg.sha512",
@@ -17,7 +18,10 @@
     "C:\\Users\\ike09\\.nuget\\packages\\naudio.winmm\\2.2.1\\naudio.winmm.2.2.1.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\system.security.accesscontrol\\4.7.0\\system.security.accesscontrol.4.7.0.nupkg.sha512",
     "C:\\Users\\ike09\\.nuget\\packages\\system.security.principal.windows\\4.7.0\\system.security.principal.windows.4.7.0.nupkg.sha512",
-    "C:\\Users\\ike09\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512"
+    "C:\\Users\\ike09\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512",
+    "C:\\Users\\ike09\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\9.0.17\\microsoft.netcore.app.runtime.win-x64.9.0.17.nupkg.sha512",
+    "C:\\Users\\ike09\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\9.0.17\\microsoft.windowsdesktop.app.runtime.win-x64.9.0.17.nupkg.sha512",
+    "C:\\Users\\ike09\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\9.0.17\\microsoft.aspnetcore.app.runtime.win-x64.9.0.17.nupkg.sha512"
   ],
   "logs": []
 }

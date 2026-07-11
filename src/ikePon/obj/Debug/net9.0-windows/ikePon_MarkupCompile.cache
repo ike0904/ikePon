@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 E:\Users\takashi\Desktop\ClaudeCode\ikePon\src\ikePon\App.xaml
-7206467201
+9-953945864
 844698182261
-30-700317753
+311992873990
 218-582011824
-MainWindow.xaml;UI\Controls\PadButton.xaml;UI\Controls\VFaderControl.xaml;UI\Dialogs\BankDetailDialog.xaml;UI\Dialogs\PadDetailDialog.xaml;UI\Dialogs\SettingsDialog.xaml;UI\Windows\MovieWindow.xaml;
+MainWindow.xaml;Resources\Strings.en.xaml;Resources\Strings.ja.xaml;UI\Controls\PadButton.xaml;UI\Controls\VFaderControl.xaml;UI\Dialogs\BankDetailDialog.xaml;UI\Dialogs\PadDetailDialog.xaml;UI\Dialogs\SettingsDialog.xaml;UI\Windows\MovieWindow.xaml;
 
 False
 

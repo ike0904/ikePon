@@ -97,20 +97,20 @@
                     </Setter>
                 </Style>
             </Menu.Resources>
-            <MenuItem Header="ファイル(_F)">
-                <MenuItem Header="新規プロジェクト(_N)" InputGestureText="Ctrl+N" Click="Menu_New"/>
-                <MenuItem Header="開く(_O)..."         InputGestureText="Ctrl+O" Click="Menu_Open"/>
+            <MenuItem Header="{StaticResource Str_Menu_File}">
+                <MenuItem Header="{StaticResource Str_Menu_New}"    InputGestureText="Ctrl+N" Click="Menu_New"/>
+                <MenuItem Header="{StaticResource Str_Menu_Open}"   InputGestureText="Ctrl+O" Click="Menu_Open"/>
                 <Separator Style="{StaticResource MenuSep}"/>
-                <MenuItem Header="上書き保存(_S)"      InputGestureText="Ctrl+S" Click="Menu_Save"/>
-                <MenuItem Header="名前を付けて保存(_A)..."                        Click="Menu_SaveAs"/>
+                <MenuItem Header="{StaticResource Str_Menu_Save}"   InputGestureText="Ctrl+S" Click="Menu_Save"/>
+                <MenuItem Header="{StaticResource Str_Menu_SaveAs}"                           Click="Menu_SaveAs"/>
                 <Separator Style="{StaticResource MenuSep}"/>
-                <MenuItem Header="終了(_X)"            Click="Menu_Exit"/>
+                <MenuItem Header="{StaticResource Str_Menu_Exit}"   Click="Menu_Exit"/>
             </MenuItem>
-            <MenuItem Header="編集(_E)">
-                <MenuItem Header="元に戻す(_Z)" InputGestureText="Ctrl+Z" Click="Menu_Undo"/>
-                <MenuItem Header="やり直し(_Y)" InputGestureText="Ctrl+Y" Click="Menu_Redo"/>
+            <MenuItem Header="{StaticResource Str_Menu_Edit}">
+                <MenuItem Header="{StaticResource Str_Menu_Undo}"     InputGestureText="Ctrl+Z" Click="Menu_Undo"/>
+                <MenuItem Header="{StaticResource Str_Menu_Redo}"     InputGestureText="Ctrl+Y" Click="Menu_Redo"/>
                 <Separator Style="{StaticResource MenuSep}"/>
-                <MenuItem Header="全体設定(_E)..." InputGestureText="Ctrl+E" Click="Menu_Settings"/>
+                <MenuItem Header="{StaticResource Str_Menu_Settings}" InputGestureText="Ctrl+E" Click="Menu_Settings"/>
             </MenuItem>
         </Menu>
 
@@ -448,7 +448,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="InfoLine2"
                                        Grid.Column="0"
-                                       Text="準備完了"
+                                       Text="{StaticResource Str_Info_Ready}"
                                        FontSize="12"
                                        Foreground="White"
                                        VerticalAlignment="Center"

@@ -1,0 +1,139 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- メニュー -->
+    <sys:String x:Key="Str_Menu_File">ファイル(_F)</sys:String>
+    <sys:String x:Key="Str_Menu_New">新規プロジェクト(_N)</sys:String>
+    <sys:String x:Key="Str_Menu_Open">開く(_O)...</sys:String>
+    <sys:String x:Key="Str_Menu_Save">上書き保存(_S)</sys:String>
+    <sys:String x:Key="Str_Menu_SaveAs">名前を付けて保存(_A)...</sys:String>
+    <sys:String x:Key="Str_Menu_Exit">終了(_X)</sys:String>
+    <sys:String x:Key="Str_Menu_Edit">編集(_E)</sys:String>
+    <sys:String x:Key="Str_Menu_Undo">元に戻す(_Z)</sys:String>
+    <sys:String x:Key="Str_Menu_Redo">やり直し(_Y)</sys:String>
+    <sys:String x:Key="Str_Menu_Settings">全体設定(_E)...</sys:String>
+
+    <!-- ボタン共通 -->
+    <sys:String x:Key="Str_Btn_OK">OK</sys:String>
+    <sys:String x:Key="Str_Btn_Cancel">キャンセル</sys:String>
+    <sys:String x:Key="Str_Btn_ResetDefault">初期値に戻す</sys:String>
+
+    <!-- 設定ダイアログ -->
+    <sys:String x:Key="Str_Dlg_Settings_Title">設定</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_FadeOutTime">フェードアウト時間</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Sec">秒</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_StandbyImage">スタンバイ画像</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_StandbyHint">別ファイルに変更：ここへドラッグ＆ドロップ</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_FadeInTime">フェードイン時間</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_PaSeparate">PAセパレートモード</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_MidiDevice">MIDI入力デバイス</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Interlock">インターロック</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_RapidFire">連打防止時間</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Audio">オーディオ設定</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_WasapiLatency">WASAPIレイテンシ</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Preload">プリロード上限</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_AudioNote">※ オーディオ設定の変更はアプリ再起動後に反映されます。</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_Language">言語 / Language</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_LangNote">※ 言語変更はアプリ再起動後に反映されます。</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_MidiNone">なし（無効）</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_ErrorRange">値が無効です。{0} の範囲で入力してください。</sys:String>
+    <sys:String x:Key="Str_Dlg_Settings_ErrorTitle">入力エラー</sys:String>
+
+    <!-- パッド詳細設定ダイアログ -->
+    <sys:String x:Key="Str_Dlg_Pad_Title">パッド詳細設定</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_FilePath">ファイル名（フルパス）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_FileHint">別ファイルに変更：ここへドラッグ＆ドロップ</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_Category">カテゴリ</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_DisplayName">表示名</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_PadColor">パッド背景色</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_Volume">音量</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_VolumeHint">（100%=標準）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_StartPos">再生開始位置</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_EndPos">再生終了位置</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_EndHint">（空欄＝ファイル終端）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopStart">ループ再生開始位置</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopHint">（空欄＝先頭から）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterPlay">最後まで再生した後</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterStop">そのまま終了</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterFreeze">最終フレームで止める</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_AfterLoop">ループ再生</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapBehavior">再生中タップ</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapFade">フェードアウト</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapCut">カットアウト</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TapPause">一時停止／再開</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_TotalTime">/ {0}  （総時間）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_GainError">音量: 0〜500の整数</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_PosError">開始位置より後の時刻を入力してください</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_ErrorTitle">入力エラー</sys:String>
+
+    <!-- バンク詳細設定ダイアログ -->
+    <sys:String x:Key="Str_Dlg_Bank_Title">バンク詳細設定</sys:String>
+    <sys:String x:Key="Str_Dlg_Bank_DisplayName">表示名</sys:String>
+    <sys:String x:Key="Str_Dlg_Bank_Color">背景色</sys:String>
+
+    <!-- インフォメーションメッセージ -->
+    <sys:String x:Key="Str_Info_Ready">準備完了</sys:String>
+    <sys:String x:Key="Str_Info_Loading">読み込み中</sys:String>
+    <sys:String x:Key="Str_Info_BlackScreen">映像ウィンドウが黒画面です（DISP を OFF→ON で復旧）</sys:String>
+    <sys:String x:Key="Str_Info_Buffering">バッファリング中...</sys:String>
+    <sys:String x:Key="Str_Info_SwapBankPlaying">再生中はバンクの入れ替えができません</sys:String>
+    <sys:String x:Key="Str_Info_UndoLimit">これ以上元に戻せません</sys:String>
+    <sys:String x:Key="Str_Info_RedoLimit">やり直せる操作がありません</sys:String>
+    <sys:String x:Key="Str_Info_Undone">元に戻しました</sys:String>
+    <sys:String x:Key="Str_Info_Redone">やり直しました</sys:String>
+    <sys:String x:Key="Str_Info_SwitchPlaying">再生中のバンク切り替えは出来ません</sys:String>
+    <sys:String x:Key="Str_Info_DiscardConfirm">現在のプロジェクトを破棄しますか？&#xA;[Y] 確定  /  [N] キャンセル</sys:String>
+    <sys:String x:Key="Str_Info_NewProject">新規プロジェクトを作成しました。</sys:String>
+    <sys:String x:Key="Str_Info_LoadFailed">読み込みに失敗しました。</sys:String>
+    <sys:String x:Key="Str_Info_Saved">保存しました: {0}</sys:String>
+    <sys:String x:Key="Str_Info_Loaded">プロジェクトを読み込みました: {0}</sys:String>
+    <sys:String x:Key="Str_Info_SettingsSaved">設定を保存しました。</sys:String>
+    <sys:String x:Key="Str_Info_BankCleared">Bank {0} をクリアしました。</sys:String>
+    <sys:String x:Key="Str_Info_BankClearConfirm">Bank {0} の内容をすべてクリアしますか？&#xA;[Y] 確定  /  [N] キャンセル</sys:String>
+    <sys:String x:Key="Str_Info_PadPasted">Pad {0} に設定をペーストしました。</sys:String>
+    <sys:String x:Key="Str_Info_PadUpdated">Pad {0}: 詳細設定を更新しました。</sys:String>
+    <sys:String x:Key="Str_Info_PadTruncated">（99:59を超えるため打ち切りました）</sys:String>
+    <sys:String x:Key="Str_Info_FileTruncated">Pad {0}: {1} は99:59を超えるため99:59で打ち切りました</sys:String>
+    <sys:String x:Key="Str_Info_FileLoaded">Pad {0}: {1} を読み込みました</sys:String>
+    <sys:String x:Key="Str_Info_FileLoading">Pad {0}: {1} を読み込み中...</sys:String>
+    <sys:String x:Key="Str_Info_SwapPads">パッド {0} と {1} を入れ替えました</sys:String>
+    <sys:String x:Key="Str_Info_SwapBanks">Bank {0} と Bank {1} を入れ替えました</sys:String>
+    <sys:String x:Key="Str_Info_BankSwitched">Bank {0} に切り替えました</sys:String>
+    <sys:String x:Key="Str_Info_BankPasted">Bank {0} に設定をペーストしました。</sys:String>
+    <sys:String x:Key="Str_Info_MemOverwrite">{0} M{1} 上書き登録しますか？&#xA;[Y] 確定  /  [N] キャンセル</sys:String>
+    <sys:String x:Key="Str_Info_Unsaved">未保存</sys:String>
+
+    <!-- 右クリックメニュー -->
+    <sys:String x:Key="Str_CM_FadeOut">フェードアウト</sys:String>
+    <sys:String x:Key="Str_CM_CutOut">カットアウト</sys:String>
+    <sys:String x:Key="Str_CM_PauseResume">一時停止／再開</sys:String>
+    <sys:String x:Key="Str_CM_Detail">詳細設定...</sys:String>
+    <sys:String x:Key="Str_CM_Copy">コピー</sys:String>
+    <sys:String x:Key="Str_CM_Paste">ペースト</sys:String>
+    <sys:String x:Key="Str_CM_Delete">削除</sys:String>
+
+    <!-- ファイルダイアログ -->
+    <sys:String x:Key="Str_File_OpenProject">プロジェクトを開く</sys:String>
+    <sys:String x:Key="Str_File_SaveAs">名前を付けて保存</sys:String>
+    <sys:String x:Key="Str_File_SelectPad">パッド {0} のファイルを選択</sys:String>
+    <sys:String x:Key="Str_File_SelectManual">ファイルを手動で指定してください：{0}</sys:String>
+    <sys:String x:Key="Str_File_FilterProject">ikePon プロジェクト (*.ikp)|*.ikp|すべてのファイル|*.*</sys:String>
+    <sys:String x:Key="Str_File_FilterMedia">音声・動画・画像ファイル|*.mp3;*.wav;*.flac;*.ogg;*.aac;*.m4a;*.mp4;*.mov;*.mkv;*.avi;*.wmv;*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tiff;*.tif|すべてのファイル|*.*</sys:String>
+
+    <!-- メッセージボックス -->
+    <sys:String x:Key="Str_Msg_UnhandledError">予期しないエラーが発生しました:&#xA;{0}</sys:String>
+    <sys:String x:Key="Str_Msg_UnhandledErrorTitle">ikePon - エラー</sys:String>
+    <sys:String x:Key="Str_Msg_UnsavedClose">変更が保存されていません。保存しますか？</sys:String>
+    <sys:String x:Key="Str_Msg_SaveFailed">保存に失敗しました:&#xA;{0}</sys:String>
+
+    <!-- コントローラーメッセージ -->
+    <sys:String x:Key="Str_Ctrl_RelocateStart">行方不明のファイルを自動再検索中... (0/{0}本)</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateProgress">行方不明のファイルを自動再検索中... ({0}/{1}本)</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateProgressScan">行方不明のファイルを自動再検索中... ({0}/{1}本)  フォルダ走査中...</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateManual">{0}本のファイルが見つかりません。手動で1つ指定してください...</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateDone">{0}本の行方不明ファイルを自動修復しました。</sys:String>
+    <sys:String x:Key="Str_Ctrl_RelocateMissing">{0}本のファイルが見つかりません。パッドを確認してください。</sys:String>
+    <sys:String x:Key="Str_Ctrl_MovieInit">映像エンジン初期化中...</sys:String>
+
+</ResourceDictionary>
