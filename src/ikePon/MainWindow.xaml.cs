@@ -524,6 +524,7 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out Win32Rect r);
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(IntPtr hMon, ref MonitorInfoEx mi);
+    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -569,6 +570,12 @@ public partial class MainWindow : Window
                 mi.rcWork.Left + (workW - totalW) / 2,
                 mi.rcWork.Top  + (workH - totalH) / 2);
             mmi.ptMaxTrackSize = mmi.ptMaxSize;
+
+            // MinWidth / MinHeight（WPF 論理px）を物理pxに変換して最小サイズを維持
+            double scale = GetDpiForWindow(hwnd) / 96.0;
+            mmi.ptMinTrackSize = new Win32Point(
+                (int)Math.Ceiling(MinWidth  * scale),
+                (int)Math.Ceiling(MinHeight * scale));
 
             Marshal.StructureToPtr(mmi, lParam, false);
             handled = true;
