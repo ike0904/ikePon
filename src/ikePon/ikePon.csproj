@@ -31,4 +31,8 @@
     <RemoveDir Directories="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\libvlc\win-x86" />
   </Target>
 
+  <Target Name="RemoveX86LibVLCPublish" AfterTargets="Publish">
+    <RemoveDir Directories="$(PublishDir)libvlc\win-x86" />
+  </Target>
+
 </Project>
