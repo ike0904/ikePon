@@ -2551,18 +2551,24 @@ public partial class MainWindow : Window
                 _project.FaderMemories[f][m] = _faders[f].GetMemory(m);
     }
 
+    private static readonly string _appVersion =
+        System.Reflection.Assembly.GetExecutingAssembly()
+            .GetName().Version is { } v
+            ? $"v{v.Major}.{v.Minor}.{v.Build}"
+            : "v?";
+
     private void UpdateTitle()
     {
         if (_authorTitleActive)
         {
-            Title = "ikePon v1.2.0 by Ike-san";
+            Title = $"ikePon {_appVersion} by Ike-san";
             return;
         }
         string dirty = _projectDirty ? " *" : "";
         string fname = _projectFilePath != null
             ? $" — {System.IO.Path.GetFileName(_projectFilePath)}"
             : $" — {L.S("Str_Info_Unsaved")}";
-        Title = $"ikePon v1.2.0{fname}{dirty}";
+        Title = $"ikePon {_appVersion}{fname}{dirty}";
     }
 
     // ------------------------------------------------------------------
