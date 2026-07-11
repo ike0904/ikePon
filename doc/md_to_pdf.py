@@ -11,9 +11,9 @@ import time
 from pathlib import Path
 
 DOC_DIR   = Path(__file__).parent
-MD_FILE   = DOC_DIR / "ikePon_マニュアル.md"
-HTML_FILE = DOC_DIR / "ikePon_マニュアル.html"
-PDF_FILE  = DOC_DIR / "ikePon_マニュアル.pdf"
+MD_FILE   = DOC_DIR / "ikePon_manual.md"
+HTML_FILE = DOC_DIR / "ikePon_manual.html"
+PDF_FILE  = DOC_DIR / "ikePon_manual.pdf"
 CSS_FILE  = DOC_DIR / "manual.css"
 
 TMP_PDF = Path(r"C:\Users\ike09\AppData\Local\Temp\ikepon_manual.pdf")

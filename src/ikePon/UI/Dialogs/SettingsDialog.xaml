@@ -68,11 +68,13 @@
                                    Placement="Bottom"
                                    AllowsTransparency="True"
                                    Focusable="False">
-                                <Border Background="#2E2E2E" BorderBrush="#555" BorderThickness="1">
-                                    <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
-                                        <ItemsPresenter/>
-                                    </ScrollViewer>
-                                </Border>
+                                <Grid MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                    <Border Background="#2E2E2E" BorderBrush="#555" BorderThickness="1">
+                                        <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
                             </Popup>
                         </Grid>
                     </ControlTemplate>
@@ -107,7 +109,27 @@
     <!-- SharedSizeScope で入力欄・単位列の横位置を全行で揃える -->
     <StackPanel Margin="16" Grid.IsSharedSizeScope="True">
 
-        <!-- フェードアウト時間（最重要パラメータのため先頭に配置） -->
+        <!-- 言語 / Language -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="180"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{StaticResource Str_Dlg_Settings_Language}" Grid.Column="0"/>
+            <ComboBox x:Name="CbLanguage" Grid.Column="1">
+                <ComboBoxItem Content="日本語" Tag="ja"/>
+                <ComboBoxItem Content="English" Tag="en"/>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock x:Name="TbLangNote"
+                   Text="{StaticResource Str_Dlg_Settings_LangNote}"
+                   FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"
+                   Visibility="Collapsed"/>
+
+        <Separator Background="#383838" Margin="0,8,0,12"/>
+
+        <!-- フェードアウト時間 -->
         <Grid Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -256,26 +278,6 @@
 
         <TextBlock Text="{StaticResource Str_Dlg_Settings_AudioNote}"
                    FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"/>
-
-        <Separator Background="#383838" Margin="0,8"/>
-
-        <!-- 言語 / Language -->
-        <Grid Margin="0,0,0,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="180"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="{StaticResource Str_Dlg_Settings_Language}" Grid.Column="0"/>
-            <ComboBox x:Name="CbLanguage" Grid.Column="1">
-                <ComboBoxItem Content="日本語" Tag="ja"/>
-                <ComboBoxItem Content="English" Tag="en"/>
-            </ComboBox>
-        </Grid>
-
-        <TextBlock x:Name="TbLangNote"
-                   Text="{StaticResource Str_Dlg_Settings_LangNote}"
-                   FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"
-                   Visibility="Collapsed"/>
 
         <Separator Background="#383838" Margin="0,12"/>
 
