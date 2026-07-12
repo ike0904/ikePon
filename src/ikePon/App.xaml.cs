@@ -8,8 +8,27 @@ namespace ikePon;
 
 public partial class App : Application
 {
+    private static System.Threading.Mutex? _singletonMutex;
+
+    public static void ReleaseSingletonMutex()
+    {
+        try { _singletonMutex?.ReleaseMutex(); } catch { }
+        _singletonMutex?.Dispose();
+        _singletonMutex = null;
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        // 二重起動防止
+        _singletonMutex = new System.Threading.Mutex(true, "ikePon_SingleInstance", out bool created);
+        if (!created)
+        {
+            _singletonMutex.Dispose();
+            _singletonMutex = null;
+            Shutdown();
+            return;
+        }
+
         // 言語設定を読み込んで辞書をマージ（MainWindow 生成より前に実行）
         var settings = AppSettings.Load();
         string lang = settings.Language is "en" or "ja" ? settings.Language : "ja";

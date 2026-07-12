@@ -124,8 +124,7 @@
 
         <TextBlock x:Name="TbLangNote"
                    Text="{StaticResource Str_Dlg_Settings_LangNote}"
-                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,0" TextWrapping="Wrap"
-                   Visibility="Collapsed"/>
+                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,0" TextWrapping="Wrap"/>
 
         <Separator Background="#383838" Margin="0,8,0,12"/>
 

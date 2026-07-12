@@ -137,6 +137,7 @@ public partial class MainWindow : Window
     private bool _pendingNewConfirm;
     // 確認待ち（設定変更後の再起動）
     private bool _pendingRestartConfirm;
+    private bool _isRestarting;
 
     // アスペクト比固定（WM_SIZING フック用）
     private double _mainAspectRatio;
@@ -1079,7 +1080,9 @@ public partial class MainWindow : Window
             bool duringPauseAll = _isPauseAllActive;
             // MOV 一時停止中（PAUSE または FreezeLastFrame）はフェードアウト有効
             bool pausedMov = isMovPad && (isFrozen || state == PadPlayState.Paused);
-            var fadeOut = new MenuItem { Header = L.S("Str_CM_FadeOut"), IsEnabled = !duringPauseAll || pausedMov };
+            // PAUSE ALL中の一時停止 BGM もフェードアウト可能（音なし即停止）
+            bool pausedBgm = duringPauseAll && pad0?.Category == AudioCategory.BGM && state == PadPlayState.Paused;
+            var fadeOut = new MenuItem { Header = L.S("Str_CM_FadeOut"), IsEnabled = !duringPauseAll || pausedMov || pausedBgm };
             fadeOut.Click += (_, _) =>
             {
                 if (pausedMov)
@@ -1092,6 +1095,12 @@ public partial class MainWindow : Window
                     _movieCtrl.FadeVideo(_settings.LongFadeDuration);
                     if (duringPauseAll)
                         Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
+                }
+                else if (pausedBgm)
+                {
+                    // PAUSE中BGM: 音は既に無音なので即停止
+                    _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
+                    Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
                 }
                 else
                 {
@@ -1116,9 +1125,22 @@ public partial class MainWindow : Window
                         Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
                 }
             };
-            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !duringPauseAll && !isFrozen;
+            // PAUSE ALL中でも一時停止/再開を選択可（個別再開 + PAUSE ALL解除）
+            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !isFrozen;
             var pauseResume = new MenuItem { Header = L.S("Str_CM_PauseResume"), IsEnabled = pauseEnabled };
-            pauseResume.Click += (_, _) => PausePadWithMovie(padIndex);
+            pauseResume.Click += (_, _) =>
+            {
+                if (duringPauseAll && state == PadPlayState.Paused)
+                {
+                    // PAUSE ALL中の個別再開: このパッドのみ再開しPAUSE ALL解除
+                    _isPauseAllActive = false;
+                    _playback.ForcePauseResumePad(padIndex);
+                    if (isMovPad && !isImagePad) { _movieCtrl.ResumeVideo(); ResumeMovieWallClock(); }
+                    UpdateActionButtons();
+                }
+                else
+                    PausePadWithMovie(padIndex);
+            };
             cm.Items.Add(fadeOut);
             cm.Items.Add(cutOut);
             cm.Items.Add(pauseResume);
@@ -2130,6 +2152,7 @@ public partial class MainWindow : Window
         else if (_pendingBankClearIndex >= 0)   ExecuteBankClear();
         else if (_pendingOpenConfirm)           ConfirmOpenLoad();
         else if (_pendingNewConfirm)            ConfirmNew();
+        else if (_pendingRestartConfirm)        ConfirmRestart();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -2138,6 +2161,7 @@ public partial class MainWindow : Window
         else if (_pendingBankClearIndex >= 0)   { _pendingBankClearIndex = -1; SetInfo2(""); }
         else if (_pendingOpenConfirm)           CancelOpenLoad();
         else if (_pendingNewConfirm)            CancelNew();
+        else if (_pendingRestartConfirm)        CancelRestart();
     }
 
     private void ConfirmMemOverwrite()
@@ -2518,7 +2542,7 @@ public partial class MainWindow : Window
             {
                 // 再起動確認メッセージ表示（言語変更時は日英両方表示）
                 string msg = langChanged
-                    ? "設定を反映させるため、再起動しますか？\nRestart to apply settings?\n[Y] YES  /  [N] NO"
+                    ? "設定を反映させるため、再起動しますか？ / Restart to apply settings?\n[Y] YES  /  [N] NO"
                     : L.S("Str_Info_RestartConfirm");
                 _pendingRestartConfirm = true;
                 SetInfo2Warning(msg);
@@ -2534,11 +2558,20 @@ public partial class MainWindow : Window
     {
         if (!_pendingRestartConfirm) return;
         _pendingRestartConfirm = false;
+        _isRestarting = true;
         _settings.Save();
         var exePath = Environment.ProcessPath
             ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
         if (exePath != null)
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+        {
+            // 現プロセス終了後に新プロセスを起動（二重起動防止のため Exit イベントで開始）
+            Application.Current.Exit += (_, _) =>
+            {
+                App.ReleaseSingletonMutex();
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+            };
+        }
         Application.Current.Shutdown();
     }
 
@@ -2682,7 +2715,7 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_projectDirty)
+        if (!_isRestarting && _projectDirty)
         {
             var r = MessageBox.Show(L.S("Str_Msg_UnsavedClose"), "ikePon",
                 MessageBoxButton.YesNoCancel, MessageBoxImage.Question);

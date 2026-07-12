@@ -42,7 +42,6 @@ public partial class SettingsDialog : Window
 
         // 言語選択
         CbLanguage.SelectedIndex = settings.Language == "en" ? 1 : 0;
-        CbLanguage.SelectionChanged += CbLanguage_SelectionChanged;
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
@@ -50,14 +49,6 @@ public partial class SettingsDialog : Window
         SetResetMenu(TbLatency,       "30");
         SetResetMenu(TbPreload,       "10");
         SetResetMenu(TbMovieStandby,  "");
-    }
-
-    private void CbLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        string selected = CbLanguage.SelectedIndex == 1 ? "en" : "ja";
-        TbLangNote.Visibility = selected != _settings.Language
-            ? Visibility.Visible
-            : Visibility.Collapsed;
     }
 
     private static void SetResetMenu(TextBox tb, string defaultValue)
