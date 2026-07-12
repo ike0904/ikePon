@@ -15,8 +15,6 @@
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <OutputPath>..\..\dist\</OutputPath>
-    <PublishDir>..\..\dist\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,19 +27,16 @@
   </ItemGroup>
 
 
-  <!-- ビルド後: dist\ と bin\ 内の win-x86 libvlc を削除 -->
   <Target Name="RemoveX86LibVLC" AfterTargets="Build">
-    <RemoveDir Directories="$(OutputPath)libvlc\win-x86" />
     <RemoveDir Directories="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\libvlc\win-x86" />
   </Target>
 
-  <!-- publish後: dist\ 内の win-x86 libvlc を削除 -->
   <Target Name="RemoveX86LibVLCPublish" AfterTargets="Publish">
     <RemoveDir Directories="$(PublishDir)libvlc\win-x86" />
   </Target>
 
-  <!-- Release publish後: bin\ の中間ファイルを削除 -->
-  <Target Name="CleanIntermediateAfterPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+  <!-- Release publish後: bin\Release\net9.0-windows 直下の loose ファイルと libvlc を削除 -->
+  <Target Name="CleanReleaseOutputDir" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <ItemGroup>
       <_LooseOutputFiles Include="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\*.*" />
     </ItemGroup>

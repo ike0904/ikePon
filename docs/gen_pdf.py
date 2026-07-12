@@ -45,7 +45,7 @@ EN_MARKER = "<!-- EN_START -->"
 # ── リリース用フォルダ ──────────────────────────────────────────────────────────
 # None の場合は DOC_DIR.parent/"dist" を自動検索。
 # アプリごとに絶対パス or DOC_DIR 起点の相対パスを指定して上書きする。
-DIST_DIR = DOC_DIR.parent / "src" / "ikePon" / "bin" / "Release" / "net9.0-windows" / "win-x64" / "publish"
+DIST_DIR = None  # ikePon: csproj の OutputPath/PublishDir で ../dist/ に出力されるため自動検索で OK
 
 
 def substitute_en_images(content: str) -> str:
