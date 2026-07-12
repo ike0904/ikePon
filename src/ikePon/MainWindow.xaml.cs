@@ -32,7 +32,7 @@ public partial class MainWindow : Window
     private bool _initComplete;
     private bool _authorTitleActive;      // 起動直後のみ "by Ike-san" 表示
     private string? _assocFilePath;      // 関連付けで渡された .ikp パス
-    private bool _blackScreenWarning;     // 黒画面警告表示中フラグ
+    private int _blackScreenFrames;        // 黒画面継続フレーム数（0=正常）
     private string BlackScreenMsg => L.S("Str_Info_BlackScreen");
 
     private readonly PadButton[] _padButtons = new PadButton[BankData.PadCount];
@@ -777,32 +777,46 @@ public partial class MainWindow : Window
         }
     }
 
-    // 黒画面状態を監視して警告を表示する
+    // 黒画面状態を監視し、3秒継続した場合に DISPLAY を自動的に OFF→ON で復旧する
     private void CheckBlackScreen()
     {
         bool isBlack = _movieCtrl.IsBlackScreen;
-        if (isBlack == _blackScreenWarning) return;
 
-        _blackScreenWarning = isBlack;
         if (isBlack)
         {
-            Logger.Log("[Display] Black screen detected");
-            // 確認ダイアログ表示中でなければ警告を表示
-            if (!_infoClearPending && BankConfirmPanel.Visibility != Visibility.Visible)
+            _blackScreenFrames++;
+
+            if (_blackScreenFrames == 1)
             {
-                InfoLine2.Text             = BlackScreenMsg;
-                InfoLine2.Foreground       = BrushInfoWarnText;
-                InfoLine2Border.Background = BrushInfoWarnBg;
+                Logger.Log("[Display] Black screen detected");
+                if (!_infoClearPending && BankConfirmPanel.Visibility != Visibility.Visible)
+                {
+                    InfoLine2.Text             = BlackScreenMsg;
+                    InfoLine2.Foreground       = BrushInfoWarnText;
+                    InfoLine2Border.Background = BrushInfoWarnBg;
+                }
+            }
+
+            // 3秒後に自動復旧（スタンバイ画像が設定されている場合のみ。黒画面が意図的な場合は対象外）
+            if (_blackScreenFrames == 60 && !string.IsNullOrEmpty(_settings.MovieStandbyImagePath))
+            {
+                Logger.Log("[Display] Black screen: auto-recover (DISPLAY OFF→ON)");
+                _movieCtrl.CloseDisplay();
+                _movieCtrl.OpenDisplay();
             }
         }
         else
         {
-            Logger.Log("[Display] Black screen cleared");
-            if (InfoLine2.Text == BlackScreenMsg)
+            if (_blackScreenFrames > 0)
             {
-                InfoLine2.Text             = "";
-                InfoLine2.Foreground       = BrushInfoNormal;
-                InfoLine2Border.Background = System.Windows.Media.Brushes.Transparent;
+                _blackScreenFrames = 0;
+                Logger.Log("[Display] Black screen cleared");
+                if (InfoLine2.Text == BlackScreenMsg)
+                {
+                    InfoLine2.Text             = "";
+                    InfoLine2.Foreground       = BrushInfoNormal;
+                    InfoLine2Border.Background = System.Windows.Media.Brushes.Transparent;
+                }
             }
         }
     }
