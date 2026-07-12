@@ -15,7 +15,6 @@
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <OutputPath>..\..\dist\</OutputPath>
     <PublishDir>..\..\dist\</PublishDir>
   </PropertyGroup>
 
