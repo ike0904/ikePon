@@ -36,15 +36,19 @@ public partial class MovieWindow : Window
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
 
     private string? _currentFilePath;
-    private double               _pendingStartSec;
     private AfterPlaybackBehavior _afterPlayback = AfterPlaybackBehavior.Stop;
     private bool            _videoVisible;
     private volatile int    _playSession; // volatile: VLC スレッドから EndReached 時に読む
 
-    // PositionChanged によるループ検出（EndReached が発火しない場合の代替）
+    // PositionChanged によるループ検出 & 初回フレーム検知
     private float          _lastPosition;
     private volatile bool  _loopEndHandled;
     private double         _videoEndSec = -1; // PlayVideo に渡された endSec（:stop-time の基準）
+
+    // PositionChanged で VLC の初回フレームデコードを検知して VideoView を表示する
+    private volatile bool _waitingFirstFrame;
+    private volatile int  _firstFrameSession;
+    private DispatcherTimer? _firstFrameFallbackTimer; // UI スレッドのみ使用
 
     public bool IsBuffering { get; private set; }
 
@@ -228,6 +232,9 @@ public partial class MovieWindow : Window
     private void PrepareForPlay()
     {
         _playSession++;       // セッション更新（VLC thread の EndReached が古いセッションを持つか判定に使う）
+        _waitingFirstFrame   = false;  // 旧セッションの初回フレーム待ちをキャンセル
+        _firstFrameFallbackTimer?.Stop();
+        _firstFrameFallbackTimer = null;
         _loopEndHandled      = false;
         _lastPosition        = 0f;
         _videoEndSec         = -1;
@@ -275,12 +282,17 @@ public partial class MovieWindow : Window
             return;
         }
 
-        _pendingStartSec  = startSec;
         _videoEndSec      = endSec;
         _afterPlayback    = afterPlayback;
         _currentFilePath  = filePath;
 
         using var media = new Media(_libVLC, new Uri(filePath));
+        // :start-time で VLC を指定位置から直接再生（PositionChanged で初回フレームを検知）
+        if (startSec > 0)
+        {
+            media.AddOption($":start-time={startSec:F3}");
+            Logger.Log($"[MW]   VLC :start-time={startSec:F3}");
+        }
         if (endSec > 0)
         {
             media.AddOption($":stop-time={endSec:F3}");
@@ -445,6 +457,9 @@ public partial class MovieWindow : Window
     public void ShowStandby()
     {
         Logger.Log($"[MW] ShowStandby (videoVisible={_videoVisible})");
+        _waitingFirstFrame = false;
+        _firstFrameFallbackTimer?.Stop();
+        _firstFrameFallbackTimer = null;
         IsBuffering = false;
         StopFadeTimer();      // フェード中でも正しく停止（FADEモード時のスタンバイ不表示を防ぐ）
         StopStandbyFadeIn();
@@ -481,52 +496,62 @@ public partial class MovieWindow : Window
 
     private void OnMediaPlaying()
     {
-        Logger.Log($"[MW] OnMediaPlaying: pendingStart={_pendingStartSec:F2} videoVisible={_videoVisible} session={_playSession}");
+        Logger.Log($"[MW] OnMediaPlaying: videoVisible={_videoVisible} session={_playSession}");
 
-        // Pause→Resume からの Playing イベント（映像表示済み）→ シーク・タイマー不要
+        // Pause→Resume からの Playing イベント（映像表示済み）→ 不要
         if (_videoVisible)
         {
-            Logger.Log("[MW] OnMediaPlaying: already visible (Pause→Resume) → skip");
+            Logger.Log("[MW] OnMediaPlaying: already visible → skip");
             return;
         }
 
-        // 初回シークは 1 回だけ（_pendingStartSec はここでクリア、Pause→Resume での再シークを防ぐ）
-        bool hadPendingSeek = _pendingStartSec > 0;
-        if (hadPendingSeek)
-        {
-            _mediaPlayer.Time = (long)(_pendingStartSec * 1000);
-            _pendingStartSec = 0;
-        }
+        // Playing 発火直後に ForegroundWindow を黒に確保（VLC レンダリング開始前）
+        EnsureVideoViewBlackBackground();
 
-        int delayMs = hadPendingSeek ? 800 : 300;
         int capturedSession = _playSession;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delayMs) };
-        timer.Tick += (_, _) =>
+        _firstFrameSession = capturedSession;
+        _waitingFirstFrame = true;
+
+        // フォールバックタイマー：PositionChanged が 1000ms 来なければ強制表示
+        _firstFrameFallbackTimer?.Stop();
+        _firstFrameFallbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        _firstFrameFallbackTimer.Tick += (_, _) =>
         {
-            timer.Stop();
-            IsBuffering = false;
-            if (_playSession != capturedSession)
-            {
-                Logger.Log($"[MW] OnMediaPlaying timer: session mismatch ({capturedSession}!={_playSession}), skip");
-                return;
-            }
-            if (_mediaPlayer.VideoTrack < 0)
-            {
-                LoadStandbyImage(_settings.MovieStandbyImagePath);
-                StandbyLayer.Opacity    = 1.0;
-                StandbyLayer.Visibility = Visibility.Visible;
-                Logger.Log("[MW] OnMediaPlaying: no video track → maintain standby");
-                return;
-            }
-            StandbyLayer.Visibility = Visibility.Collapsed;
-            EnsureVideoViewBlackBackground();
-            VideoView.Visibility    = Visibility.Visible;
-            _videoVisible = true;
-            Logger.Log($"[MW] OnMediaPlaying ({delayMs}ms): VideoView=Visible, StandbyLayer=Collapsed");
-            long vlcMs = _mediaPlayer.Time;
-            if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
+            _firstFrameFallbackTimer!.Stop();
+            _firstFrameFallbackTimer = null;
+            if (!_waitingFirstFrame) return;
+            _waitingFirstFrame = false;
+            Logger.Log("[MW] FirstFrame fallback: forced show");
+            ShowVideoView(capturedSession);
         };
-        timer.Start();
+        _firstFrameFallbackTimer.Start();
+        Logger.Log("[MW] OnMediaPlaying: waiting for first PositionChanged");
+    }
+
+    // VLC が最初のフレームをデコードしたとき（または fallback）に映像を表示する
+    private void ShowVideoView(int session)
+    {
+        IsBuffering = false;
+        if (_playSession != session)
+        {
+            Logger.Log($"[MW] ShowVideoView: stale session ({session}!={_playSession}), skip");
+            return;
+        }
+        if (_mediaPlayer.VideoTrack < 0)
+        {
+            LoadStandbyImage(_settings.MovieStandbyImagePath);
+            StandbyLayer.Opacity    = 1.0;
+            StandbyLayer.Visibility = Visibility.Visible;
+            Logger.Log("[MW] ShowVideoView: no video track → standby");
+            return;
+        }
+        StandbyLayer.Visibility = Visibility.Collapsed;
+        EnsureVideoViewBlackBackground(); // 表示直前に再確認
+        VideoView.Visibility    = Visibility.Visible;
+        _videoVisible = true;
+        Logger.Log("[MW] ShowVideoView: VideoView=Visible");
+        long vlcMs = _mediaPlayer.Time;
+        if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
     }
 
     private void OnMediaEnded(int sessionAtFire = -1)
@@ -588,11 +613,24 @@ public partial class MovieWindow : Window
     }
 
     // VLC が EndReached を発火しない場合の代替検出（PositionChanged から呼ばれる、VLC スレッド）。
-    // 【重要】FireLoopEnd をディスパッチする。OnMediaEnded は _loopEndHandled でスキップされるため不可。
+    // 初回フレームデコード検知も兼ねる。
     private void CheckLoopFromPosition(float pos)
     {
         float prev = _lastPosition;
         _lastPosition = pos;
+
+        // 初回フレームデコード検知：VLC が pos > 0.01 に達した＝最初の映像フレーム準備完了
+        if (_waitingFirstFrame && pos > 0.01f)
+        {
+            _waitingFirstFrame = false;
+            int sess = _firstFrameSession;
+            Dispatcher.BeginInvoke(() =>
+            {
+                _firstFrameFallbackTimer?.Stop();
+                _firstFrameFallbackTimer = null;
+                ShowVideoView(sess);
+            });
+        }
 
         if (_afterPlayback != AfterPlaybackBehavior.Loop) return;
         if (!_videoVisible || _fadeTimer != null || _loopEndHandled) return;
@@ -603,13 +641,11 @@ public partial class MovieWindow : Window
             _loopEndHandled = true;
             Logger.Log($"[MW] Position jump: {prev:F3}→{pos:F3} → FireLoopEnd");
             // Stop() は呼ばない。Task.Run(Stop)+Play() の並列実行が VLC レンダラーを壊す原因のため。
-            // VLC は内部でループ再生を続けるが VideoView=Collapsed で隠れる。次の Play(newMedia) が置き換える。
             Dispatcher.BeginInvoke(FireLoopEnd);
             return;
         }
 
         // パターン2: endSec の 300ms 前に先手で VideoView を隠す
-        // EndReached が白画面を出す前に FGW を 0×0 にするための先手対策。
         if (_videoEndSec > 0)
         {
             long   timeMs  = _mediaPlayer.Time;
@@ -618,7 +654,7 @@ public partial class MovieWindow : Window
             {
                 _loopEndHandled = true;
                 Logger.Log($"[MW] Time-based: {timeSec:F2}s >= endSec-0.30={_videoEndSec - 0.30:F2}s → FireLoopEnd");
-                Dispatcher.BeginInvoke(FireLoopEnd); // VLC はまだ再生中、PrepareForPlay で停止
+                Dispatcher.BeginInvoke(FireLoopEnd);
             }
         }
     }
@@ -727,6 +763,9 @@ public partial class MovieWindow : Window
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
+        _waitingFirstFrame = false;
+        _firstFrameFallbackTimer?.Stop();
+        _firstFrameFallbackTimer = null;
         UninstallGlobalMouseHook();
         StopFadeTimer();
         StopStandbyFadeIn();

@@ -1202,12 +1202,24 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // 映像表示タイミングで音声位置を補正する（VLC :start-time 方式との組み合わせ）
+    // 映像表示タイミングで音声位置を補正する（150ms 以上ズレていれば補正、小差はスキップ）
     private void OnMovieVideoShown(long vlcMs)
     {
         if (_currentMoviePadIndex < 0) return;
-        _playback.SeekMoviePadToSec(_currentMoviePadIndex, vlcMs / 1000.0);
-        Logger.Log($"[Main] VideoShown sync: pad={_currentMoviePadIndex} → {vlcMs / 1000.0:F3}s");
+        float  totalSec = _playback.GetPadTotalTime(_currentMoviePadIndex);
+        if (totalSec <= 0f) return;
+        double vlcSec   = vlcMs / 1000.0;
+        double audioSec = _playback.GetPadPosition(_currentMoviePadIndex) * totalSec;
+        double diffSec  = Math.Abs(vlcSec - audioSec);
+        if (diffSec > 0.15)
+        {
+            _playback.SeekMoviePadToSec(_currentMoviePadIndex, vlcSec);
+            Logger.Log($"[Main] VideoShown sync: audio={audioSec:F3}s vlc={vlcSec:F3}s diff={diffSec*1000:F0}ms → seek");
+        }
+        else
+        {
+            Logger.Log($"[Main] VideoShown sync: diff={diffSec*1000:F0}ms → skip");
+        }
     }
 
     // ------------------------------------------------------------------
