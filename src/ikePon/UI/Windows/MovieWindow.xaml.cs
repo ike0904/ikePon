@@ -519,6 +519,7 @@ public partial class MovieWindow : Window
                 return;
             }
             StandbyLayer.Visibility = Visibility.Collapsed;
+            EnsureVideoViewBlackBackground();
             VideoView.Visibility    = Visibility.Visible;
             _videoVisible = true;
             Logger.Log($"[MW] OnMediaPlaying ({delayMs}ms): VideoView=Visible, StandbyLayer=Collapsed");
@@ -616,6 +617,20 @@ public partial class MovieWindow : Window
                 Dispatcher.BeginInvoke(FireLoopEnd); // VLC はまだ再生中、PrepareForPlay で停止
             }
         }
+    }
+
+    // 再生/停止を繰り返すとレターボックスが白になる問題の対策。
+    // LibVLCSharp.WPF の内部 ForegroundWindow の背景をリフレクションで Black に強制する。
+    private void EnsureVideoViewBlackBackground()
+    {
+        try
+        {
+            var fi = VideoView.GetType().GetField("_foregroundWindow",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (fi?.GetValue(VideoView) is Window fgWin)
+                fgWin.Background = System.Windows.Media.Brushes.Black;
+        }
+        catch { }
     }
 
     private void OnMediaError()

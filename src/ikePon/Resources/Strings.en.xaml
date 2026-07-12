@@ -90,6 +90,7 @@
     <sys:String x:Key="Str_Info_Loaded">Loaded project: {0}</sys:String>
     <sys:String x:Key="Str_Info_SettingsSaved">Settings saved.</sys:String>
     <sys:String x:Key="Str_Info_RestartConfirm">Restart to apply settings?&#xA;[Y] YES  /  [N] NO</sys:String>
+    <sys:String x:Key="Str_Info_UnsavedClose">Unsaved changes. Exit without saving?&#xA;[Y] Exit  /  [N] Cancel</sys:String>
     <sys:String x:Key="Str_Info_BankCleared">Bank {0} cleared.</sys:String>
     <sys:String x:Key="Str_Info_BankClearConfirm">Clear all contents of Bank {0}?&#xA;[Y] Confirm  /  [N] Cancel</sys:String>
     <sys:String x:Key="Str_Info_PadPasted">Pasted settings to Pad {0}.</sys:String>

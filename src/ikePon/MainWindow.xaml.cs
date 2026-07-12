@@ -138,6 +138,8 @@ public partial class MainWindow : Window
     // 確認待ち（設定変更後の再起動）
     private bool _pendingRestartConfirm;
     private bool _isRestarting;
+    // 確認待ち（未保存の終了）
+    private bool _pendingCloseConfirm;
 
     // アスペクト比固定（WM_SIZING フック用）
     private double _mainAspectRatio;
@@ -915,7 +917,7 @@ public partial class MainWindow : Window
         // 確認待ちでなければ、通常インフォメーションをキー操作で消去
         bool anyPending = _pendingMemOverwrite.HasValue ||
                           _pendingIkpPath != null || _pendingOpenConfirm || _pendingNewConfirm ||
-                          _pendingBankClearIndex >= 0 || _pendingRestartConfirm;
+                          _pendingBankClearIndex >= 0 || _pendingRestartConfirm || _pendingCloseConfirm;
         if (_infoClearPending && !anyPending) { _infoClearPending = false; SetInfo2(""); }
 
         // メモリ上書き確認中
@@ -958,6 +960,13 @@ public partial class MainWindow : Window
         {
             if (key == Key.Y) { ConfirmRestart(); return true; }
             if (key == Key.N) { CancelRestart();  return true; }
+        }
+
+        // 未保存の終了確認中
+        if (_pendingCloseConfirm)
+        {
+            if (key == Key.Y) { ConfirmClose(); return true; }
+            if (key == Key.N) { CancelClose();  return true; }
         }
 
         // ファイルメニューショートカット（Ctrl+N/O/S/Z/Y）
@@ -2154,6 +2163,7 @@ public partial class MainWindow : Window
         else if (_pendingOpenConfirm)           ConfirmOpenLoad();
         else if (_pendingNewConfirm)            ConfirmNew();
         else if (_pendingRestartConfirm)        ConfirmRestart();
+        else if (_pendingCloseConfirm)          ConfirmClose();
     }
     private void BankNoBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -2163,6 +2173,7 @@ public partial class MainWindow : Window
         else if (_pendingOpenConfirm)           CancelOpenLoad();
         else if (_pendingNewConfirm)            CancelNew();
         else if (_pendingRestartConfirm)        CancelRestart();
+        else if (_pendingCloseConfirm)          CancelClose();
     }
 
     private void ConfirmMemOverwrite()
@@ -2583,6 +2594,21 @@ public partial class MainWindow : Window
         SetInfo2(L.S("Str_Info_SettingsSaved"));
     }
 
+    private void ConfirmClose()
+    {
+        if (!_pendingCloseConfirm) return;
+        _pendingCloseConfirm = false;
+        SetInfo2("");
+        Application.Current.Shutdown();
+    }
+
+    private void CancelClose()
+    {
+        if (!_pendingCloseConfirm) return;
+        _pendingCloseConfirm = false;
+        SetInfo2("");
+    }
+
     // ------------------------------------------------------------------
     // プロジェクト読み込み（スマートリロケート付き）
     // ------------------------------------------------------------------
@@ -2716,13 +2742,14 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------------
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_isRestarting && _projectDirty)
+        if (!_isRestarting && _projectDirty && !_pendingCloseConfirm)
         {
-            var r = MessageBox.Show(L.S("Str_Msg_UnsavedClose"), "ikePon",
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-            if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
-            if (r == MessageBoxResult.Yes) Menu_Save(this, new RoutedEventArgs());
+            e.Cancel = true;
+            _pendingCloseConfirm = true;
+            SetInfo2Warning(L.S("Str_Info_UnsavedClose"));
+            return;
         }
+        if (_pendingCloseConfirm) _pendingCloseConfirm = false;
         ComponentDispatcher.ThreadPreprocessMessage -= OnGlobalKey;
         _uiTimer.Stop();
         _midi.Dispose();
