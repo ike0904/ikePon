@@ -275,18 +275,12 @@ public partial class MovieWindow : Window
             return;
         }
 
-        _pendingStartSec  = 0;   // :start-time で VLC 側がシーク済み → OnMediaPlaying で再シーク不要
+        _pendingStartSec  = startSec;
         _videoEndSec      = endSec;
         _afterPlayback    = afterPlayback;
         _currentFilePath  = filePath;
 
         using var media = new Media(_libVLC, new Uri(filePath));
-        // :start-time で VLC を指定位置から直接再生（Playing 発火後の追加シーク・800ms 待ちを解消）
-        if (startSec > 0)
-        {
-            media.AddOption($":start-time={startSec:F3}");
-            Logger.Log($"[MW]   VLC :start-time={startSec:F3}");
-        }
         if (endSec > 0)
         {
             media.AddOption($":stop-time={endSec:F3}");
@@ -560,7 +554,8 @@ public partial class MovieWindow : Window
                     StandbyImage.Source  = null;
                     StandbyLayer.Opacity    = 1.0;
                     StandbyLayer.Visibility = Visibility.Visible;
-                    Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
+                    // Stop() は呼ばない（PrepareForPlay の Play(newMedia) に任せる）。
+                    // Task.Run(Stop)+Play() 並列実行による VLC レンダラー破損防止。
                     Logger.Log("[MW] Loop end via EndReached → LoopEndReached");
                     LoopEndReached?.Invoke();
                 }
@@ -607,7 +602,8 @@ public partial class MovieWindow : Window
         {
             _loopEndHandled = true;
             Logger.Log($"[MW] Position jump: {prev:F3}→{pos:F3} → FireLoopEnd");
-            Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } }); // VLC 内部ループを即停止
+            // Stop() は呼ばない。Task.Run(Stop)+Play() の並列実行が VLC レンダラーを壊す原因のため。
+            // VLC は内部でループ再生を続けるが VideoView=Collapsed で隠れる。次の Play(newMedia) が置き換える。
             Dispatcher.BeginInvoke(FireLoopEnd);
             return;
         }

@@ -804,6 +804,7 @@ public partial class MainWindow : Window
                 Logger.Log("[Display] Black screen: auto-recover (DISPLAY OFF→ON)");
                 _movieCtrl.CloseDisplay();
                 _movieCtrl.OpenDisplay();
+                ResumeMovieIfPlaying(); // 映像を再起動（スタンバイ画面のままにしない）
             }
         }
         else
