@@ -42,6 +42,11 @@ CHROME_PATHS = [
 
 EN_MARKER = "<!-- EN_START -->"
 
+# ── リリース用フォルダ ──────────────────────────────────────────────────────────
+# None の場合は DOC_DIR.parent/"dist" を自動検索。
+# アプリごとに絶対パス or DOC_DIR 起点の相対パスを指定して上書きする。
+DIST_DIR = DOC_DIR.parent / "src" / "ikePon" / "bin" / "Release" / "net9.0-windows" / "win-x64" / "publish"
+
 
 def substitute_en_images(content: str) -> str:
     """英語セクション内の画像を _en 版に差し替える（存在する場合のみ）。"""
@@ -175,12 +180,12 @@ if __name__ == "__main__":
     step_html_to_pdf()
     cleanup()
 
-    # dist/ フォルダが存在すればそこにもコピー（配布物に同梱するため）
-    dist_dir = DOC_DIR.parent / "dist"
-    if dist_dir.exists():
-        dest = dist_dir / PDF_FILE.name
+    # リリースフォルダにコピー（DIST_DIR 未設定なら ../dist/ を自動検索）
+    _dist = DIST_DIR if DIST_DIR is not None else (DOC_DIR.parent / "dist")
+    if _dist.exists():
+        dest = _dist / PDF_FILE.name
         shutil.copy2(PDF_FILE, dest)
-        print(f"  -> dist にコピー: {dest}")
+        print(f"  -> リリースフォルダにコピー: {dest}")
 
     print("\n変換完了！")
     print(f"  PDF : {PDF_FILE}")
