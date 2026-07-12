@@ -53,7 +53,7 @@
     <sys:String x:Key="Str_Dlg_Pad_EndPos">End Position</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_EndHint">(empty=end of file)</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_LoopStart">Loop Start Position</sys:String>
-    <sys:String x:Key="Str_Dlg_Pad_LoopHint">(empty=from beginning)</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopHint">(empty=from start position)</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterPlay">After Playback</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterStop">Stop</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterFreeze">Freeze Last Frame</sys:String>

@@ -203,6 +203,7 @@ public partial class MainWindow : Window
         };
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
         _movieCtrl.VideoLoopEndReached  += OnVideoLoopEndReached;
+        _movieCtrl.VideoShown           += OnMovieVideoShown;
 
         WireMidi();
         _midi.SetDevice(_settings.SelectedMidiDeviceName);
@@ -1198,6 +1199,14 @@ public partial class MainWindow : Window
         cm.Closed += (_, _) => Dispatcher.BeginInvoke(Keyboard.ClearFocus);
         cm.IsOpen = true;
         e.Handled = true;
+    }
+
+    // 映像表示タイミングで音声位置を補正する（VLC :start-time 方式との組み合わせ）
+    private void OnMovieVideoShown(long vlcMs)
+    {
+        if (_currentMoviePadIndex < 0) return;
+        _playback.SeekMoviePadToSec(_currentMoviePadIndex, vlcMs / 1000.0);
+        Logger.Log($"[Main] VideoShown sync: pad={_currentMoviePadIndex} → {vlcMs / 1000.0:F3}s");
     }
 
     // ------------------------------------------------------------------

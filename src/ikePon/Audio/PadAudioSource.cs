@@ -373,6 +373,18 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
         }
     }
 
+    public void SeekToSec(float targetSec)
+    {
+        lock (_lock)
+        {
+            if (_preloaded == null || (PadPlayState)_stateInt == PadPlayState.Idle) return;
+            int samplePos = (int)(targetSec * _format.SampleRate * _format.Channels);
+            _readPos = Math.Clamp(samplePos, 0, _preloadTotal);
+            PlaybackPosition = _preloadTotal > 0 ? (float)_readPos / _preloadTotal : 0f;
+            _inCrossfade = false;
+        }
+    }
+
     public void SetLoop(bool loop)
     {
         lock (_lock)

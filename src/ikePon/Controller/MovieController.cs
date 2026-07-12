@@ -27,6 +27,7 @@ public sealed class MovieController : IDisposable
     public event Action<bool>? FullScreenChanged;
     public event Action<string>? StatusMessage;
     public event Action? VideoLoopEndReached;
+    public event Action<long>? VideoShown;
 
     public MovieController(AppSettings settings)
     {
@@ -74,6 +75,7 @@ public sealed class MovieController : IDisposable
             _window = new MovieWindow(_settings, _libVLC!);
             _window.FullScreenChanged += OnWindowFullScreenChanged;
             _window.LoopEndReached    += OnWindowLoopEndReached;
+            _window.VideoShown        += OnWindowVideoShown;
             _window.Closed += OnWindowClosed;
             _window.Show();
             _window.ShowStandby(); // 初期スタンバイ画像表示（映像再生時はすぐ上書きされる）
@@ -95,6 +97,7 @@ public sealed class MovieController : IDisposable
         {
             _window.FullScreenChanged -= OnWindowFullScreenChanged;
             _window.LoopEndReached    -= OnWindowLoopEndReached;
+            _window.VideoShown        -= OnWindowVideoShown;
             _window.Closed -= OnWindowClosed;
             _window.Close();
             _window = null;
@@ -186,6 +189,7 @@ public sealed class MovieController : IDisposable
     }
 
     private void OnWindowLoopEndReached() => VideoLoopEndReached?.Invoke();
+    private void OnWindowVideoShown(long ms) => VideoShown?.Invoke(ms);
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {

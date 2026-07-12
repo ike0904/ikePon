@@ -53,7 +53,7 @@
     <sys:String x:Key="Str_Dlg_Pad_EndPos">再生終了位置</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_EndHint">（空欄＝ファイル終端）</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_LoopStart">ループ再生開始位置</sys:String>
-    <sys:String x:Key="Str_Dlg_Pad_LoopHint">（空欄＝先頭から）</sys:String>
+    <sys:String x:Key="Str_Dlg_Pad_LoopHint">（空欄＝再生開始位置から）</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterPlay">最後まで再生した後</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterStop">そのまま終了</sys:String>
     <sys:String x:Key="Str_Dlg_Pad_AfterFreeze">最終フレームで止める</sys:String>

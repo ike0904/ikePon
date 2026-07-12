@@ -103,6 +103,8 @@ public partial class MovieWindow : Window
     public event Action<bool>? FullScreenChanged;
     // 動画がループ終端に達したとき（AfterPlayback=Loop）に発火。再起動はMainWindowが担う。
     public event Action? LoopEndReached;
+    // 映像が画面に表示された瞬間に発火。パラメータは VLC の現在再生位置（ms）。音声同期補正用。
+    public event Action<long>? VideoShown;
 
     // VLC の現在再生位置をミリ秒で返す。再生中でなければ -1。
     public long GetCurrentTimeMs() =>
@@ -273,14 +275,18 @@ public partial class MovieWindow : Window
             return;
         }
 
-        _pendingStartSec  = startSec;
+        _pendingStartSec  = 0;   // :start-time で VLC 側がシーク済み → OnMediaPlaying で再シーク不要
         _videoEndSec      = endSec;
         _afterPlayback    = afterPlayback;
         _currentFilePath  = filePath;
 
         using var media = new Media(_libVLC, new Uri(filePath));
-        // EndPositionSec が指定されている場合は VLC の :stop-time でその秒数に EndReached を発火させる。
-        // これにより NAudio のループ終端と VLC の終端タイミングが一致し、確実にループ再起動できる。
+        // :start-time で VLC を指定位置から直接再生（Playing 発火後の追加シーク・800ms 待ちを解消）
+        if (startSec > 0)
+        {
+            media.AddOption($":start-time={startSec:F3}");
+            Logger.Log($"[MW]   VLC :start-time={startSec:F3}");
+        }
         if (endSec > 0)
         {
             media.AddOption($":stop-time={endSec:F3}");
@@ -523,6 +529,8 @@ public partial class MovieWindow : Window
             VideoView.Visibility    = Visibility.Visible;
             _videoVisible = true;
             Logger.Log($"[MW] OnMediaPlaying ({delayMs}ms): VideoView=Visible, StandbyLayer=Collapsed");
+            long vlcMs = _mediaPlayer.Time;
+            if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
         };
         timer.Start();
     }

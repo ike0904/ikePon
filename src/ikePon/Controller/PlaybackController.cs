@@ -350,6 +350,14 @@ public sealed class PlaybackController
     public bool MuteSe     { get => _engine.MuteSe;     set => _engine.MuteSe     = value; }
     public bool MuteMovie  { get => _engine.MuteMovie;  set => _engine.MuteMovie  = value; }
 
+    /// <summary>映像表示タイミングに合わせて Movie パッドの音声位置を補正する（映像→音声同期用）。</summary>
+    public void SeekMoviePadToSec(int padIndex, double targetSec)
+    {
+        var src = _engine.GetSource(_engine.ActiveBank, padIndex);
+        if (src.State != PadPlayState.Idle)
+            src.SeekToSec((float)targetSec);
+    }
+
     // WASAPIバッファを強制フラッシュ（ハードウェアループ解除）
     public void FlushOutput() => _engine.FlushOutput();
 }
