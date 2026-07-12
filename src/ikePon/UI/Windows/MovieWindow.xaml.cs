@@ -678,8 +678,11 @@ public partial class MovieWindow : Window
     }
 
     // レターボックスが白になる問題の対策。
-    // ForegroundWindow（VLC 映像オーバーレイ Window）内の _bckgnd（背景専用 FrameworkElement）のみを
-    // Black に設定する。Window.Background を触ると VLC レンダリングを塗りつぶすため NG。
+    // LibVLCSharp.WPF の ForegroundWindow は AllowsTransparency=True のオーバーレイ Window。
+    // デフォルト Background（白）がレターボックス領域に透けて見えるのが白の原因。
+    // Background=Transparent にすると WPF レイヤーが透明になり、
+    // レターボックス部分は後ろの MovieWindow（Background=Black）が透けて黒く見える。
+    // Background=Black にすると WPF が VLC 描画の前面を塗りつぶし映像が全黒になるため NG。
     private static readonly System.Reflection.BindingFlags _reflFlags =
         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
 
@@ -687,18 +690,11 @@ public partial class MovieWindow : Window
     {
         try
         {
-            var fg = VideoView.GetType()
-                .GetProperty("ForegroundWindow", _reflFlags)
-                ?.GetValue(VideoView);
-            if (fg == null) return;
+            if (VideoView.GetType()
+                    .GetProperty("ForegroundWindow", _reflFlags)
+                    ?.GetValue(VideoView) is not Window fgWin) return;
 
-            var bckgnd = fg.GetType().GetField("_bckgnd", _reflFlags)?.GetValue(fg) as FrameworkElement;
-            if (bckgnd == null) return;
-
-            var black = System.Windows.Media.Brushes.Black;
-            // 型によって Background（Panel/Border系）または Fill（Shape系）のどちらかを持つ
-            bckgnd.GetType().GetProperty("Background")?.SetValue(bckgnd, black);
-            bckgnd.GetType().GetProperty("Fill")?.SetValue(bckgnd, black);
+            fgWin.Background = System.Windows.Media.Brushes.Transparent;
         }
         catch { }
     }
