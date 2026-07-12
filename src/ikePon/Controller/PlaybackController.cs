@@ -95,24 +95,24 @@ public sealed class PlaybackController
 
         int bank = _engine.ActiveBank;
 
-        // インターロック確認
-        long now = Environment.TickCount64;
-        if (now - _lastTick[bank, padIndex] < (long)_settings.InterLockMs)
-            return;
-        _lastTick[bank, padIndex] = now;
-
         var pad = _project.Banks[bank].Pads[padIndex];
         if (string.IsNullOrEmpty(pad.FilePath)) return;
 
         var src = _engine.GetSource(bank, padIndex);
         if (src.FilePath == null) return;
 
-        // Ctrl: 即座に停止
+        // Ctrl: 即座に停止（インターロック対象外：停止操作は常に受け付ける）
         if (stopImmediate)
         {
             src.StopImmediate();
             return;
         }
+
+        // インターロック確認（再生・フェードアウト操作のみ対象）
+        long now = Environment.TickCount64;
+        if (now - _lastTick[bank, padIndex] < (long)_settings.InterLockMs)
+            return;
+        _lastTick[bank, padIndex] = now;
 
         // Shift: フェードアウト
         if (fadeOut)

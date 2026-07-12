@@ -215,12 +215,13 @@ public partial class MainWindow : Window
 
         UpdateBankHighlight();
         UpdateTitle();
-        UpdateFullButton(_movieCtrl.IsFullScreen);
-        UpdateDispButton(_movieCtrl.DisplayActive);
         UpdateLockButton();
         SetInfo2(L.S("Str_Info_Ready"));
         Loaded += async (_, _) =>
         {
+            // テンプレートパーツはLoaded後に確実に取得できる
+            UpdateFullButton(_movieCtrl.IsFullScreen);
+            UpdateDispButton(_movieCtrl.DisplayActive);
             _initComplete = true;
             if (_assocFilePath != null) await LoadProjectAsync(_assocFilePath);
         };
@@ -2542,7 +2543,7 @@ public partial class MainWindow : Window
             {
                 // 再起動確認メッセージ表示（言語変更時は日英両方表示）
                 string msg = langChanged
-                    ? "設定を反映させるため、再起動しますか？ / Restart to apply settings?\n[Y] YES  /  [N] NO"
+                    ? "設定を反映させるため、再起動しますか？\nRestart to apply settings?  [Y] YES  /  [N] NO"
                     : L.S("Str_Info_RestartConfirm");
                 _pendingRestartConfirm = true;
                 SetInfo2Warning(msg);
