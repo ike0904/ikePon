@@ -695,8 +695,10 @@ public partial class MovieWindow : Window
             var bckgnd = fg.GetType().GetField("_bckgnd", _reflFlags)?.GetValue(fg) as FrameworkElement;
             if (bckgnd == null) return;
 
-            bckgnd.GetType().GetProperty("Background")
-                ?.SetValue(bckgnd, System.Windows.Media.Brushes.Black);
+            var black = System.Windows.Media.Brushes.Black;
+            // 型によって Background（Panel/Border系）または Fill（Shape系）のどちらかを持つ
+            bckgnd.GetType().GetProperty("Background")?.SetValue(bckgnd, black);
+            bckgnd.GetType().GetProperty("Fill")?.SetValue(bckgnd, black);
         }
         catch { }
     }
