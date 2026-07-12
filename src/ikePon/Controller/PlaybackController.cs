@@ -266,6 +266,36 @@ public sealed class PlaybackController
         ResetActivePads();
     }
 
+    /// <summary>新規動画再生の前処理。同カテゴリの既存パッドを停止しactivePadを更新する。
+    /// 音声の開始（Trigger）はVideoShown後に呼び出し元が行う。
+    /// インターロックで弾かれた場合は false を返す。</summary>
+    public bool PrepareMovieAudio(int padIndex)
+    {
+        if (_project == null) return false;
+        int bank = _engine.ActiveBank;
+
+        long now = Environment.TickCount64;
+        if (now - _lastTick[bank, padIndex] < (long)_settings.InterLockMs) return false;
+        _lastTick[bank, padIndex] = now;
+
+        int catIdx = (int)AudioCategory.Movie;
+        int prev   = _activePad[catIdx];
+        if (prev >= 0 && prev != padIndex)
+            _engine.GetSource(bank, prev).StopImmediate();
+
+        for (int p = 0; p < BankData.PadCount; p++)
+        {
+            if (p == padIndex) continue;
+            var ps = _engine.GetSource(bank, p);
+            if (ps.State == PadPlayState.FadingOut &&
+                (int)(_project!.Banks[bank].Pads[p].Category) == catIdx)
+                ps.StopImmediate();
+        }
+
+        _activePad[catIdx] = padIndex;
+        return true;
+    }
+
     public void StopMovieAudioPads()
     {
         if (_project == null) return;

@@ -71,6 +71,12 @@ public partial class MainWindow : Window
     private int  _videoSyncMismatchFrames;
     private long _vlcLastKnownTimeMs = -1;  // 前回 VLC から取得した Time 値
 
+    // 映像初回フレーム後に音声を開始するための保留パラメータ（-1=保留なし）
+    private int   _pendingAudioPadIndex = -1;
+    private float _pendingAudioEndSec;
+    private float _pendingAudioLoopStartSec;
+    private bool  _pendingAudioShouldLoop;
+
     // 動画表示時間の壁掛け時計（整数秒カウンタ・VLC補正対応）
     private int  _movieDisplayedSec = 0;    // 表示用再生秒数（整数）
     private long _movieSecTick      = -1;   // 直近1秒起算点のTickCount64
@@ -1202,24 +1208,21 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // 映像表示タイミングで音声位置を補正する（150ms 以上ズレていれば補正、小差はスキップ）
+    // 映像初回フレーム表示時に呼ばれる。保留中の音声があれば VLC 位置から起動する。
     private void OnMovieVideoShown(long vlcMs)
     {
-        if (_currentMoviePadIndex < 0) return;
-        float  totalSec = _playback.GetPadTotalTime(_currentMoviePadIndex);
-        if (totalSec <= 0f) return;
-        double vlcSec   = vlcMs / 1000.0;
-        double audioSec = _playback.GetPadPosition(_currentMoviePadIndex) * totalSec;
-        double diffSec  = Math.Abs(vlcSec - audioSec);
-        if (diffSec > 0.15)
+        if (_pendingAudioPadIndex >= 0)
         {
-            _playback.SeekMoviePadToSec(_currentMoviePadIndex, vlcSec);
-            Logger.Log($"[Main] VideoShown sync: audio={audioSec:F3}s vlc={vlcSec:F3}s diff={diffSec*1000:F0}ms → seek");
+            int   pad    = _pendingAudioPadIndex;
+            _pendingAudioPadIndex = -1;
+            float vlcSec = (float)(vlcMs / 1000.0);
+            _engine.GetSource(_playback.ActiveBank, pad)
+                .Trigger(vlcSec, _pendingAudioEndSec, 0f, _pendingAudioShouldLoop, _pendingAudioLoopStartSec);
+            StartMovieWallClock(vlcSec);
+            Logger.Log($"[Main] VideoShown: audio triggered at vlc={vlcSec:F3}s loop={_pendingAudioShouldLoop}");
+            return;
         }
-        else
-        {
-            Logger.Log($"[Main] VideoShown sync: diff={diffSec*1000:F0}ms → skip");
-        }
+        Logger.Log($"[Main] VideoShown: no pending audio (vlc={vlcMs}ms)");
     }
 
     // ------------------------------------------------------------------
@@ -1253,40 +1256,38 @@ public partial class MainWindow : Window
             t.Stop();
             _videoLoopingPadIndex = -1; // 300ms経過、黄色枠維持を解除
 
-            // NAudio は常に再起動（DISP 切り替えタイミングで止まりっぱなしになるのを防ぐ）
-            _engine.GetSource(_playback.ActiveBank, capturedPad)
-                .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
+            bool displayOn     = _movieCtrl.DisplayActive;
+            bool sessionChanged = _movieLoopSession != capturedSess;
 
-            if (_movieLoopSession != capturedSess)
+            if (!displayOn || sessionChanged)
             {
-                // DISP 切り替え等でセッションが変わった → DISP ON 中なら映像も再起動
-                if (_movieCtrl.DisplayActive)
+                // DISP OFF またはセッション変更：音声を即時起動（VideoShown は来ない or 不定）
+                _engine.GetSource(_playback.ActiveBank, capturedPad)
+                    .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
+                StartMovieWallClock(restartSec);
+
+                if (sessionChanged && displayOn)
                 {
                     ++_movieLoopSession;
                     _currentMoviePadIndex = capturedPad;
-                    StartMovieWallClock(restartSec);
                     _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
-                    Logger.Log($"[MW] Video loop: session changed, full restart (pad={capturedPad})");
+                    Logger.Log($"[MW] Video loop: session changed, audio+video restart (pad={capturedPad})");
                 }
                 else
                 {
-                    Logger.Log($"[MW] Video loop: session changed, audio-only restart (pad={capturedPad})");
+                    Logger.Log($"[MW] Video loop: {(displayOn ? "session changed" : "display off")}, audio-only (pad={capturedPad})");
                 }
                 return;
             }
 
-            if (!_movieCtrl.DisplayActive)
-            {
-                Logger.Log($"[MW] Video loop: display off, audio-only restart (pad={capturedPad})");
-                return;
-            }
+            // 通常ループ：映像の初回フレームまで音声を保留
+            _pendingAudioPadIndex     = capturedPad;
+            _pendingAudioEndSec       = capturedEnd;
+            _pendingAudioLoopStartSec = capturedLoop;
+            _pendingAudioShouldLoop   = true;
 
-            StartMovieWallClock(restartSec); // ループ再起動で壁掛け時計もリセット
-
-            // 映像再開（LibVLC）
             _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
-
-            Logger.Log($"[MW] Video loop restart: audio+video (pad={capturedPad} restartSec={restartSec:F2})");
+            Logger.Log($"[MW] Video loop restart: video first, audio deferred (pad={capturedPad} restartSec={restartSec:F2})");
         };
         t.Start();
         Logger.Log($"[MW] Video loop end: 300ms black+silence timer started (pad={padIdx})");
@@ -1353,6 +1354,27 @@ public partial class MainWindow : Window
 
         // パッドの現在時間表示値を再生開始位置として使用（詳細設定の StartPositionSec とは独立）
         float startSecOverride = _padButtons[padIndex].CurrentStartSec;
+
+        // 新規動画再生（初回・wasActive=false）: 映像の初回フレームまで音声を保留する
+        bool isNewMoviePlay = isMoviePad && !isImagePad && !fadeOut && !stopImmediate
+                              && !wasActive && !string.IsNullOrEmpty(pad?.FilePath);
+        if (isNewMoviePlay)
+        {
+            if (!_playback.PrepareMovieAudio(padIndex)) return; // インターロック
+            _pendingAudioPadIndex     = padIndex;
+            _pendingAudioEndSec       = pad!.EndPositionSec;
+            _pendingAudioLoopStartSec = pad.LoopStartSec;
+            _pendingAudioShouldLoop   = pad.AfterPlayback == AfterPlaybackBehavior.Loop;
+            _freezeLastFramePadIndex  = -1;
+            ++_movieLoopSession; _currentMoviePadIndex = padIndex;
+            // 壁掛け時計は VideoShown 発火時（音声開始時）に StartMovieWallClock で起動する
+            _movieCtrl.PlayVideo(pad.FilePath!, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
+            _imageDisplayingPadIndex = -1;
+            _videoBufferingPadIndex  = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath!))
+                                       && !IsImageFile(pad.FilePath) ? padIndex : -1;
+            return;
+        }
+
         _playback.TriggerPad(padIndex, fadeOut, stopImmediate, startSecOverride);
 
         if (!isMoviePad) return;
@@ -1360,12 +1382,14 @@ public partial class MainWindow : Window
         if (stopImmediate)
         {
             ++_movieLoopSession; _currentMoviePadIndex = -1;
+            _pendingAudioPadIndex = -1;
             _movieCtrl.StopVideo();
             _imageDisplayingPadIndex = -1;
         }
         else if (fadeOut)
         {
             ++_movieLoopSession;
+            _pendingAudioPadIndex = -1;
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
         }
@@ -1381,22 +1405,12 @@ public partial class MainWindow : Window
             // 同パッド再押し → 音声停止済み → 映像も同様に停止（TapBehavior準拠）
             bool cutOut = pad?.TapBehavior == TapBehavior.CutOut;
             ++_movieLoopSession; _currentMoviePadIndex = -1;
+            _pendingAudioPadIndex = -1;
             if (cutOut)
                 _movieCtrl.StopVideo();
             else
                 _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
-        }
-        else if (!string.IsNullOrEmpty(pad!.FilePath))
-        {
-            _freezeLastFramePadIndex = -1; // 旧フリーズ状態を解除（別パッドが再生開始された場合も含む）
-            ++_movieLoopSession; _currentMoviePadIndex = padIndex; // 新規動画再生：ループ追跡開始
-            StartMovieWallClock(startSecOverride); // 壁掛け時計スタート
-            _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
-            _imageDisplayingPadIndex = -1;
-            // 動画ファイル再生時はバッファリング完了まで準備中を表示
-            _videoBufferingPadIndex = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath))
-                                      && !IsImageFile(pad.FilePath) ? padIndex : -1;
         }
     }
 

@@ -49,6 +49,8 @@ public partial class MovieWindow : Window
     private volatile bool _waitingFirstFrame;
     private volatile int  _firstFrameSession;
     private DispatcherTimer? _firstFrameFallbackTimer; // UI スレッドのみ使用
+    // ForegroundWindow の背景を黒に保ち続けるポーリングタイマー（Playing〜映像表示まで）
+    private DispatcherTimer? _bgFixTimer;
 
     public bool IsBuffering { get; private set; }
 
@@ -125,6 +127,10 @@ public partial class MovieWindow : Window
         Loaded += (_, _) =>
         {
             VideoView.MediaPlayer = _mediaPlayer;
+            // ForegroundWindow は Loaded 直後に作られるため、ここで黒を確定しておく
+            EnsureVideoViewBlackBackground();
+            Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                new Action(EnsureVideoViewBlackBackground));
             Debug.WriteLine("[MW] Loaded: MediaPlayer assigned");
         };
 
@@ -460,6 +466,8 @@ public partial class MovieWindow : Window
         _waitingFirstFrame = false;
         _firstFrameFallbackTimer?.Stop();
         _firstFrameFallbackTimer = null;
+        _bgFixTimer?.Stop();
+        _bgFixTimer = null;
         IsBuffering = false;
         StopFadeTimer();      // フェード中でも正しく停止（FADEモード時のスタンバイ不表示を防ぐ）
         StopStandbyFadeIn();
@@ -505,8 +513,16 @@ public partial class MovieWindow : Window
             return;
         }
 
-        // Playing 発火直後に ForegroundWindow を黒に確保（VLC レンダリング開始前）
+        // Playing 発火直後に ForegroundWindow を黒に確保し、映像表示まで 50ms ごとに維持する
         EnsureVideoViewBlackBackground();
+        _bgFixTimer?.Stop();
+        _bgFixTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        _bgFixTimer.Tick += (_, _) =>
+        {
+            EnsureVideoViewBlackBackground();
+            if (_videoVisible) { _bgFixTimer!.Stop(); _bgFixTimer = null; }
+        };
+        _bgFixTimer.Start();
 
         int capturedSession = _playSession;
         _firstFrameSession = capturedSession;
@@ -531,6 +547,8 @@ public partial class MovieWindow : Window
     // VLC が最初のフレームをデコードしたとき（または fallback）に映像を表示する
     private void ShowVideoView(int session)
     {
+        _bgFixTimer?.Stop();
+        _bgFixTimer = null;
         IsBuffering = false;
         if (_playSession != session)
         {
@@ -545,8 +563,8 @@ public partial class MovieWindow : Window
             Logger.Log("[MW] ShowVideoView: no video track → standby");
             return;
         }
+        EnsureVideoViewBlackBackground(); // StandbyLayer を隠す前に黒を確定
         StandbyLayer.Visibility = Visibility.Collapsed;
-        EnsureVideoViewBlackBackground(); // 表示直前に再確認
         VideoView.Visibility    = Visibility.Visible;
         _videoVisible = true;
         Logger.Log("[MW] ShowVideoView: VideoView=Visible");
@@ -766,6 +784,8 @@ public partial class MovieWindow : Window
         _waitingFirstFrame = false;
         _firstFrameFallbackTimer?.Stop();
         _firstFrameFallbackTimer = null;
+        _bgFixTimer?.Stop();
+        _bgFixTimer = null;
         UninstallGlobalMouseHook();
         StopFadeTimer();
         StopStandbyFadeIn();
