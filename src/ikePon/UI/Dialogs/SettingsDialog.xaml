@@ -124,7 +124,7 @@
 
         <TextBlock x:Name="TbLangNote"
                    Text="{StaticResource Str_Dlg_Settings_LangNote}"
-                   FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"
+                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,0" TextWrapping="Wrap"
                    Visibility="Collapsed"/>
 
         <Separator Background="#383838" Margin="0,8,0,12"/>
@@ -177,7 +177,7 @@
                     Padding="0"/>
         </Grid>
         <TextBlock Text="{StaticResource Str_Dlg_Settings_StandbyHint}"
-                   FontSize="10" Foreground="#666" Margin="0,2,0,6" TextWrapping="Wrap"/>
+                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,6" TextWrapping="Wrap"/>
 
         <Grid Margin="0,0,0,0">
             <Grid.ColumnDefinitions>
@@ -277,7 +277,7 @@
         </Grid>
 
         <TextBlock Text="{StaticResource Str_Dlg_Settings_AudioNote}"
-                   FontSize="10" Foreground="#666" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,0" TextWrapping="Wrap"/>
 
         <Separator Background="#383838" Margin="0,12"/>
 

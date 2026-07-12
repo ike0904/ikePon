@@ -142,7 +142,7 @@
                     Padding="0"/>
         </Grid>
         <TextBlock Text="{StaticResource Str_Dlg_Pad_FileHint}"
-                   FontSize="10" Foreground="#666" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                   FontSize="10" Foreground="#AAAAAA" Margin="0,2,0,10" TextWrapping="Wrap"/>
 
         <Separator Background="#383838" Margin="0,0,0,10"/>
 

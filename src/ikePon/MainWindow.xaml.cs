@@ -64,7 +64,8 @@ public partial class MainWindow : Window
     // 動画ループ制御：現在再生中の Movie パッドと、ループ再起動キャンセル用セッション番号
     private int _currentMoviePadIndex = -1;
     private int _movieLoopSession;
-    private int _videoLoopingPadIndex = -1; // ループ間の300ms黒画面中、黄色枠を維持するため
+    private int _videoLoopingPadIndex = -1;    // ループ間の300ms黒画面中、黄色枠を維持するため
+    private int _freezeLastFramePadIndex = -1; // FreezeLastFrame 完了後のフリーズ状態パッドindex
 
     // 映像↔音声同期補正
     private int  _videoSyncMismatchFrames;
@@ -134,6 +135,8 @@ public partial class MainWindow : Window
     private bool _pendingOpenConfirm;
     // 確認待ち（新規プロジェクト）
     private bool _pendingNewConfirm;
+    // 確認待ち（設定変更後の再起動）
+    private bool _pendingRestartConfirm;
 
     // アスペクト比固定（WM_SIZING フック用）
     private double _mainAspectRatio;
@@ -183,7 +186,7 @@ public partial class MainWindow : Window
             void updateDisp()
             {
                 UpdateDispButton(on);
-                if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; }
+                if (!on) { ++_movieLoopSession; _currentMoviePadIndex = -1; _freezeLastFramePadIndex = -1; }
             }
             if (Dispatcher.CheckAccess()) updateDisp();
             else Dispatcher.Invoke(updateDisp);
@@ -670,6 +673,21 @@ public partial class MainWindow : Window
             var pad      = _playback.GetPadSettings(i);
             var fadeGain = _playback.GetPadFadeGain(i);
             var totalSec = _playback.GetPadTotalTime(i);
+
+            // FreezeLastFrame 遷移検出: 動画パッドが再生中→Idle に変化したとき
+            if (i == _currentMoviePadIndex && _movieSecTick >= 0
+                && state == PadPlayState.Idle
+                && pad?.Category == AudioCategory.Movie && !IsImageFile(pad.FilePath))
+            {
+                if (pad.AfterPlayback == AfterPlaybackBehavior.FreezeLastFrame)
+                {
+                    _freezeLastFramePadIndex = i;
+                    Logger.Log($"[MW] FreezeLastFrame activated: pad={i}");
+                }
+                _movieSecTick = -1;
+                _currentMoviePadIndex = -1;
+            }
+
             // 動画パッドは整数秒カウンタで位置表示（VLC更新ラグ回避・長尺動画対応）
             if (i == _currentMoviePadIndex && _movieSecTick >= 0
                 && pad?.Category == AudioCategory.Movie && !IsImageFile(pad.FilePath) && totalSec > 0)
@@ -688,6 +706,12 @@ public partial class MainWindow : Window
             // 動画ループの300ms黒画面中はオーディオ状態がIdleになるが、黄色枠を維持する
             if (state == PadPlayState.Idle && _videoLoopingPadIndex == i)
                 state = PadPlayState.Playing;
+            // FreezeLastFrame 中: 一時停止扱い（黄色点滅）・プログレスバー 100%
+            if (_freezeLastFramePadIndex == i)
+            {
+                state = PadPlayState.Paused;
+                pos   = 1.0f;
+            }
             _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing, isPreparingVideo);
         }
         UpdateActionButtons();
@@ -888,7 +912,8 @@ public partial class MainWindow : Window
 
         // 確認待ちでなければ、通常インフォメーションをキー操作で消去
         bool anyPending = _pendingMemOverwrite.HasValue ||
-                          _pendingIkpPath != null || _pendingOpenConfirm || _pendingNewConfirm || _pendingBankClearIndex >= 0;
+                          _pendingIkpPath != null || _pendingOpenConfirm || _pendingNewConfirm ||
+                          _pendingBankClearIndex >= 0 || _pendingRestartConfirm;
         if (_infoClearPending && !anyPending) { _infoClearPending = false; SetInfo2(""); }
 
         // メモリ上書き確認中
@@ -924,6 +949,13 @@ public partial class MainWindow : Window
         {
             if (key == Key.Y) { ExecuteBankClear(); return true; }
             if (key == Key.N) { _pendingBankClearIndex = -1; SetInfo2(""); return true; }
+        }
+
+        // 設定変更後の再起動確認中
+        if (_pendingRestartConfirm)
+        {
+            if (key == Key.Y) { ConfirmRestart(); return true; }
+            if (key == Key.N) { CancelRestart();  return true; }
         }
 
         // ファイルメニューショートカット（Ctrl+N/O/S/Z/Y）
@@ -1029,32 +1061,62 @@ public partial class MainWindow : Window
         Keyboard.ClearFocus();
         var state = _playback.GetPadState(padIndex);
         bool imageActive = _imageDisplayingPadIndex == padIndex;
+        bool isFrozen = _freezeLastFramePadIndex == padIndex; // FreezeLastFrame フリーズ中
 
-        // LOCK中はアイドル時のみ右クリックメニューを無効化（再生中は許可）
-        if (_isLocked && state == PadPlayState.Idle && !imageActive)
+        // LOCK中はアイドル時のみ右クリックメニューを無効化（再生中・フリーズ中は許可）
+        if (_isLocked && state == PadPlayState.Idle && !imageActive && !isFrozen)
         {
             e.Handled = true;
             return;
         }
         var pad0 = _playback.GetPadSettings(padIndex);
         bool isImagePad = pad0 != null && IsImageFile(pad0.FilePath);
+        bool isMovPad   = pad0?.Category == AudioCategory.Movie && !isImagePad;
         var cm = new ContextMenu();
 
-        if (state != PadPlayState.Idle || imageActive)
+        if (state != PadPlayState.Idle || imageActive || isFrozen)
         {
             bool duringPauseAll = _isPauseAllActive;
-            // PAUSE中はカットアウト以外をグレーアウト
-            var fadeOut = new MenuItem { Header = L.S("Str_CM_FadeOut"), IsEnabled = !duringPauseAll };
-            fadeOut.Click += (_, _) => TriggerPadWithMovie(padIndex, fadeOut: true);
+            // MOV 一時停止中（PAUSE または FreezeLastFrame）はフェードアウト有効
+            bool pausedMov = isMovPad && (isFrozen || state == PadPlayState.Paused);
+            var fadeOut = new MenuItem { Header = L.S("Str_CM_FadeOut"), IsEnabled = !duringPauseAll || pausedMov };
+            fadeOut.Click += (_, _) =>
+            {
+                if (pausedMov)
+                {
+                    // 音は無音のまま映像だけフェードアウト
+                    if (state == PadPlayState.Paused)
+                        _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
+                    _freezeLastFramePadIndex = -1;
+                    ++_movieLoopSession;
+                    _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+                    if (duringPauseAll)
+                        Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
+                }
+                else
+                {
+                    TriggerPadWithMovie(padIndex, fadeOut: true);
+                }
+            };
             var cutOut = new MenuItem { Header = L.S("Str_CM_CutOut") };
             cutOut.Click += (_, _) =>
             {
-                TriggerPadWithMovie(padIndex, stopImmediate: true);
-                // PAUSE中カットアウト後、一時停止対象パッドがなくなった場合はPAUSE解除
-                if (duringPauseAll)
-                    Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
+                if (isFrozen)
+                {
+                    // FreezeLastFrame フリーズ状態: 映像のみ停止
+                    _freezeLastFramePadIndex = -1;
+                    ++_movieLoopSession;
+                    _movieCtrl.StopVideo();
+                }
+                else
+                {
+                    TriggerPadWithMovie(padIndex, stopImmediate: true);
+                    // PAUSE中カットアウト後、一時停止対象パッドがなくなった場合はPAUSE解除
+                    if (duringPauseAll)
+                        Dispatcher.InvokeAsync(CheckReleasePauseAll, System.Windows.Threading.DispatcherPriority.Background);
+                }
             };
-            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !duringPauseAll;
+            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !duringPauseAll && !isFrozen;
             var pauseResume = new MenuItem { Header = L.S("Str_CM_PauseResume"), IsEnabled = pauseEnabled };
             pauseResume.Click += (_, _) => PausePadWithMovie(padIndex);
             cm.Items.Add(fadeOut);
@@ -1259,6 +1321,7 @@ public partial class MainWindow : Window
         }
         else if (!string.IsNullOrEmpty(pad!.FilePath))
         {
+            _freezeLastFramePadIndex = -1; // 旧フリーズ状態を解除（別パッドが再生開始された場合も含む）
             ++_movieLoopSession; _currentMoviePadIndex = padIndex; // 新規動画再生：ループ追跡開始
             StartMovieWallClock(startSecOverride); // 壁掛け時計スタート
             _movieCtrl.PlayVideo(pad.FilePath, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
@@ -1881,7 +1944,7 @@ public partial class MainWindow : Window
 
     private void ExecuteAllFade()
     {
-        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0) return;
+        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0 && _freezeLastFramePadIndex < 0) return;
 
         _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
         if (_fadeCutBd != null)
@@ -1920,6 +1983,7 @@ public partial class MainWindow : Window
             _pauseBd ??= PauseAllButton.Template.FindName("PauseBd", PauseAllButton) as System.Windows.Controls.Border;
             if (_pauseBd != null) _pauseBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
         }
+        _freezeLastFramePadIndex = -1; // FreezeLastFrame フリーズ状態を解除（映像フェード対象）
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
 
@@ -1930,7 +1994,7 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
-        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0) return;
+        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0 && _freezeLastFramePadIndex < 0) return;
 
         _panicBd ??= PanicButton.Template.FindName("Bd", PanicButton) as System.Windows.Controls.Border;
         if (_panicBd != null)
@@ -1961,6 +2025,7 @@ public partial class MainWindow : Window
         _isPauseAllActive = false;
         _imageDisplayingPadIndex = -1;
         _imageFadingPadIndex = -1;
+        _freezeLastFramePadIndex = -1; // FreezeLastFrame フリーズ状態を解除
         ++_movieLoopSession; _currentMoviePadIndex = -1; // ループ再起動キャンセル
         _playback.PanicStopAll();
         _playback.FlushOutput();
@@ -2018,6 +2083,7 @@ public partial class MainWindow : Window
     }
 
     private bool IsAnyPadActive() =>
+        _freezeLastFramePadIndex >= 0 ||
         Enumerable.Range(0, BankData.PadCount).Any(i => _playback.GetPadState(i) != PadPlayState.Idle);
 
     // ------------------------------------------------------------------
@@ -2432,6 +2498,10 @@ public partial class MainWindow : Window
 
     private void Menu_Settings(object sender, RoutedEventArgs e)
     {
+        string prevLang    = _settings.Language;
+        int    prevLatency = _settings.WasapiLatencyMs;
+        int    prevPreload = _settings.PreloadThresholdSeconds;
+
         var dlg = new ikePon.UI.Dialogs.SettingsDialog(_settings) { Owner = this };
         if (dlg.ShowDialog() == true)
         {
@@ -2439,8 +2509,44 @@ public partial class MainWindow : Window
             _movieCtrl.ReloadStandbyImage();
             _midi.SetDevice(_settings.SelectedMidiDeviceName);
             _settings.Save();
-            SetInfo2(L.S("Str_Info_SettingsSaved"));
+
+            bool langChanged  = _settings.Language != prevLang;
+            bool audioChanged = _settings.WasapiLatencyMs != prevLatency ||
+                                _settings.PreloadThresholdSeconds != prevPreload;
+
+            if (langChanged || audioChanged)
+            {
+                // 再起動確認メッセージ表示（言語変更時は日英両方表示）
+                string msg = langChanged
+                    ? "設定を反映させるため、再起動しますか？\nRestart to apply settings?\n[Y] YES  /  [N] NO"
+                    : L.S("Str_Info_RestartConfirm");
+                _pendingRestartConfirm = true;
+                SetInfo2Warning(msg);
+            }
+            else
+            {
+                SetInfo2(L.S("Str_Info_SettingsSaved"));
+            }
         }
+    }
+
+    private void ConfirmRestart()
+    {
+        if (!_pendingRestartConfirm) return;
+        _pendingRestartConfirm = false;
+        _settings.Save();
+        var exePath = Environment.ProcessPath
+            ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+        if (exePath != null)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+        Application.Current.Shutdown();
+    }
+
+    private void CancelRestart()
+    {
+        if (!_pendingRestartConfirm) return;
+        _pendingRestartConfirm = false;
+        SetInfo2(L.S("Str_Info_SettingsSaved"));
     }
 
     // ------------------------------------------------------------------

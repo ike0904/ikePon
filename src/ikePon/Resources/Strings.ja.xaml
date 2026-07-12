@@ -89,6 +89,7 @@
     <sys:String x:Key="Str_Info_Saved">保存しました: {0}</sys:String>
     <sys:String x:Key="Str_Info_Loaded">プロジェクトを読み込みました: {0}</sys:String>
     <sys:String x:Key="Str_Info_SettingsSaved">設定を保存しました。</sys:String>
+    <sys:String x:Key="Str_Info_RestartConfirm">設定を反映させるため、再起動しますか？&#xA;[Y] YES  /  [N] NO</sys:String>
     <sys:String x:Key="Str_Info_BankCleared">Bank {0} をクリアしました。</sys:String>
     <sys:String x:Key="Str_Info_BankClearConfirm">Bank {0} の内容をすべてクリアしますか？&#xA;[Y] 確定  /  [N] キャンセル</sys:String>
     <sys:String x:Key="Str_Info_PadPasted">Pad {0} に設定をペーストしました。</sys:String>
