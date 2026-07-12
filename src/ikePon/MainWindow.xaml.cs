@@ -1215,6 +1215,7 @@ public partial class MainWindow : Window
         {
             int   pad    = _pendingAudioPadIndex;
             _pendingAudioPadIndex = -1;
+            _videoLoopingPadIndex = -1; // 黄色枠の維持はここで解除（音声が Playing になるので自然に維持される）
             float vlcSec = (float)(vlcMs / 1000.0);
             _engine.GetSource(_playback.ActiveBank, pad)
                 .Trigger(vlcSec, _pendingAudioEndSec, 0f, _pendingAudioShouldLoop, _pendingAudioLoopStartSec);
@@ -1254,14 +1255,15 @@ public partial class MainWindow : Window
         t.Tick += (_, _) =>
         {
             t.Stop();
-            _videoLoopingPadIndex = -1; // 300ms経過、黄色枠維持を解除
+            // _videoLoopingPadIndex は通常ループ時は VideoShown まで保持（黄色枠維持）
 
-            bool displayOn     = _movieCtrl.DisplayActive;
+            bool displayOn      = _movieCtrl.DisplayActive;
             bool sessionChanged = _movieLoopSession != capturedSess;
 
             if (!displayOn || sessionChanged)
             {
                 // DISP OFF またはセッション変更：音声を即時起動（VideoShown は来ない or 不定）
+                _videoLoopingPadIndex = -1; // 即時解除（音声が再開されるので枠は再度 Playing になる）
                 _engine.GetSource(_playback.ActiveBank, capturedPad)
                     .Trigger(restartSec, capturedEnd, 0f, shouldLoop: true, capturedLoop);
                 StartMovieWallClock(restartSec);
@@ -1281,10 +1283,13 @@ public partial class MainWindow : Window
             }
 
             // 通常ループ：映像の初回フレームまで音声を保留
+            // _currentMoviePadIndex を再セット（UiTimer が Idle 検知で -1 にする前に確保）
+            _currentMoviePadIndex     = capturedPad;
             _pendingAudioPadIndex     = capturedPad;
             _pendingAudioEndSec       = capturedEnd;
             _pendingAudioLoopStartSec = capturedLoop;
             _pendingAudioShouldLoop   = true;
+            // _videoLoopingPadIndex は VideoShown 後に OnMovieVideoShown でクリアする
 
             _movieCtrl.PlayVideo(capturedPath, restartSec, capturedEnd, AfterPlaybackBehavior.Loop);
             Logger.Log($"[MW] Video loop restart: video first, audio deferred (pad={capturedPad} restartSec={restartSec:F2})");

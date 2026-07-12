@@ -678,14 +678,14 @@ public partial class MovieWindow : Window
     }
 
     // 再生/停止を繰り返すとレターボックスが白になる問題の対策。
-    // LibVLCSharp.WPF の内部 ForegroundWindow の背景をリフレクションで Black に強制する。
+    // LibVLCSharp.WPF の非公開プロパティ ForegroundWindow（Window サブクラス）を取得し Black に強制する。
     private void EnsureVideoViewBlackBackground()
     {
         try
         {
-            var fi = VideoView.GetType().GetField("_foregroundWindow",
+            var pi = VideoView.GetType().GetProperty("ForegroundWindow",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (fi?.GetValue(VideoView) is Window fgWin)
+            if (pi?.GetValue(VideoView) is Window fgWin)
                 fgWin.Background = System.Windows.Media.Brushes.Black;
         }
         catch { }
