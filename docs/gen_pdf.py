@@ -174,5 +174,13 @@ if __name__ == "__main__":
     step_md_to_html()
     step_html_to_pdf()
     cleanup()
+
+    # dist/ フォルダが存在すればそこにもコピー（配布物に同梱するため）
+    dist_dir = DOC_DIR.parent / "dist"
+    if dist_dir.exists():
+        dest = dist_dir / PDF_FILE.name
+        shutil.copy2(PDF_FILE, dest)
+        print(f"  -> dist にコピー: {dest}")
+
     print("\n変換完了！")
     print(f"  PDF : {PDF_FILE}")
