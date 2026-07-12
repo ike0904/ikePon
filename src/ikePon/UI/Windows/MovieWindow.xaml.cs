@@ -677,16 +677,26 @@ public partial class MovieWindow : Window
         }
     }
 
-    // 再生/停止を繰り返すとレターボックスが白になる問題の対策。
-    // LibVLCSharp.WPF の非公開プロパティ ForegroundWindow（Window サブクラス）を取得し Black に強制する。
+    // レターボックスが白になる問題の対策。
+    // ForegroundWindow（VLC 映像オーバーレイ Window）内の _bckgnd（背景専用 FrameworkElement）のみを
+    // Black に設定する。Window.Background を触ると VLC レンダリングを塗りつぶすため NG。
+    private static readonly System.Reflection.BindingFlags _reflFlags =
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+
     private void EnsureVideoViewBlackBackground()
     {
         try
         {
-            var pi = VideoView.GetType().GetProperty("ForegroundWindow",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (pi?.GetValue(VideoView) is Window fgWin)
-                fgWin.Background = System.Windows.Media.Brushes.Black;
+            var fg = VideoView.GetType()
+                .GetProperty("ForegroundWindow", _reflFlags)
+                ?.GetValue(VideoView);
+            if (fg == null) return;
+
+            var bckgnd = fg.GetType().GetField("_bckgnd", _reflFlags)?.GetValue(fg) as FrameworkElement;
+            if (bckgnd == null) return;
+
+            bckgnd.GetType().GetProperty("Background")
+                ?.SetValue(bckgnd, System.Windows.Media.Brushes.Black);
         }
         catch { }
     }
