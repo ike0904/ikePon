@@ -1372,11 +1372,23 @@ public partial class MainWindow : Window
             _pendingAudioShouldLoop   = pad.AfterPlayback == AfterPlaybackBehavior.Loop;
             _freezeLastFramePadIndex  = -1;
             ++_movieLoopSession; _currentMoviePadIndex = padIndex;
-            // 壁掛け時計は VideoShown 発火時（音声開始時）に StartMovieWallClock で起動する
-            _movieCtrl.PlayVideo(pad.FilePath!, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
+            if (_movieCtrl.DisplayActive)
+            {
+                // DISPLAY ON: VideoShown 発火まで音声を保留
+                _movieCtrl.PlayVideo(pad.FilePath!, startSecOverride, pad.EndPositionSec, pad.AfterPlayback);
+                _videoBufferingPadIndex = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath!))
+                                          && !IsImageFile(pad.FilePath) ? padIndex : -1;
+            }
+            else
+            {
+                // DISPLAY OFF: 映像なしで即時音声開始。DISPLAY ON 時に ResumeMovieIfPlaying で映像を再開する
+                _pendingAudioPadIndex = -1;
+                _engine.GetSource(_playback.ActiveBank, padIndex)
+                    .Trigger(startSecOverride, _pendingAudioEndSec, 0f, _pendingAudioShouldLoop, _pendingAudioLoopStartSec);
+                StartMovieWallClock(startSecOverride);
+                _videoBufferingPadIndex = -1;
+            }
             _imageDisplayingPadIndex = -1;
-            _videoBufferingPadIndex  = VideoImageExtensions.Contains(System.IO.Path.GetExtension(pad.FilePath!))
-                                       && !IsImageFile(pad.FilePath) ? padIndex : -1;
             return;
         }
 
