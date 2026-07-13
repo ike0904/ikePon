@@ -742,22 +742,22 @@ public partial class MovieWindow : Window
 
         if (diff > 0)
         {
-            // Pillarbox: 左右に黒帯
-            double barW = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
-            if (barW > 1)
-            {
-                AddRect(HorizontalAlignment.Left,  VerticalAlignment.Stretch, barW, null);
-                AddRect(HorizontalAlignment.Right, VerticalAlignment.Stretch, barW, null);
-            }
-        }
-        else
-        {
-            // Letterbox: 上下に黒帯
+            // VIDEO が VIEW より横長 → 幅に合わせてスケール → Letterbox（上下に黒帯）
             double barH = Math.Ceiling((viewH - viewW / videoAspect) / 2) + 1;
             if (barH > 1)
             {
                 AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Top,    null, barH);
                 AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, null, barH);
+            }
+        }
+        else
+        {
+            // VIDEO が VIEW より縦長 → 高さに合わせてスケール → Pillarbox（左右に黒帯）
+            double barW = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
+            if (barW > 1)
+            {
+                AddRect(HorizontalAlignment.Left,  VerticalAlignment.Stretch, barW, null);
+                AddRect(HorizontalAlignment.Right, VerticalAlignment.Stretch, barW, null);
             }
         }
         Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0} rects={_letterboxElements.Count}");
