@@ -1,12 +1,12 @@
 <div style="page-break-after: always; text-align: center; padding-top: 55mm;">
 <p style="font-size: 26pt; font-weight: bold; color: #1a1a2e; margin: 0 0 24px;">ikePon</p>
 <p style="font-size: 13pt; color: #333; margin: 0 0 16px;">ユーザーマニュアル / User Manual</p>
-<p style="font-size: 11pt; color: #888; margin: 0 0 32px;">v1.4.0</p>
+<p style="font-size: 11pt; color: #888; margin: 0 0 32px;">v1.5.0</p>
 <p style="font-size: 10pt; color: #555; margin: 0;">日本語マニュアルは次のページから始まります。</p>
 <p style="font-size: 10pt; color: #555; margin: 0;">English manual starts on the second half of this document.</p>
 </div>
 
-# ikePon v1.4 ユーザーマニュアル
+# ikePon v1.5 ユーザーマニュアル
 
 ---
 
@@ -572,14 +572,14 @@ CC の値（0〜127）がそのままフェーダー値に反映されます（C
 
 | バージョン | 日付 | 内容 |
 |:---|:------|:--------------------|
-| v1.4.0 | 2026-07-14 | 映像ウィンドウのレターボックス・ピラーボックス白フラッシュを根本修正（VideoView 常時表示化）。ループ再生・音声同期の安定性向上。DISPLAY OFF 状態で動画パッドをトリガーした際の音声即時再生を修正。カットアウト実行時は連打防止（インターロック）の対象外に変更。DISPLAY は毎回 OFF 状態で起動するよう変更（前回状態の引き継ぎを廃止）。アプリ終了確認をポップアップからインフォメーションエリア表示に変更。二重起動防止機能を追加 |
+| v1.5.0 | 2026-07-14 | 映像ウィンドウのレターボックス・ピラーボックス白フラッシュを根本修正（VideoView 常時表示化）。ループ再生・音声同期の安定性向上。DISPLAY OFF 状態で動画パッドをトリガーした際の音声即時再生を修正。カットアウト実行時は連打防止（インターロック）の対象外に変更。DISPLAY は毎回 OFF 状態で起動するよう変更（前回状態の引き継ぎを廃止）。アプリ終了確認をポップアップからインフォメーションエリア表示に変更。二重起動防止機能を追加。バンク詳細設定ダイアログのエラーを修正 |
 | v1.3.0 | 2026-07-11 | 初版リリース |
 
 <div style="page-break-before: always;"></div>
 
 <!-- EN_START -->
 
-# ikePon v1.4 User Manual
+# ikePon v1.5 User Manual
 
 ---
 
@@ -1145,5 +1145,5 @@ CC values (0–127) map directly to fader values (CC 100 = ±0 dB).
 
 | Version | Date | Notes |
 |:---|:------|:--------------------|
-| v1.4.0 | 2026-07-14 | Fundamentally fixed letterbox/pillarbox white flash (VideoView always-on approach). Improved loop playback and audio sync stability. Fixed: audio now plays immediately when a video pad is triggered while DISPLAY is OFF. Cut Out actions are now exempt from interlock (rapid-fire prevention). DISPLAY always starts in OFF state (previous state no longer carried over). App-quit confirmation moved from popup dialog to info area. Added double-launch prevention. |
+| v1.5.0 | 2026-07-14 | Fundamentally fixed letterbox/pillarbox white flash (VideoView always-on approach). Improved loop playback and audio sync stability. Fixed: audio now plays immediately when a video pad is triggered while DISPLAY is OFF. Cut Out actions are now exempt from interlock (rapid-fire prevention). DISPLAY always starts in OFF state (previous state no longer carried over). App-quit confirmation moved from popup dialog to info area. Added double-launch prevention. Fixed: Bank Details dialog crash. |
 | v1.3.0 | 2026-07-11 | Initial release |
