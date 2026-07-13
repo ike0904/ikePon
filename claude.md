@@ -14,6 +14,11 @@
 　　しかし、VLC PLAYERアプリ本体のレターボックスが黒なのだから、白になってしまうという状況は納得できない。
 　　必ず原因があるし、わざわざ上から黒をかぶせないと調整できないということはないはず。
 
+・ウィンドウリサイズ時の白フラッシュ（再生中）は許容範囲の既知挙動。
+  原因：_videoVisible=true 中は _fgStandbyLayer=Collapsed のため、VLC D3D11 バッファの
+  リサイズ処理の瞬間に HWND 背景色（白）が露出する。イベント中にリサイズすることはほぼないため
+  実害なし。マニュアルに既知動作として記載予定。
+
 ・v1.3.18：VideoView を常時 Visible に固定して白フラッシュを根本解決。
   VideoView.Visibility=Collapsed をコード全体から削除。スタンバイ表示は
   ForegroundWindow の _fgGrid 内に _fgStandbyLayer（Grid, ZIndex=100）を追加して実現。
