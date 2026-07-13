@@ -14,7 +14,7 @@ public sealed class MovieController : IDisposable
 
     private LibVLC? _libVLC;
     private volatile bool _vlcReady;
-    private bool _pendingOpen;
+    private volatile bool _pendingOpen;
 
     public bool DisplayActive  { get; private set; }
     public bool IsFullScreen   => _settings.MovieMode == MovieDisplayMode.FullScreen;
@@ -63,7 +63,9 @@ public sealed class MovieController : IDisposable
         {
             StatusMessage?.Invoke(L.S("Str_Ctrl_MovieInit"));
             _pendingOpen = true;
-            return;
+            // VLC がちょうど初期化完了した場合のダブルチェック（競合状態対策）
+            if (!_vlcReady) return;
+            _pendingOpen = false;
         }
 
         if (DisplayActive && _window != null && _window.IsVisible) return;
