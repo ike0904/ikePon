@@ -50,14 +50,15 @@
     <RemoveDir Directories="$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\libvlc" />
   </Target>
 
-  <!-- Release publish後: PublishSingleFile で exe にバンドル済みのマネージド DLL を dist\ から削除 -->
-  <!-- ikePon.dll（単一ファイル起動スタブ）・libvlc\（ネイティブ）は削除しない -->
+  <!-- Release publish後: 不要ファイルを dist\ から削除 -->
+  <!-- 残すもの: ikePon.exe / ikePon.dll（起動スタブ）/ *.json / libvlc\ / ikePon_manual.pdf -->
   <Target Name="CleanBundledDllsAfterPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <ItemGroup>
       <_BundledDlls Include="$(PublishDir)*.dll" Exclude="$(PublishDir)ikePon.dll" />
+      <_PdbFiles    Include="$(PublishDir)*.pdb" />
     </ItemGroup>
-    <Delete Files="@(_BundledDlls)" />
-    <Message Text="[CleanBundledDlls] Removed managed DLLs bundled into exe from $(PublishDir)" Importance="high" />
+    <Delete Files="@(_BundledDlls);@(_PdbFiles)" />
+    <Message Text="[CleanBundledDlls] Removed bundled DLLs and PDB from $(PublishDir)" Importance="high" />
   </Target>
 
 </Project>
