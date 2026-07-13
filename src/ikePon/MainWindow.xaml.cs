@@ -1931,6 +1931,7 @@ public partial class MainWindow : Window
 
     private async void DispButton_Click(object sender, RoutedEventArgs e)
     {
+        Logger.Log($"[MW] DispButton_Click: locked={_isLocked} busy={_dispButtonBusy}");
         if (_isLocked || _dispButtonBusy) return;
         _dispButtonBusy = true;
         try
@@ -1941,6 +1942,7 @@ public partial class MainWindow : Window
             await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
             bool wasActive = _movieCtrl.DisplayActive;
             _movieCtrl.ToggleDisplay();
+            Logger.Log($"[MW] DispButton_Click: after Toggle → DisplayActive={_movieCtrl.DisplayActive} wasActive={wasActive}");
             if (_movieCtrl.DisplayActive && !wasActive)
                 ResumeMovieIfPlaying();
 
@@ -1954,6 +1956,7 @@ public partial class MainWindow : Window
         {
             _dispButtonBusy = false;
             DispButton.IsEnabled = true;
+            Logger.Log($"[MW] DispButton_Click finally: DisplayActive={_movieCtrl.DisplayActive}");
             UpdateDispButton(_movieCtrl.DisplayActive);
         }
     }

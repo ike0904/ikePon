@@ -35,23 +35,34 @@ public sealed class MovieController : IDisposable
         DisplayActive = false; // 起動時は常にOFF
         _pendingOpen  = false;
 
+        Logger.Log("[MC] MovieController ctor: starting VLC init in background");
+
         // バックグラウンドでVLC初期化（初回DISP押下の待ち時間を解消）
         Task.Run(() =>
         {
             try
             {
+                Logger.Log("[MC] BG: Core.Initialize start");
                 Core.Initialize();
+                Logger.Log("[MC] BG: LibVLC ctor start");
                 _libVLC = new LibVLC("--no-audio", "--aout=none", "--no-video-title-show");
                 _vlcReady = true;
+                Logger.Log($"[MC] BG: VLC ready. _pendingOpen={_pendingOpen}");
 
                 if (_pendingOpen)
                 {
                     _pendingOpen = false;
+                    Logger.Log("[MC] BG: _pendingOpen=true → BeginInvoke(OpenDisplay)");
                     Application.Current?.Dispatcher.BeginInvoke(new Action(OpenDisplay));
+                }
+                else
+                {
+                    Logger.Log("[MC] BG: _pendingOpen=false → no action");
                 }
             }
             catch (Exception ex)
             {
+                Logger.Log($"[MC] BG: VLC init error: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"[MovieController] VLC init error: {ex}");
             }
         });
@@ -59,38 +70,53 @@ public sealed class MovieController : IDisposable
 
     public void OpenDisplay()
     {
+        Logger.Log($"[MC] OpenDisplay: _vlcReady={_vlcReady} DisplayActive={DisplayActive} _window={(_window == null ? "null" : (_window.IsVisible ? "visible" : "notVisible"))} _pendingOpen={_pendingOpen}");
+
         if (!_vlcReady)
         {
             StatusMessage?.Invoke(L.S("Str_Ctrl_MovieInit"));
             _pendingOpen = true;
             // VLC がちょうど初期化完了した場合のダブルチェック（競合状態対策）
-            if (!_vlcReady) return;
+            if (!_vlcReady)
+            {
+                Logger.Log("[MC] OpenDisplay: VLC not ready → pending (return)");
+                return;
+            }
             _pendingOpen = false;
+            Logger.Log("[MC] OpenDisplay: double-check passed → fall through");
         }
 
-        if (DisplayActive && _window != null && _window.IsVisible) return;
+        if (DisplayActive && _window != null && _window.IsVisible)
+        {
+            Logger.Log("[MC] OpenDisplay: already active+visible → return");
+            return;
+        }
         DisplayActive = true;
         _settings.DisplayOutputActive = true;
 
         if (_window == null || !_window.IsVisible)
         {
+            Logger.Log("[MC] OpenDisplay: creating MovieWindow");
             _window = new MovieWindow(_settings, _libVLC!);
             _window.FullScreenChanged += OnWindowFullScreenChanged;
             _window.LoopEndReached    += OnWindowLoopEndReached;
             _window.VideoShown        += OnWindowVideoShown;
             _window.Closed += OnWindowClosed;
             _window.Show();
+            Logger.Log($"[MC] OpenDisplay: Show() called, IsVisible={_window.IsVisible}");
             _window.ShowStandby(); // 初期スタンバイ画像表示（映像再生時はすぐ上書きされる）
 
             if (_settings.MovieMode == MovieDisplayMode.FullScreen)
                 _window.SetFullScreen(true);
         }
 
+        Logger.Log("[MC] OpenDisplay: firing DisplayActiveChanged(true)");
         DisplayActiveChanged?.Invoke(true);
     }
 
     public void CloseDisplay()
     {
+        Logger.Log($"[MC] CloseDisplay: DisplayActive={DisplayActive} _window={(_window == null ? "null" : "exists")}");
         _pendingOpen = false;
         DisplayActive = false;
         _settings.DisplayOutputActive = false;
@@ -111,6 +137,7 @@ public sealed class MovieController : IDisposable
 
     public void ToggleDisplay()
     {
+        Logger.Log($"[MC] ToggleDisplay: DisplayActive={DisplayActive}");
         if (DisplayActive) CloseDisplay();
         else OpenDisplay();
     }
@@ -195,6 +222,7 @@ public sealed class MovieController : IDisposable
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
+        Logger.Log("[MC] OnWindowClosed: window closed unexpectedly");
         _window = null;
         DisplayActive = false;
         _settings.DisplayOutputActive = false;
