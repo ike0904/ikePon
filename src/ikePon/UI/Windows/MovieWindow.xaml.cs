@@ -60,6 +60,9 @@ public partial class MovieWindow : Window
     private Window? _fgWin;
     private Grid?   _fgGrid;
     private readonly List<UIElement> _letterboxElements = new();
+    // ForegroundWindow 内スタンバイレイヤー（VideoView 常時 Visible 化に伴い WPF StandbyLayer の代替）
+    private Grid?  _fgStandbyLayer;
+    private Image? _fgStandbyImage;
 
     public bool IsBuffering { get; private set; }
 
@@ -67,7 +70,7 @@ public partial class MovieWindow : Window
     /// DISPが点灯中にスタンバイ画像なし・映像なし・バッファ中でもない = 黒画面状態
     /// </summary>
     public bool IsBlackScreen =>
-        !IsBuffering && !_videoVisible && StandbyImage.Source == null;
+        !IsBuffering && !_videoVisible && (_fgStandbyImage?.Source ?? StandbyImage.Source) == null;
 
     // WH_MOUSE_LL フック（ダブルクリック検出）
     private IntPtr _mouseHook = IntPtr.Zero;
@@ -231,16 +234,14 @@ public partial class MovieWindow : Window
 
     public void LoadStandbyImage(string? path)
     {
+        BitmapImage? bmp = null;
         if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
         {
-            try
-            {
-                StandbyImage.Source = new BitmapImage(new Uri(path, UriKind.Absolute));
-                return;
-            }
+            try { bmp = new BitmapImage(new Uri(path, UriKind.Absolute)); }
             catch { }
         }
-        StandbyImage.Source = null;
+        StandbyImage.Source = bmp;
+        if (_fgStandbyImage != null) _fgStandbyImage.Source = bmp;
     }
 
     // 動画再生開始前の準備：スタンバイ画像は表示せず黒のみ（フラッシュ防止）
@@ -256,12 +257,12 @@ public partial class MovieWindow : Window
         IsBuffering          = true;
         _videoVisible        = false;
         RemoveLetterboxBlackOverlay();
-        VideoView.Visibility = Visibility.Collapsed;
+        // VideoView は常に Visible（Collapsed にすると D3D11 スワップチェーンが再作成され白フラッシュが発生）
         // Stop() は呼ばない。直後の _mediaPlayer.Play(newMedia) が内部で旧メディアを停止する。
         // Task.Run(Stop) + Play() の並列実行による VLC 内部デッドロックを回避。
-        StandbyImage.Source     = null;
-        StandbyLayer.Opacity    = 1.0;
-        StandbyLayer.Visibility = Visibility.Visible;
+        StandbyImage.Source = null;
+        if (_fgStandbyImage != null) _fgStandbyImage.Source = null;
+        ShowFgStandby(1.0); // 黒画面で即時覆う（スタンバイ画像なし）
         Logger.Log($"[MW] PrepareForPlay: session={_playSession}");
     }
 
@@ -279,8 +280,12 @@ public partial class MovieWindow : Window
 
         if (isImage)
         {
-            try { StandbyImage.Source = new BitmapImage(new Uri(filePath, UriKind.Absolute)); }
-            catch { StandbyImage.Source = null; }
+            BitmapImage? bmp = null;
+            try { bmp = new BitmapImage(new Uri(filePath, UriKind.Absolute)); }
+            catch { }
+            StandbyImage.Source = bmp;
+            if (_fgStandbyImage != null) _fgStandbyImage.Source = bmp;
+            ShowFgStandby(1.0);
             _afterPlayback = afterPlayback;
             _videoVisible  = true;
             Debug.WriteLine("[MW]   static image displayed");
@@ -291,8 +296,7 @@ public partial class MovieWindow : Window
         {
             // 映像/静止画でないファイル（音声のみ等）→ スタンバイ画面を維持
             LoadStandbyImage(_settings.MovieStandbyImagePath);
-            StandbyLayer.Opacity    = 1.0;
-            StandbyLayer.Visibility = Visibility.Visible;
+            ShowFgStandby(1.0);
             IsBuffering = false;
             Debug.WriteLine("[MW]   skipped: not video/image ext → show standby");
             return;
@@ -400,14 +404,12 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
 
-        // VideoViewをCollapsedに → VLC ForegroundWindowが0×0になり非表示
-        _videoVisible        = false;
-        VideoView.Visibility = Visibility.Collapsed;
+        // VideoView は常に Visible（スワップチェーン維持）
+        _videoVisible = false;
 
-        // スタンバイをオーバーレイの背後でセットアップ（非表示状態）
+        // スタンバイをオーバーレイの背後でセットアップ（Opacity=0 で非表示状態）
         LoadStandbyImage(_settings.MovieStandbyImagePath);
-        StandbyLayer.Opacity    = 0.0;
-        StandbyLayer.Visibility = Visibility.Visible;
+        ShowFgStandby(0.0);
 
         // VLC停止（非同期）
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch (Exception ex) { Debug.WriteLine($"[MW] Stop error: {ex.Message}"); } });
@@ -430,7 +432,7 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
         if (_fadeOverlay != null) { _fadeOverlay.Close(); _fadeOverlay = null; }
-        StandbyLayer.Opacity = 1.0;
+        SetFgStandbyOpacity(1.0);
         Debug.WriteLine("[MW] StopFadeTimer: interrupted");
     }
 
@@ -439,7 +441,7 @@ public partial class MovieWindow : Window
         float duration = _settings.StandbyFadeInDuration;
         if (duration <= 0.02f)
         {
-            StandbyLayer.Opacity = 1.0;
+            SetFgStandbyOpacity(1.0);
             return;
         }
         _standbyFadeInStartTick = Environment.TickCount64;
@@ -452,10 +454,10 @@ public partial class MovieWindow : Window
     {
         double duration = Math.Max(_settings.StandbyFadeInDuration, 0.01f);
         double progress = (Environment.TickCount64 - _standbyFadeInStartTick) / 1000.0 / duration;
-        StandbyLayer.Opacity = Math.Min(progress, 1.0);
+        SetFgStandbyOpacity(Math.Min(progress, 1.0));
         if (progress >= 1.0)
         {
-            StandbyLayer.Opacity = 1.0;
+            SetFgStandbyOpacity(1.0);
             StopStandbyFadeIn();
             Debug.WriteLine("[MW] StandbyFadeIn: complete");
         }
@@ -482,13 +484,12 @@ public partial class MovieWindow : Window
         StopFadeTimer();      // フェード中でも正しく停止（FADEモード時のスタンバイ不表示を防ぐ）
         StopStandbyFadeIn();
         _playSession++;
-        _videoVisible        = false;
-        VideoView.Visibility = Visibility.Collapsed; // FGW=0×0でスタンバイを正しく見せる
+        _videoVisible = false;
+        // VideoView は常に Visible（スワップチェーン維持）
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
 
         LoadStandbyImage(_settings.MovieStandbyImagePath);
-        StandbyLayer.Opacity    = 0.0;
-        StandbyLayer.Visibility = Visibility.Visible;
+        ShowFgStandby(0.0);   // Opacity=0 でセット → フェードインへ
         StartStandbyFadeIn();  // CUT/FADEモードどちらでもフェードイン
     }
 
@@ -568,17 +569,15 @@ public partial class MovieWindow : Window
         if (_mediaPlayer.VideoTrack < 0)
         {
             LoadStandbyImage(_settings.MovieStandbyImagePath);
-            StandbyLayer.Opacity    = 1.0;
-            StandbyLayer.Visibility = Visibility.Visible;
+            ShowFgStandby(1.0);
             Logger.Log("[MW] ShowVideoView: no video track → standby");
             return;
         }
-        // VideoView.Visible にする前に黒帯をセット → Visible 後の最初の描画で白フラッシュを防ぐ
+        // スタンバイレイヤーを隠す前に黒帯をセット → 映像の最初の描画で周囲が黒になる
         ApplyLetterboxBlackOverlay(((Grid)Content).ActualWidth, ((Grid)Content).ActualHeight);
-        StandbyLayer.Visibility = Visibility.Collapsed;
-        VideoView.Visibility    = Visibility.Visible;
+        HideFgStandby(); // VideoView は常に Visible のまま → _fgStandbyLayer を外すだけで映像が見える
         _videoVisible = true;
-        Logger.Log("[MW] ShowVideoView: VideoView=Visible");
+        Logger.Log("[MW] ShowVideoView: _fgStandbyLayer=Collapsed → video visible");
         long vlcMs = _mediaPlayer.Time;
         if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
     }
@@ -603,11 +602,11 @@ public partial class MovieWindow : Window
                     _loopEndHandled = true;
                     StopFadeTimer();
                     StopStandbyFadeIn();
-                    _videoVisible        = false;
-                    VideoView.Visibility = Visibility.Collapsed;
-                    StandbyImage.Source  = null;
-                    StandbyLayer.Opacity    = 1.0;
-                    StandbyLayer.Visibility = Visibility.Visible;
+                    _videoVisible = false;
+                    // VideoView は常に Visible（スワップチェーン維持）
+                    StandbyImage.Source = null;
+                    if (_fgStandbyImage != null) _fgStandbyImage.Source = null;
+                    ShowFgStandby(1.0);
                     // Stop() は呼ばない（PrepareForPlay の Play(newMedia) に任せる）。
                     // Task.Run(Stop)+Play() 並列実行による VLC レンダラー破損防止。
                     Logger.Log("[MW] Loop end via EndReached → LoopEndReached");
@@ -631,12 +630,12 @@ public partial class MovieWindow : Window
         if (_currentFilePath == null || _fadeTimer != null) return;
         StopFadeTimer();
         StopStandbyFadeIn();
-        _videoVisible        = false;
-        VideoView.Visibility = Visibility.Collapsed; // VLC FGW を即座に 0×0 にして白画面を隠す
-        StandbyImage.Source  = null;
-        StandbyLayer.Opacity    = 1.0;
-        StandbyLayer.Visibility = Visibility.Visible;
-        Logger.Log("[MW] FireLoopEnd → black screen, LoopEndReached");
+        _videoVisible = false;
+        // VideoView は常に Visible（スワップチェーン維持）→ _fgStandbyLayer で黒画面を被せる
+        StandbyImage.Source = null;
+        if (_fgStandbyImage != null) _fgStandbyImage.Source = null;
+        ShowFgStandby(1.0);
+        Logger.Log("[MW] FireLoopEnd → black screen (fgStandby), LoopEndReached");
         LoopEndReached?.Invoke();
         // VLC 停止は PrepareForPlay（次の PlayVideo 内）で行う（レース防止）
     }
@@ -705,6 +704,33 @@ public partial class MovieWindow : Window
             if (_fgWin == null) return;
             var f   = _fgWin.GetType().GetField("_grid", _reflFlags);
             _fgGrid = f?.GetValue(_fgWin) as Grid;
+            if (_fgGrid == null) return;
+
+            // ForegroundWindow 内にスタンバイレイヤーを作成（VideoView 常時 Visible 化の代替表示手段）
+            _fgStandbyImage = new Image
+            {
+                Stretch             = System.Windows.Media.Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment   = VerticalAlignment.Center,
+                Source              = StandbyImage.Source
+            };
+            _fgStandbyLayer = new Grid { Background = System.Windows.Media.Brushes.Black };
+            Panel.SetZIndex(_fgStandbyLayer, 100); // letterbox 要素より必ず前面に配置
+            _fgStandbyLayer.Children.Add(_fgStandbyImage);
+            _fgGrid.Children.Add(_fgStandbyLayer);
+
+            // Loaded 前の ShowStandby/PrepareForPlay 結果に合わせて初期状態を同期
+            if (_videoVisible)
+            {
+                _fgStandbyLayer.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                _fgStandbyLayer.Opacity    = StandbyLayer.Opacity;
+                _fgStandbyLayer.Visibility = StandbyLayer.Visibility;
+            }
+            // WPF 側 StandbyLayer は _fgStandbyLayer が引き継ぐため非表示にする
+            StandbyLayer.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex) { Logger.Log($"[BG] CacheFgWin: {ex.Message}"); }
     }
@@ -778,6 +804,35 @@ public partial class MovieWindow : Window
         _letterboxElements.Clear();
     }
 
+    // ─── _fgStandbyLayer ヘルパー ─────────────────────────────────────────
+    // _fgStandbyLayer が未生成の場合は WPF StandbyLayer にフォールバックする（Loaded 前の短期間のみ）
+
+    private void ShowFgStandby(double opacity)
+    {
+        if (_fgStandbyLayer != null)
+        {
+            _fgStandbyLayer.Opacity    = opacity;
+            _fgStandbyLayer.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            StandbyLayer.Opacity    = opacity;
+            StandbyLayer.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void HideFgStandby()
+    {
+        if (_fgStandbyLayer != null) _fgStandbyLayer.Visibility = Visibility.Collapsed;
+        else StandbyLayer.Visibility = Visibility.Collapsed;
+    }
+
+    private void SetFgStandbyOpacity(double opacity)
+    {
+        if (_fgStandbyLayer != null) _fgStandbyLayer.Opacity = opacity;
+        else StandbyLayer.Opacity = opacity;
+    }
+
     // ForegroundWindow は透明であることを保証する（デフォルトで Transparent だが念のため）
     private void EnsureVideoViewBlackBackground()
     {
@@ -802,13 +857,13 @@ public partial class MovieWindow : Window
 
         StopFadeTimer();
         StopStandbyFadeIn();
-        // 遷移中のフラッシュ防止: 各レイヤーの現在の状態を保存して、カバー閉鎖後に正確に復元する
-        bool standbyWasVisible = StandbyLayer.Visibility == Visibility.Visible;
-        Visibility savedVideoViewVis = VideoView.Visibility;
+        // 遷移中のフラッシュ防止: スタンバイレイヤーの状態を保存してカバー閉鎖後に復元する
+        bool fgStandbyWasVisible = (_fgStandbyLayer?.Visibility ?? StandbyLayer.Visibility) == Visibility.Visible;
+        double savedFgOpacity   = _fgStandbyLayer?.Opacity ?? StandbyLayer.Opacity;
+        if (_fgStandbyLayer != null) _fgStandbyLayer.Visibility = Visibility.Collapsed;
         StandbyLayer.Visibility = Visibility.Collapsed;
-        // 動画再生中（Visible）はHiddenでFGWサイズを保持。それ以外（Collapsed）はそのまま0×0維持。
-        if (savedVideoViewVis == Visibility.Visible)
-            VideoView.Visibility = Visibility.Hidden;
+        // VideoView は Hidden にして ForegroundWindow サイズを保持しつつ非表示にする
+        VideoView.Visibility = Visibility.Hidden;
 
         Window cover;
         if (full)
@@ -858,14 +913,22 @@ public partial class MovieWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
             cover.Close();
-            VideoView.Visibility = savedVideoViewVis;  // 元の状態（Visible/Collapsed）を正確に復元
-            if (standbyWasVisible)
+            VideoView.Visibility = Visibility.Visible; // 常に Visible に戻す
+            if (fgStandbyWasVisible)
             {
-                StandbyLayer.Opacity    = 1.0;
-                StandbyLayer.Visibility = Visibility.Visible;
+                if (_fgStandbyLayer != null)
+                {
+                    _fgStandbyLayer.Opacity    = savedFgOpacity;
+                    _fgStandbyLayer.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    StandbyLayer.Opacity    = savedFgOpacity;
+                    StandbyLayer.Visibility = Visibility.Visible;
+                }
             }
             _isFullScreenTransitioning = false;
-            Debug.WriteLine($"[MW] SetFullScreen: cover closed, VideoView={VideoView.Visibility}");
+            Debug.WriteLine($"[MW] SetFullScreen: cover closed, VideoView=Visible fgStandby={fgStandbyWasVisible}");
         }));
 
         FullScreenChanged?.Invoke(_isFullScreen);

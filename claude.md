@@ -14,6 +14,13 @@
 　　しかし、VLC PLAYERアプリ本体のレターボックスが黒なのだから、白になってしまうという状況は納得できない。
 　　必ず原因があるし、わざわざ上から黒をかぶせないと調整できないということはないはず。
 
+・v1.3.18：VideoView を常時 Visible に固定して白フラッシュを根本解決。
+  VideoView.Visibility=Collapsed をコード全体から削除。スタンバイ表示は
+  ForegroundWindow の _fgGrid 内に _fgStandbyLayer（Grid, ZIndex=100）を追加して実現。
+  ForegroundWindow は Topmost WPF Window のため _fgStandbyLayer が VLC 映像の前面に表示される。
+  WPF 側の StandbyLayer は Loaded 前の短時間フォールバック用として残す（Loaded 後は非表示）。
 
-・初回起動時にDISPLAYボタンを押してもウィンドウが立ち上がらなかった（2回目は正常）→ v1.3.17で_pendingOpenをvolatile化＋ダブルチェック追加。再現性低く「2回押せばOK」で許容。
+・立ち上げ直後にDISPLAYがOFFになっていると、動画が再生できない → v1.3.15で対処済み。ユーザー確認済み。
 
+・初回起動時にDISPLAYボタンを押してもウィンドウが立ち上がらなかった（2回目は正常）
+  → v1.3.17で_pendingOpenをvolatile化＋ダブルチェック追加。再現性低く「2回押せばOK」で許容。
