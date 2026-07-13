@@ -4,8 +4,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using ikePon.Model;
 using LibVLCSharp.Shared;
@@ -51,6 +53,13 @@ public partial class MovieWindow : Window
     private DispatcherTimer? _firstFrameFallbackTimer; // UI スレッドのみ使用
     // ForegroundWindow の背景を黒に保ち続けるポーリングタイマー（Playing〜映像表示まで）
     private DispatcherTimer? _bgFixTimer;
+
+    // レターボックス黒帯オーバーレイ（ForegroundWindow._grid への WPF Rectangle 追加）
+    private static readonly System.Reflection.BindingFlags _reflFlags =
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+    private Window? _fgWin;
+    private Grid?   _fgGrid;
+    private readonly List<UIElement> _letterboxElements = new();
 
     public bool IsBuffering { get; private set; }
 
@@ -127,10 +136,10 @@ public partial class MovieWindow : Window
         Loaded += (_, _) =>
         {
             VideoView.MediaPlayer = _mediaPlayer;
-            // ForegroundWindow は Loaded 直後に作られるため、ここで黒を確定しておく
-            EnsureVideoViewBlackBackground();
-            Dispatcher.BeginInvoke(DispatcherPriority.Background,
-                new Action(EnsureVideoViewBlackBackground));
+            // ForegroundWindow は OnApplyTemplate() で生成される。Loaded 後にキャッシュしておく。
+            CacheFgWin();
+            // ウィンドウリサイズ時にレターボックス黒帯を再計算する
+            VideoView.SizeChanged += (_, _) => { if (_videoVisible) ApplyLetterboxBlackOverlay(); };
             Debug.WriteLine("[MW] Loaded: MediaPlayer assigned");
         };
 
@@ -246,6 +255,7 @@ public partial class MovieWindow : Window
         _videoEndSec         = -1;
         IsBuffering          = true;
         _videoVisible        = false;
+        RemoveLetterboxBlackOverlay();
         VideoView.Visibility = Visibility.Collapsed;
         // Stop() は呼ばない。直後の _mediaPlayer.Play(newMedia) が内部で旧メディアを停止する。
         // Task.Run(Stop) + Play() の並列実行による VLC 内部デッドロックを回避。
@@ -563,11 +573,12 @@ public partial class MovieWindow : Window
             Logger.Log("[MW] ShowVideoView: no video track → standby");
             return;
         }
-        EnsureVideoViewBlackBackground(); // StandbyLayer を隠す前に黒を確定
         StandbyLayer.Visibility = Visibility.Collapsed;
         VideoView.Visibility    = Visibility.Visible;
         _videoVisible = true;
         Logger.Log("[MW] ShowVideoView: VideoView=Visible");
+        // ForegroundWindow がリサイズされた後にレターボックス黒帯を適用する
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ApplyLetterboxBlackOverlay));
         long vlcMs = _mediaPlayer.Time;
         if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
     }
@@ -677,26 +688,94 @@ public partial class MovieWindow : Window
         }
     }
 
-    // レターボックスが白になる問題の対策。
-    // LibVLCSharp.WPF の ForegroundWindow は AllowsTransparency=True のオーバーレイ Window。
-    // デフォルト Background（白）がレターボックス領域に透けて見えるのが白の原因。
-    // Background=Transparent にすると WPF レイヤーが透明になり、
-    // レターボックス部分は後ろの MovieWindow（Background=Black）が透けて黒く見える。
-    // Background=Black にすると WPF が VLC 描画の前面を塗りつぶし映像が全黒になるため NG。
-    private static readonly System.Reflection.BindingFlags _reflFlags =
-        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+    // ─── レターボックス黒帯オーバーレイ ───────────────────────────────────
+    // VLC D3D11 レンダラーはレターボックス領域を描画しない。
+    // VideoHwndHost は Win32 'static' クラス HWND でその背景色が白 (COLOR_WINDOW)。
+    // ForegroundWindow（VLC HWND の前面に位置する透明 WPF Window）の _grid に
+    // 黒い Rectangle を追加してレターボックス部分だけを覆う。
+    // 映像領域には WPF 要素を置かず透明のまま → VLC 映像が透けて見える。
 
-    private void EnsureVideoViewBlackBackground()
+    // ForegroundWindow と _grid への参照をキャッシュする（OnApplyTemplate() 後に生成される）
+    private void CacheFgWin()
     {
         try
         {
-            if (VideoView.GetType()
-                    .GetProperty("ForegroundWindow", _reflFlags)
-                    ?.GetValue(VideoView) is not Window fgWin) return;
-
-            fgWin.Background = System.Windows.Media.Brushes.Transparent;
+            var prop = VideoView.GetType().GetProperty("ForegroundWindow", _reflFlags);
+            _fgWin  = prop?.GetValue(VideoView) as Window;
+            if (_fgWin == null) return;
+            var f   = _fgWin.GetType().GetField("_grid", _reflFlags);
+            _fgGrid = f?.GetValue(_fgWin) as Grid;
         }
-        catch { }
+        catch (Exception ex) { Logger.Log($"[BG] CacheFgWin: {ex.Message}"); }
+    }
+
+    // 映像表示時にレターボックス領域へ黒い Rectangle を追加する
+    private void ApplyLetterboxBlackOverlay()
+    {
+        RemoveLetterboxBlackOverlay();
+        if (!_videoVisible || _fgGrid == null) return;
+
+        uint vw = 0, vh = 0;
+        if (!_mediaPlayer.Size(0, ref vw, ref vh) || vw == 0 || vh == 0) return;
+
+        double viewW = VideoView.ActualWidth;
+        double viewH = VideoView.ActualHeight;
+        if (viewW <= 0 || viewH <= 0) return;
+
+        double videoAspect = (double)vw / vh;
+        double viewAspect  = viewW / viewH;
+        double diff        = videoAspect - viewAspect;
+
+        if (Math.Abs(diff) < 0.005) return;
+
+        var black = System.Windows.Media.Brushes.Black;
+
+        void AddRect(HorizontalAlignment h, VerticalAlignment v, double? w, double? ht)
+        {
+            var r = new Rectangle { Fill = black, IsHitTestVisible = false,
+                                    HorizontalAlignment = h, VerticalAlignment = v };
+            if (w.HasValue)  r.Width  = w.Value;
+            if (ht.HasValue) r.Height = ht.Value;
+            _fgGrid!.Children.Add(r);
+            _letterboxElements.Add(r);
+        }
+
+        if (diff > 0)
+        {
+            // Pillarbox: 左右に黒帯
+            double barW = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
+            if (barW > 1)
+            {
+                AddRect(HorizontalAlignment.Left,  VerticalAlignment.Stretch, barW, null);
+                AddRect(HorizontalAlignment.Right, VerticalAlignment.Stretch, barW, null);
+            }
+        }
+        else
+        {
+            // Letterbox: 上下に黒帯
+            double barH = Math.Ceiling((viewH - viewW / videoAspect) / 2) + 1;
+            if (barH > 1)
+            {
+                AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Top,    null, barH);
+                AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, null, barH);
+            }
+        }
+        Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0} rects={_letterboxElements.Count}");
+    }
+
+    private void RemoveLetterboxBlackOverlay()
+    {
+        if (_fgGrid == null || _letterboxElements.Count == 0) return;
+        foreach (var el in _letterboxElements)
+            _fgGrid.Children.Remove(el);
+        _letterboxElements.Clear();
+    }
+
+    // ForegroundWindow は透明であることを保証する（デフォルトで Transparent だが念のため）
+    private void EnsureVideoViewBlackBackground()
+    {
+        if (_fgWin != null)
+            _fgWin.Background = System.Windows.Media.Brushes.Transparent;
     }
 
     private void OnMediaError()
