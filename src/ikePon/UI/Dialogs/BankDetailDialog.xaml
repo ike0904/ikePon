@@ -39,7 +39,7 @@
                 <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{StaticResource Str_Dlg_Bank_BgColor}" Grid.Column="0"/>
+            <TextBlock Text="{StaticResource Str_Dlg_Bank_Color}" Grid.Column="0"/>
             <WrapPanel Grid.Column="1" x:Name="BgColorSwatchesPanel"/>
         </Grid>
 
