@@ -573,12 +573,12 @@ public partial class MovieWindow : Window
             Logger.Log("[MW] ShowVideoView: no video track → standby");
             return;
         }
+        // VideoView.Visible にする前に黒帯をセット → Visible 後の最初の描画で白フラッシュを防ぐ
+        ApplyLetterboxBlackOverlay(((Grid)Content).ActualWidth, ((Grid)Content).ActualHeight);
         StandbyLayer.Visibility = Visibility.Collapsed;
         VideoView.Visibility    = Visibility.Visible;
         _videoVisible = true;
         Logger.Log("[MW] ShowVideoView: VideoView=Visible");
-        // ForegroundWindow がリサイズされた後にレターボックス黒帯を適用する
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ApplyLetterboxBlackOverlay));
         long vlcMs = _mediaPlayer.Time;
         if (vlcMs >= 0) VideoShown?.Invoke(vlcMs);
     }
@@ -709,18 +709,19 @@ public partial class MovieWindow : Window
         catch (Exception ex) { Logger.Log($"[BG] CacheFgWin: {ex.Message}"); }
     }
 
-    // 映像表示時にレターボックス領域へ黒い Rectangle を追加する
-    private void ApplyLetterboxBlackOverlay()
+    // レターボックス/ピラーボックス領域へ黒い Canvas を追加する
+    // viewW/viewH を省略すると VideoView.ActualWidth/Height を使用（SizeChanged 用）
+    // 省略しない場合は指定値を使用（ShowVideoView からの事前適用用）
+    private void ApplyLetterboxBlackOverlay(double viewW = 0, double viewH = 0)
     {
+        if (viewW <= 0) viewW = VideoView.ActualWidth;
+        if (viewH <= 0) viewH = VideoView.ActualHeight;
+
         RemoveLetterboxBlackOverlay();
-        if (!_videoVisible || _fgGrid == null) return;
+        if (_fgGrid == null || viewW <= 0 || viewH <= 0) return;
 
         uint vw = 0, vh = 0;
         if (!_mediaPlayer.Size(0, ref vw, ref vh) || vw == 0 || vh == 0) return;
-
-        double viewW = VideoView.ActualWidth;
-        double viewH = VideoView.ActualHeight;
-        if (viewW <= 0 || viewH <= 0) return;
 
         double videoAspect = (double)vw / vh;
         double viewAspect  = viewW / viewH;
@@ -729,38 +730,44 @@ public partial class MovieWindow : Window
         if (Math.Abs(diff) < 0.005) return;
 
         var black = System.Windows.Media.Brushes.Black;
-
-        void AddRect(HorizontalAlignment h, VerticalAlignment v, double? w, double? ht)
-        {
-            var r = new Rectangle { Fill = black, IsHitTestVisible = false,
-                                    HorizontalAlignment = h, VerticalAlignment = v };
-            if (w.HasValue)  r.Width  = w.Value;
-            if (ht.HasValue) r.Height = ht.Value;
-            _fgGrid!.Children.Add(r);
-            _letterboxElements.Add(r);
-        }
+        // Canvas + Canvas.SetLeft/Top で絶対座標配置（HorizontalAlignment.Right 等はコンテナ幅依存で不安定）
+        var canvas = new Canvas { IsHitTestVisible = false };
 
         if (diff > 0)
         {
             // VIDEO が VIEW より横長 → 幅に合わせてスケール → Letterbox（上下に黒帯）
-            double barH = Math.Ceiling((viewH - viewW / videoAspect) / 2) + 1;
-            if (barH > 1)
+            double bh = Math.Ceiling((viewH - viewW / videoAspect) / 2) + 1;
+            if (bh > 1)
             {
-                AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Top,    null, barH);
-                AddRect(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, null, barH);
+                var top = new Rectangle { Fill = black, Width = viewW, Height = bh };
+                Canvas.SetLeft(top, 0); Canvas.SetTop(top, 0);
+                canvas.Children.Add(top);
+                var bot = new Rectangle { Fill = black, Width = viewW, Height = bh };
+                Canvas.SetLeft(bot, 0); Canvas.SetTop(bot, viewH - bh);
+                canvas.Children.Add(bot);
             }
         }
         else
         {
             // VIDEO が VIEW より縦長 → 高さに合わせてスケール → Pillarbox（左右に黒帯）
-            double barW = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
-            if (barW > 1)
+            double bw = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
+            if (bw > 1)
             {
-                AddRect(HorizontalAlignment.Left,  VerticalAlignment.Stretch, barW, null);
-                AddRect(HorizontalAlignment.Right, VerticalAlignment.Stretch, barW, null);
+                var lft = new Rectangle { Fill = black, Width = bw, Height = viewH };
+                Canvas.SetLeft(lft, 0); Canvas.SetTop(lft, 0);
+                canvas.Children.Add(lft);
+                var rgt = new Rectangle { Fill = black, Width = bw, Height = viewH };
+                Canvas.SetLeft(rgt, viewW - bw); Canvas.SetTop(rgt, 0); // 絶対X座標で右端を指定
+                canvas.Children.Add(rgt);
             }
         }
-        Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0} rects={_letterboxElements.Count}");
+
+        if (canvas.Children.Count > 0)
+        {
+            _fgGrid.Children.Add(canvas);
+            _letterboxElements.Add(canvas);
+        }
+        Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0} bars={canvas.Children.Count}");
     }
 
     private void RemoveLetterboxBlackOverlay()
