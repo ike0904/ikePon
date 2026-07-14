@@ -51,14 +51,16 @@
   </Target>
 
   <!-- Release publish後: 不要ファイルを dist\ から削除 -->
-  <!-- 残すもの: ikePon.exe / ikePon.dll（起動スタブ）/ *.json / libvlc\ / ikePon_manual.pdf -->
+  <!-- 残すもの: ikePon.exe / ikePon.dll / ikePon.runtimeconfig.json / libvlc\ / ikePon_manual.pdf -->
+  <!-- ikePon.deps.json は single-file バンドル内に埋め込み済みのため不要 -->
   <Target Name="CleanBundledDllsAfterPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <ItemGroup>
       <_BundledDlls Include="$(PublishDir)*.dll" Exclude="$(PublishDir)ikePon.dll" />
       <_PdbFiles    Include="$(PublishDir)*.pdb" />
+      <_DepsFiles   Include="$(PublishDir)*.deps.json" />
     </ItemGroup>
-    <Delete Files="@(_BundledDlls);@(_PdbFiles)" />
-    <Message Text="[CleanBundledDlls] Removed bundled DLLs and PDB from $(PublishDir)" Importance="high" />
+    <Delete Files="@(_BundledDlls);@(_PdbFiles);@(_DepsFiles)" />
+    <Message Text="[CleanBundledDlls] Removed bundled DLLs, PDB, and deps.json from $(PublishDir)" Importance="high" />
   </Target>
 
 </Project>
