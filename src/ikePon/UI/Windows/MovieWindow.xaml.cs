@@ -424,21 +424,21 @@ public partial class MovieWindow : Window
         // VideoView は常に Visible（スワップチェーン維持）
         _videoVisible = false;
 
-        // スタンバイをオーバーレイの背後でセットアップ（Opacity=0 で非表示状態）
+        // オーバーレイが覆っている間にスタンバイを opacity=1 で用意する。
+        // 0 → フェードインにすると、オーバーレイが閉じた瞬間にVLC白地が透けるため即時表示。
         LoadStandbyImage(_settings.MovieStandbyImagePath);
-        ShowFgStandby(0.0);
+        ShowFgStandby(1.0);
 
         // VLC停止（非同期）
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch (Exception ex) { Debug.WriteLine($"[MW] Stop error: {ex.Message}"); } });
 
-        // オーバーレイをBackground優先度で閉じる（VLC FGW縮小後にフェードイン開始）
+        // オーバーレイをBackground優先度で閉じる（スタンバイは既に opacity=1 なので即座に見える）
         var overlay = _fadeOverlay;
         _fadeOverlay = null;
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             overlay?.Close();
-            Logger.Log("[MW] FadeOut complete → StandbyFadeIn start");
-            StartStandbyFadeIn();
+            Logger.Log("[MW] FadeOut complete");
         }));
     }
 
