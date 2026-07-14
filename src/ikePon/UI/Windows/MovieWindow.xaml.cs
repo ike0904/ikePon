@@ -59,7 +59,8 @@ public partial class MovieWindow : Window
         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
     private Window? _fgWin;
     private Grid?   _fgGrid;
-    private readonly List<UIElement> _letterboxElements = new();
+    private Canvas?    _lbCanvas;   // 永続 Canvas（一度追加したら削除しない）
+    private Rectangle? _lbBar0, _lbBar1; // 永続 Rectangle（サイズ更新のみ、再追加なし）
     // ForegroundWindow 内スタンバイレイヤー（VideoView 常時 Visible 化に伴い WPF StandbyLayer の代替）
     private Grid?  _fgStandbyLayer;
     private Image? _fgStandbyImage;
@@ -706,6 +707,16 @@ public partial class MovieWindow : Window
             _fgGrid = f?.GetValue(_fgWin) as Grid;
             if (_fgGrid == null) return;
 
+            // レターボックス黒帯：永続 Canvas + Rectangle（リサイズ時にサイズ更新のみ行い、追加・削除しない）
+            var black = System.Windows.Media.Brushes.Black;
+            _lbBar0  = new Rectangle { Fill = black, Width = 0, Height = 0, IsHitTestVisible = false };
+            _lbBar1  = new Rectangle { Fill = black, Width = 0, Height = 0, IsHitTestVisible = false };
+            _lbCanvas = new Canvas   { IsHitTestVisible = false };
+            _lbCanvas.Children.Add(_lbBar0);
+            _lbCanvas.Children.Add(_lbBar1);
+            Panel.SetZIndex(_lbCanvas, 50); // _fgStandbyLayer(100) より後面
+            _fgGrid.Children.Add(_lbCanvas);
+
             // ForegroundWindow 内にスタンバイレイヤーを作成（VideoView 常時 Visible 化の代替表示手段）
             _fgStandbyImage = new Image
             {
@@ -735,74 +746,61 @@ public partial class MovieWindow : Window
         catch (Exception ex) { Logger.Log($"[BG] CacheFgWin: {ex.Message}"); }
     }
 
-    // レターボックス/ピラーボックス領域へ黒い Canvas を追加する
-    // viewW/viewH を省略すると VideoView.ActualWidth/Height を使用（SizeChanged 用）
-    // 省略しない場合は指定値を使用（ShowVideoView からの事前適用用）
+    // レターボックス/ピラーボックス領域の黒帯サイズを更新する
+    // _lbBar0/_lbBar1 は永続 Rectangle（サイズを 0 にして非表示、再追加はしない）
+    // viewW/viewH 省略時は VideoView.ActualWidth/Height を使用（SizeChanged 用）
     private void ApplyLetterboxBlackOverlay(double viewW = 0, double viewH = 0)
     {
         if (viewW <= 0) viewW = VideoView.ActualWidth;
         if (viewH <= 0) viewH = VideoView.ActualHeight;
-
-        RemoveLetterboxBlackOverlay();
-        if (_fgGrid == null || viewW <= 0 || viewH <= 0) return;
+        if (_lbBar0 == null || _lbBar1 == null || viewW <= 0 || viewH <= 0) return;
+        Rectangle bar0 = _lbBar0, bar1 = _lbBar1;
 
         uint vw = 0, vh = 0;
-        if (!_mediaPlayer.Size(0, ref vw, ref vh) || vw == 0 || vh == 0) return;
+        if (!_mediaPlayer.Size(0, ref vw, ref vh) || vw == 0 || vh == 0)
+        {
+            ClearLbBars();
+            return;
+        }
 
         double videoAspect = (double)vw / vh;
         double viewAspect  = viewW / viewH;
         double diff        = videoAspect - viewAspect;
 
-        if (Math.Abs(diff) < 0.005) return;
-
-        var black = System.Windows.Media.Brushes.Black;
-        // Canvas + Canvas.SetLeft/Top で絶対座標配置（HorizontalAlignment.Right 等はコンテナ幅依存で不安定）
-        var canvas = new Canvas { IsHitTestVisible = false };
+        if (Math.Abs(diff) < 0.005) { ClearLbBars(); return; }
 
         if (diff > 0)
         {
-            // VIDEO が VIEW より横長 → 幅に合わせてスケール → Letterbox（上下に黒帯）
+            // VIDEO が VIEW より横長 → Letterbox（上下に黒帯）
             double bh = Math.Ceiling((viewH - viewW / videoAspect) / 2) + 1;
-            if (bh > 1)
-            {
-                var top = new Rectangle { Fill = black, Width = viewW, Height = bh };
-                Canvas.SetLeft(top, 0); Canvas.SetTop(top, 0);
-                canvas.Children.Add(top);
-                var bot = new Rectangle { Fill = black, Width = viewW, Height = bh };
-                Canvas.SetLeft(bot, 0); Canvas.SetTop(bot, viewH - bh);
-                canvas.Children.Add(bot);
-            }
+            SetLbBar(bar0, 0,          0,          viewW, bh);
+            SetLbBar(bar1, 0,          viewH - bh, viewW, bh);
         }
         else
         {
-            // VIDEO が VIEW より縦長 → 高さに合わせてスケール → Pillarbox（左右に黒帯）
+            // VIDEO が VIEW より縦長 → Pillarbox（左右に黒帯）
             double bw = Math.Ceiling((viewW - viewH * videoAspect) / 2) + 1;
-            if (bw > 1)
-            {
-                var lft = new Rectangle { Fill = black, Width = bw, Height = viewH };
-                Canvas.SetLeft(lft, 0); Canvas.SetTop(lft, 0);
-                canvas.Children.Add(lft);
-                var rgt = new Rectangle { Fill = black, Width = bw, Height = viewH };
-                Canvas.SetLeft(rgt, viewW - bw); Canvas.SetTop(rgt, 0); // 絶対X座標で右端を指定
-                canvas.Children.Add(rgt);
-            }
+            SetLbBar(bar0, 0,          0,  bw, viewH);
+            SetLbBar(bar1, viewW - bw, 0,  bw, viewH);
         }
 
-        if (canvas.Children.Count > 0)
-        {
-            _fgGrid.Children.Add(canvas);
-            _letterboxElements.Add(canvas);
-        }
-        Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0} bars={canvas.Children.Count}");
+        Logger.Log($"[BG] Letterbox overlay: video={vw}x{vh} view={viewW:F0}x{viewH:F0}");
     }
 
-    private void RemoveLetterboxBlackOverlay()
+    private static void SetLbBar(Rectangle r, double x, double y, double w, double h)
     {
-        if (_fgGrid == null || _letterboxElements.Count == 0) return;
-        foreach (var el in _letterboxElements)
-            _fgGrid.Children.Remove(el);
-        _letterboxElements.Clear();
+        Canvas.SetLeft(r, x); Canvas.SetTop(r, y);
+        r.Width = w; r.Height = h;
     }
+
+    private void ClearLbBars()
+    {
+        if (_lbBar0 == null) return;
+        _lbBar0.Width = _lbBar0.Height = 0;
+        _lbBar1!.Width = _lbBar1.Height = 0;
+    }
+
+    private void RemoveLetterboxBlackOverlay() => ClearLbBars();
 
     // ─── _fgStandbyLayer ヘルパー ─────────────────────────────────────────
     // _fgStandbyLayer が未生成の場合は WPF StandbyLayer にフォールバックする（Loaded 前の短期間のみ）
