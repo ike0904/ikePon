@@ -344,7 +344,7 @@ public partial class MovieWindow : Window
         Debug.WriteLine("[MW] StopVideo");
         StopFadeTimer();
         StopStandbyFadeIn();
-        ShowStandby();
+        ShowStandby(immediate: true); // カットアウト：即時表示でVLC白地フラッシュを防ぐ
     }
 
     // フェードアウト：黒いオーバーレイWindowをOpacity 0→1でフェードインして映像を覆う。
@@ -489,16 +489,18 @@ public partial class MovieWindow : Window
     }
 
     // 映像を停止してスタンバイ画像を表示する（MovieController からも呼び出し可）
-    public void ShowStandby()
+    // immediate=true: カットアウト用（opacity 1 で即時表示。VLC白地が透けるフラッシュを防ぐ）
+    // immediate=false: フェードアウト完了後用（opacity 0 から徐々にフェードイン）
+    public void ShowStandby(bool immediate = false)
     {
-        Logger.Log($"[MW] ShowStandby (videoVisible={_videoVisible})");
+        Logger.Log($"[MW] ShowStandby (videoVisible={_videoVisible} immediate={immediate})");
         _waitingFirstFrame = false;
         _firstFrameFallbackTimer?.Stop();
         _firstFrameFallbackTimer = null;
         _bgFixTimer?.Stop();
         _bgFixTimer = null;
         IsBuffering = false;
-        StopFadeTimer();      // フェード中でも正しく停止（FADEモード時のスタンバイ不表示を防ぐ）
+        StopFadeTimer();
         StopStandbyFadeIn();
         _playSession++;
         _videoVisible = false;
@@ -506,8 +508,15 @@ public partial class MovieWindow : Window
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch { } });
 
         LoadStandbyImage(_settings.MovieStandbyImagePath);
-        ShowFgStandby(0.0);   // Opacity=0 でセット → フェードインへ
-        StartStandbyFadeIn();  // CUT/FADEモードどちらでもフェードイン
+        if (immediate)
+        {
+            ShowFgStandby(1.0); // 即時表示（カットアウト。VLC白地フラッシュを防ぐ）
+        }
+        else
+        {
+            ShowFgStandby(0.0);    // Opacity=0 でセット → フェードインへ（フェードアウト完了後）
+            StartStandbyFadeIn();
+        }
     }
 
     public void PauseVideo()

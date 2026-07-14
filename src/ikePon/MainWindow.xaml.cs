@@ -787,7 +787,9 @@ public partial class MainWindow : Window
     // 黒画面状態を監視し、3秒継続した場合に DISPLAY を自動的に OFF→ON で復旧する
     private void CheckBlackScreen()
     {
-        bool isBlack = _movieCtrl.IsBlackScreen;
+        // 映像/画像パッドが再生中でない場合は黒画面チェックをスキップ（意図的な黒画面）
+        bool isBlack = _movieCtrl.IsBlackScreen
+            && (_currentMoviePadIndex >= 0 || _imageDisplayingPadIndex >= 0);
 
         if (isBlack)
         {
