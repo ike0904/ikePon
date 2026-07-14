@@ -1310,13 +1310,6 @@ public partial class MainWindow : Window
         bool isMoviePad = pad?.Category == AudioCategory.Movie;
         bool isImagePad = isMoviePad && IsImageFile(pad?.FilePath);
 
-        // フェードアウト中は通常タップを無視（カットアウト指示は通す）
-        if (isMoviePad && _movieCtrl.IsFading && !fadeOut && !stopImmediate)
-        {
-            Logger.Log($"[MW] TriggerPad BLOCKED: movie pad tapped during fadeout");
-            return;
-        }
-
         if (isImagePad)
         {
             // 静止画パッド: 音声なし、映像のみ制御
@@ -1354,8 +1347,9 @@ public partial class MainWindow : Window
         }
 
         // 音声パッド（動画含む）: 再生前の状態を記録（同パッド再押し判定）
+        // FadingOut は「再生中」扱いにしない → フェードアウト中タップは新規再生として処理
         var stateBefore = _playback.GetPadState(padIndex);
-        bool wasActive  = stateBefore != PadPlayState.Idle;
+        bool wasActive  = stateBefore == PadPlayState.Playing || stateBefore == PadPlayState.Paused;
 
         // ALL FADEやPAUSEボタン有効中のパッド操作：グローバル状態を解除し、個別FADE/PAUSE状態へ切り替える
         if ((_fadeAnimTimer != null || _isPauseAllActive) && !fadeOut && !stopImmediate)

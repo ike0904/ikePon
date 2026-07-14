@@ -81,7 +81,7 @@ public sealed class MovieController : IDisposable
             _window.VideoShown        += OnWindowVideoShown;
             _window.Closed += OnWindowClosed;
             _window.Show();
-            _window.ShowStandby(); // 初期スタンバイ画像表示（映像再生時はすぐ上書きされる）
+            _window.ShowStandby(immediate: true); // 初期スタンバイを即時表示（フェードインさせるとVLC初期化中の白が透けて見える）
 
             if (_settings.MovieMode == MovieDisplayMode.FullScreen)
                 _window.SetFullScreen(true);
