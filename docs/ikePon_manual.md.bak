@@ -572,8 +572,8 @@ CC の値（0〜127）がそのままフェーダー値に反映されます（C
 
 | バージョン | 日付 | 内容 |
 |:---|:------|:--------------------|
-| v1.5.0 | 2026-07-14 | 映像ウィンドウのレターボックス・ピラーボックス白フラッシュを根本修正（VideoView 常時表示化）。ループ再生・音声同期の安定性向上。DISPLAY OFF 状態で動画パッドをトリガーした際の音声即時再生を修正。カットアウト実行時は連打防止（インターロック）の対象外に変更。DISPLAY は毎回 OFF 状態で起動するよう変更（前回状態の引き継ぎを廃止）。アプリ終了確認をポップアップからインフォメーションエリア表示に変更。二重起動防止機能を追加。バンク詳細設定ダイアログのエラーを修正 |
-| v1.3.0 | 2026-07-11 | 初版リリース |
+| v1.5.0 | 2026-07-14 | 映像ウィンドウのレターボックス・ピラーボックス白フラッシュを根本修正（VideoView 常時表示化）。<br>ループ再生・音声同期の安定性向上。<br>DISPLAY OFF 状態で動画パッドをトリガーした際の音声即時再生を修正。<br>カットアウト実行時は連打防止（インターロック）の対象外に変更。<br>DISPLAY は毎回 OFF 状態で起動するよう変更（前回状態の引き継ぎを廃止）。<br>アプリ終了確認をポップアップからインフォメーションエリア表示に変更。<br>二重起動防止機能を追加。<br>バンク詳細設定ダイアログのエラーを修正。 |
+| v1.3.0 | 2026-07-11 | 初版リリース。 |
 
 <div style="page-break-before: always;"></div>
 
@@ -1145,5 +1145,5 @@ CC values (0–127) map directly to fader values (CC 100 = ±0 dB).
 
 | Version | Date | Notes |
 |:---|:------|:--------------------|
-| v1.5.0 | 2026-07-14 | Fundamentally fixed letterbox/pillarbox white flash (VideoView always-on approach). Improved loop playback and audio sync stability. Fixed: audio now plays immediately when a video pad is triggered while DISPLAY is OFF. Cut Out actions are now exempt from interlock (rapid-fire prevention). DISPLAY always starts in OFF state (previous state no longer carried over). App-quit confirmation moved from popup dialog to info area. Added double-launch prevention. Fixed: Bank Details dialog crash. |
-| v1.3.0 | 2026-07-11 | Initial release |
+| v1.5.0 | 2026-07-14 | Fundamentally fixed letterbox/pillarbox white flash (VideoView always-on approach).<br>Improved loop playback and audio sync stability.<br>Fixed: audio now plays immediately when a video pad is triggered while DISPLAY is OFF.<br>Cut Out actions are now exempt from interlock (rapid-fire prevention).<br>DISPLAY always starts in OFF state (previous state no longer carried over).<br>App-quit confirmation moved from popup dialog to info area.<br>Added double-launch prevention.<br>Fixed: Bank Details dialog crash. |
+| v1.3.0 | 2026-07-11 | Initial release. |

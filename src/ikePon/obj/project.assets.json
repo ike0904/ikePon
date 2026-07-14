@@ -1934,7 +1934,7 @@
     "C:\\Users\\ike09\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.3.1",
+    "version": "1.6.0",
     "restore": {
       "projectUniqueName": "E:\\Users\\takashi\\Desktop\\ClaudeCode\\ikePon\\src\\ikePon\\ikePon.csproj",
       "projectName": "ikePon",
@@ -2013,11 +2013,27 @@
         "warn": true,
         "downloadDependencies": [
           {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
             "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
             "version": "[9.0.17, 9.0.17]"
           },
           {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
             "name": "Microsoft.NETCore.App.Runtime.win-x64",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
             "version": "[9.0.17, 9.0.17]"
           },
           {
