@@ -19,6 +19,7 @@ public sealed class MovieController : IDisposable
     public bool DisplayActive  { get; private set; }
     public bool IsFullScreen   => _settings.MovieMode == MovieDisplayMode.FullScreen;
     public bool IsBuffering    => _window?.IsBuffering ?? false;
+    public bool IsFading       => _window?.IsFading    ?? false;
 
     /// <summary>DISPが点灯中で映像もスタンバイ画像も表示されていない（黒画面）場合に true</summary>
     public bool IsBlackScreen  => DisplayActive && (_window?.IsBlackScreen ?? false);

@@ -1308,6 +1308,13 @@ public partial class MainWindow : Window
         bool isMoviePad = pad?.Category == AudioCategory.Movie;
         bool isImagePad = isMoviePad && IsImageFile(pad?.FilePath);
 
+        // フェードアウト中は通常タップを無視（カットアウト指示は通す）
+        if (isMoviePad && _movieCtrl.IsFading && !fadeOut && !stopImmediate)
+        {
+            Logger.Log($"[MW] TriggerPad BLOCKED: movie pad tapped during fadeout");
+            return;
+        }
+
         if (isImagePad)
         {
             // 静止画パッド: 音声なし、映像のみ制御
