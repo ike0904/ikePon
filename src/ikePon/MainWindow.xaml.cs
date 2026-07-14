@@ -2000,7 +2000,7 @@ public partial class MainWindow : Window
         for (int i = 0; i < BankData.PadCount; i++)
         {
             var state = _playback.GetPadState(i);
-            if (state == PadPlayState.Idle) continue;
+            if (state == PadPlayState.Idle || state == PadPlayState.FadingOut) continue; // フェード中は映像を再起動しない
             var pad = _playback.GetPadSettings(i);
             if (pad?.Category != AudioCategory.Movie) continue;
             if (string.IsNullOrEmpty(pad.FilePath)) continue;

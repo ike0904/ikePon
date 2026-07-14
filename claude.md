@@ -20,3 +20,8 @@
   ToggleFullScreen() でフェード中なら先に StopVideo() してから SetFullScreen を呼ぶ。
   音声は NAudio 管理のため StopVideo() の影響を受けずそのままフェードアウトを継続する。
 
+・v1.5.8：DISP OFF 中に映像フェードアウト→フェード完了前に DISP ON すると映像が再起動する問題を修正。
+  【原因】ResumeMovieIfPlaying() が FadingOut 状態のパッドをスキップしていなかった。
+  Idle のみスキップしていたため、フェード中の Movie パッドが「再生中」と判定され映像が再起動していた。
+  【修正】FadingOut もスキップ対象に追加（Idle || FadingOut → continue）。
+
