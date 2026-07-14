@@ -376,6 +376,17 @@ public partial class MovieWindow : Window
             overlayWidth  = (rc.right  - rc.left) / dpiX;
             overlayHeight = (rc.bottom - rc.top)  / dpiY;
         }
+        else if (Content is FrameworkElement contentEl)
+        {
+            var pSrc  = PresentationSource.FromVisual(this);
+            double dpiX = pSrc?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double dpiY = pSrc?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+            var pt = contentEl.PointToScreen(new System.Windows.Point(0, 0));
+            overlayLeft   = pt.X / dpiX;
+            overlayTop    = pt.Y / dpiY;
+            overlayWidth  = contentEl.ActualWidth;
+            overlayHeight = contentEl.ActualHeight;
+        }
         else
         {
             overlayLeft   = Left;

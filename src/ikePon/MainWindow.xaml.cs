@@ -1357,13 +1357,34 @@ public partial class MainWindow : Window
         var stateBefore = _playback.GetPadState(padIndex);
         bool wasActive  = stateBefore != PadPlayState.Idle;
 
-        // PAUSEボタンで一時停止中のパッドが押された場合 → そのパッドのみ再開し、PAUSEを解除
-        if (_isPauseAllActive && !fadeOut && !stopImmediate && stateBefore == PadPlayState.Paused)
+        // ALL FADEやPAUSEボタン有効中のパッド操作：グローバル状態を解除し、個別FADE/PAUSE状態へ切り替える
+        if ((_fadeAnimTimer != null || _isPauseAllActive) && !fadeOut && !stopImmediate)
         {
-            _isPauseAllActive = false;
-            _playback.ForcePauseResumePad(padIndex);
-            if (isMoviePad && !isImagePad) _movieCtrl.ResumeVideo();
-            return;
+            // ALL FADEアニメを終了（フェードアウト中のパッドはそのまま継続）
+            if (_fadeAnimTimer != null)
+            {
+                _fadeAnimTimer.Stop();
+                _fadeAnimTimer = null;
+                _fadeCutBd ??= FadeCutButton.Template.FindName("FadeCutBd", FadeCutButton) as System.Windows.Controls.Border;
+                if (_fadeCutBd != null)
+                    _fadeCutBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF));
+            }
+
+            // PAUSEを解除（一時停止中の同パッドが再度押された場合は再開して終了）
+            if (_isPauseAllActive)
+            {
+                _isPauseAllActive = false;
+                if (stateBefore == PadPlayState.Paused)
+                {
+                    _playback.ForcePauseResumePad(padIndex);
+                    if (isMoviePad && !isImagePad) _movieCtrl.ResumeVideo();
+                    UpdateActionButtons();
+                    return;
+                }
+            }
+
+            UpdateActionButtons();
+            // 以降は通常のパッドトリガー処理（同カテゴリの一時停止/フェード中パッドは TriggerPad 内で停止）
         }
 
         // パッドの現在時間表示値を再生開始位置として使用（詳細設定の StartPositionSec とは独立）
