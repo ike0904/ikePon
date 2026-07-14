@@ -13,3 +13,10 @@
   【根本原因】v1.3.18 で VideoView 常時 Visible 化以降、VLC D3D11 HWND（初期化前=白）が常に存在するようになった。
   それ以前は VideoView を Collapsed にしていたため HWND が存在せず白は出なかった。
 
+・v1.5.7：映像フェードアウト中に DISPLAY/FULL SCR を操作すると映像が止まらなくなる問題を修正。
+  【原因】_fadeOverlay は MovieWindow とは別の Topmost Window のため、DISPLAY を閉じても破棄されない。
+  FULL SCR 切り替え時はオーバーレイが旧サイズのまま残り、フルスクリーン映像がオーバーレイ外に露出する。
+  【修正】CloseDisplay() で Close 前に StopVideo() を呼び確実にオーバーレイを破棄。
+  ToggleFullScreen() でフェード中なら先に StopVideo() してから SetFullScreen を呼ぶ。
+  音声は NAudio 管理のため StopVideo() の影響を受けずそのままフェードアウトを継続する。
+

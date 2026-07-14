@@ -98,6 +98,8 @@ public sealed class MovieController : IDisposable
 
         if (_window != null)
         {
+            // フェードアウト中でもオーバーレイ（別 Topmost Window）を確実に閉じる
+            _window.StopVideo();
             _window.FullScreenChanged -= OnWindowFullScreenChanged;
             _window.LoopEndReached    -= OnWindowLoopEndReached;
             _window.VideoShown        -= OnWindowVideoShown;
@@ -120,6 +122,8 @@ public sealed class MovieController : IDisposable
     {
         bool newState = _settings.MovieMode != MovieDisplayMode.FullScreen;
         _settings.MovieMode = newState ? MovieDisplayMode.FullScreen : MovieDisplayMode.Window;
+        // フェード中はオーバーレイが旧サイズのまま残るため、先に映像を即停止する
+        if (_window?.IsFading == true) _window.StopVideo();
         _window?.SetFullScreen(newState);
         FullScreenChanged?.Invoke(newState);
     }
