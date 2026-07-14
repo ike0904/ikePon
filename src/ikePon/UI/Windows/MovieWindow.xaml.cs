@@ -739,6 +739,9 @@ public partial class MovieWindow : Window
             var prop = VideoView.GetType().GetProperty("ForegroundWindow", _reflFlags);
             _fgWin  = prop?.GetValue(VideoView) as Window;
             if (_fgWin == null) return;
+            // FG ウィンドウ自体を黒にする。_fgStandbyLayer 追加前の 1 フレーム白フラッシュを防ぐ
+            // （動画再生開始時は EnsureVideoViewBlackBackground/HideFgStandby で Transparent に戻す）
+            _fgWin.Background = System.Windows.Media.Brushes.Black;
             var f   = _fgWin.GetType().GetField("_grid", _reflFlags);
             _fgGrid = f?.GetValue(_fgWin) as Grid;
             if (_fgGrid == null) return;
@@ -862,6 +865,8 @@ public partial class MovieWindow : Window
     {
         if (_fgStandbyLayer != null) _fgStandbyLayer.Visibility = Visibility.Collapsed;
         else StandbyLayer.Visibility = Visibility.Collapsed;
+        // 動画表示時は FG ウィンドウを透明に戻す（Black のままだと VLC 映像が隠れる）
+        if (_fgWin != null) _fgWin.Background = System.Windows.Media.Brushes.Transparent;
     }
 
     private void SetFgStandbyOpacity(double opacity)

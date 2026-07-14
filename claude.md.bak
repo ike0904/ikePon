@@ -3,6 +3,8 @@
 ・mdファイルの内容を書き換える時、元のファイルを必ず「.md.bak」で残すこと。「.md.bak」の上書きは許可する。もちろん、このmdファイルも含む。
 
 
-・アプリ立ち上げ直後、DISPLAYをONにすると、画面全体で「白→黒」のフェードアウトが発生する。
+・v1.5.5：DISPLAY ON 時の白→黒フェード解消。ShowStandby(immediate:true) で初期スタンバイを即時表示。
+  フェードアウト中のキー操作ブロックを撤廃。IsFading チェックを削除し、FadingOut 状態のタップは新規再生として扱う。
+  （wasActive = Playing || Paused のみ。FadingOut は !wasActive 扱いで isNewMoviePlay=true になる）
 
-・フェードアウト中はキー操作を受け付けないという仕様を撤廃する。先ほどのバージョンアップの仕様と相いれないため。
+
