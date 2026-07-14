@@ -1972,7 +1972,7 @@ public partial class MainWindow : Window
             DispButton.IsEnabled = false;
             if (_dispBd   != null) { _dispBd.Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)); _dispBd.BorderBrush = _movieCtrl.DisplayActive ? new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00)) : new SolidColorBrush(Color.FromRgb(0x2A, 0x7A, 0x2A)); }
             if (_dispText != null) _dispText.Foreground  = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
-            await Task.Delay(3000);
+            await Task.Delay(1000);
         }
         finally
         {
