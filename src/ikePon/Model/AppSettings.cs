@@ -21,7 +21,7 @@ public class AppSettings
     public double? MovieWindowY { get; set; }
     public double? MovieWindowWidth { get; set; }
     public double? MovieWindowHeight { get; set; }
-    public double InterLockMs { get; set; } = 500;
+    public double InterLockMs { get; set; } = 100;
     public double? WindowWidth { get; set; } = null;
     public double? WindowHeight { get; set; } = null;
     public string LastSelectedResourceDirectory { get; set; } = "";

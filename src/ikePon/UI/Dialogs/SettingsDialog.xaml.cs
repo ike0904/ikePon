@@ -44,7 +44,7 @@ public partial class SettingsDialog : Window
 
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
-        SetResetMenu(TbInterlock,     "500");
+        SetResetMenu(TbInterlock,     "100");
         SetResetMenu(TbPreload,       "10");
         SetResetMenu(TbMovieStandby,  "");
     }
