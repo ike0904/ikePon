@@ -35,6 +35,10 @@ public partial class MovieWindow : Window
 
     private bool   _isFullScreen;
     private bool   _isFullScreenTransitioning; // 高速連打による状態破損防止
+
+    // WM_SIZING による 16:9 アスペクト比強制
+    private int _ncWidthPx  = -1; // 非クライアント幅（ピクセル）。Loaded 後に計算
+    private int _ncHeightPx = -1;
     private double _savedLeft, _savedTop, _savedWidth, _savedHeight;
 
     private string? _currentFilePath;
@@ -93,6 +97,15 @@ public partial class MovieWindow : Window
     private const uint SWP_NOSIZE = 0x0001;
     private static readonly IntPtr HWND_TOPMOST = new(-1);
 
+    private const int WM_SIZING       = 0x0214;
+    private const int WMSZ_LEFT       = 1;
+    private const int WMSZ_RIGHT      = 2;
+    private const int WMSZ_TOP        = 3;
+    private const int WMSZ_TOPLEFT    = 4;
+    private const int WMSZ_TOPRIGHT   = 5;
+    private const int WMSZ_BOTTOM     = 6;
+    private const int WMSZ_BOTTOMLEFT = 7;
+
     // グローバルマウスフック（ダブルクリック検出）
     [DllImport("user32.dll")] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
     [DllImport("user32.dll")] private static extern bool   UnhookWindowsHookEx(IntPtr hhk);
@@ -147,6 +160,12 @@ public partial class MovieWindow : Window
             CacheFgWin();
             // ウィンドウリサイズ時にレターボックス黒帯を再計算する
             VideoView.SizeChanged += (_, _) => { if (_videoVisible) ApplyLetterboxBlackOverlay(); };
+            // 非クライアント領域サイズをピクセル単位で記録（WM_SIZING での 16:9 強制に使用）
+            var pSrc = PresentationSource.FromVisual(this);
+            double dpiX = pSrc?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double dpiY = pSrc?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+            _ncWidthPx  = (int)Math.Round((Width  - ((System.Windows.Controls.Grid)Content).ActualWidth)  * dpiX);
+            _ncHeightPx = (int)Math.Round((Height - ((System.Windows.Controls.Grid)Content).ActualHeight) * dpiY);
             Debug.WriteLine("[MW] Loaded: MediaPlayer assigned");
         };
 
@@ -168,8 +187,9 @@ public partial class MovieWindow : Window
         }
         if (_settings.MovieWindowWidth.HasValue)
         {
-            Width  = Math.Max(_settings.MovieWindowWidth.Value,   320);
-            Height = Math.Max(_settings.MovieWindowHeight ?? 720, 180);
+            double w = Math.Max(_settings.MovieWindowWidth.Value, 320);
+            Width  = w;
+            Height = Math.Round(w * 9.0 / 16.0);
         }
         // 初期表示は黒（スタンバイ画像は ShowStandby() 呼び出し時にロード）
     }
@@ -179,7 +199,50 @@ public partial class MovieWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(WndProc);
         InstallGlobalMouseHook();
+    }
+
+    // ─── WM_SIZING: 16:9 アスペクト比強制 ────────────────────────────────────
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_SIZING && !_isFullScreen && _ncWidthPx >= 0)
+        {
+            const double ratio = 16.0 / 9.0;
+            var rc   = Marshal.PtrToStructure<RECT>(lParam);
+            int edge = (int)wParam;
+
+            int clientW = rc.right  - rc.left - _ncWidthPx;
+            int clientH = rc.bottom - rc.top  - _ncHeightPx;
+
+            switch (edge)
+            {
+                case WMSZ_TOP:
+                case WMSZ_BOTTOM:
+                    // 高さが基準 → 幅（右端）を調整
+                    rc.right = rc.left + (int)Math.Round(clientH * ratio) + _ncWidthPx;
+                    break;
+                case WMSZ_LEFT:
+                case WMSZ_RIGHT:
+                    // 幅が基準 → 高さ（下端）を調整
+                    rc.bottom = rc.top + (int)Math.Round(clientW / ratio) + _ncHeightPx;
+                    break;
+                case WMSZ_TOPLEFT:
+                case WMSZ_TOPRIGHT:
+                    // 幅が基準 → 上端を調整
+                    rc.top = rc.bottom - (int)Math.Round(clientW / ratio) - _ncHeightPx;
+                    break;
+                default: // WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT
+                    // 幅が基準 → 下端を調整
+                    rc.bottom = rc.top + (int)Math.Round(clientW / ratio) + _ncHeightPx;
+                    break;
+            }
+
+            Marshal.StructureToPtr(rc, lParam, false);
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 
     private void InstallGlobalMouseHook()

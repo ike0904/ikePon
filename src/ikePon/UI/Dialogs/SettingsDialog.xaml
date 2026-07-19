@@ -253,20 +253,6 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{StaticResource Str_Dlg_Settings_WasapiLatency}" Grid.Column="0"/>
-            <TextBox  x:Name="TbLatency" Grid.Column="1"
-                      KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"
-                      PreviewMouseDown="NumericBox_MouseDown" PreviewMouseMove="NumericBox_MouseMove"
-                      PreviewMouseUp="NumericBox_MouseUp" MouseWheel="NumericBox_MouseWheel"/>
-            <Label    Content="ms" Grid.Column="2" Margin="4,0,0,0"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="InputCol"/>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="UnitCol"/>
-            </Grid.ColumnDefinitions>
             <TextBlock Text="{StaticResource Str_Dlg_Settings_Preload}" Grid.Column="0"/>
             <TextBox  x:Name="TbPreload" Grid.Column="1"
                       KeyDown="NumericBox_KeyDown" LostFocus="NumericBox_LostFocus"

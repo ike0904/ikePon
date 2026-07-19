@@ -10,7 +10,6 @@ public class AppSettings
             "ikePon", "settings.json");
 
     public float LongFadeDuration { get; set; } = 2.0f;
-    public int WasapiLatencyMs { get; set; } = 30;
     public int PreloadThresholdSeconds { get; set; } = 10;
     public bool PaSeparateMode { get; set; } = false;
     public MovieDisplayMode MovieMode { get; set; } = MovieDisplayMode.Window;

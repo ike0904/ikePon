@@ -26,7 +26,6 @@ public partial class SettingsDialog : Window
         TbStandbyFadeIn.Text = settings.StandbyFadeInDuration.ToString("F1");
         TbLongFade.Text  = settings.LongFadeDuration.ToString("F1");
         TbInterlock.Text = settings.InterLockMs.ToString();
-        TbLatency.Text   = settings.WasapiLatencyMs.ToString();
         TbPreload.Text   = settings.PreloadThresholdSeconds.ToString();
 
         TbMovieStandby.Text = settings.MovieStandbyImagePath ?? "";
@@ -46,7 +45,6 @@ public partial class SettingsDialog : Window
         SetResetMenu(TbStandbyFadeIn, "1.0");
         SetResetMenu(TbLongFade,      "2.0");
         SetResetMenu(TbInterlock,     "500");
-        SetResetMenu(TbLatency,       "30");
         SetResetMenu(TbPreload,       "10");
         SetResetMenu(TbMovieStandby,  "");
     }
@@ -89,14 +87,12 @@ public partial class SettingsDialog : Window
         if (!TryParsePositive(TbStandbyFadeIn.Text, 0f, 9.9f, out float standbyFadeIn)) { ShowError(TbStandbyFadeIn, "0.0〜9.9"); return; }
         if (!TryParsePositive(TbLongFade.Text,  0f, 9.9f, out float longFade))  { ShowError(TbLongFade,  "0.0〜9.9"); return; }
         if (!TryParseInt(TbInterlock.Text, 0, 5000, out int interlock))         { ShowError(TbInterlock, "0〜5000");  return; }
-        if (!TryParseInt(TbLatency.Text,   1, 500,  out int latency))           { ShowError(TbLatency,   "1〜500");   return; }
         if (!TryParseInt(TbPreload.Text,   1, 600,  out int preload))           { ShowError(TbPreload,   "1〜600");   return; }
 
         _settings.PaSeparateMode          = CbPaSeparate.SelectedIndex == 1;
         _settings.StandbyFadeInDuration   = standbyFadeIn;
         _settings.LongFadeDuration        = longFade;
         _settings.InterLockMs             = interlock;
-        _settings.WasapiLatencyMs         = latency;
         _settings.PreloadThresholdSeconds = preload;
         _settings.MovieStandbyImagePath   = TbMovieStandby.Text;
         _settings.SelectedMidiDeviceName  = CbMidiDevice.SelectedIndex > 0
@@ -126,7 +122,6 @@ public partial class SettingsDialog : Window
         if (tb == TbStandbyFadeIn) return (0.0, 9.9, true);
         if (tb == TbLongFade)      return (0.0, 9.9, true);
         if (tb == TbInterlock)     return (0.0, 5000.0, false);
-        if (tb == TbLatency)       return (1.0, 500.0, false);
         if (tb == TbPreload)       return (1.0, 600.0, false);
         return (0.0, 9999.0, false);
     }

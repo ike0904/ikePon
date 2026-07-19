@@ -183,7 +183,7 @@ public partial class MainWindow : Window
         WireEvents();
 
         _playback.SetProject(_project);
-        _engine.Start(_settings.WasapiLatencyMs);
+        _engine.Start();
         _engine.PaSeparate = _settings.PaSeparateMode;
 
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
@@ -2626,7 +2626,6 @@ public partial class MainWindow : Window
     private void Menu_Settings(object sender, RoutedEventArgs e)
     {
         string prevLang    = _settings.Language;
-        int    prevLatency = _settings.WasapiLatencyMs;
         int    prevPreload = _settings.PreloadThresholdSeconds;
 
         var dlg = new ikePon.UI.Dialogs.SettingsDialog(_settings) { Owner = this };
@@ -2638,8 +2637,7 @@ public partial class MainWindow : Window
             _settings.Save();
 
             bool langChanged  = _settings.Language != prevLang;
-            bool audioChanged = _settings.WasapiLatencyMs != prevLatency ||
-                                _settings.PreloadThresholdSeconds != prevPreload;
+            bool audioChanged = _settings.PreloadThresholdSeconds != prevPreload;
 
             if (langChanged || audioChanged)
             {

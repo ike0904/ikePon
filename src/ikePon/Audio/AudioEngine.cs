@@ -20,7 +20,6 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     private WasapiOut? _wasapiOut;
     private NAudio.Wave.IWavePlayer? _waveOutFallback;
-    private int _latencyMs = 30;
 
     private volatile int _activeBank;
     private volatile float _masterVol = 1f;
@@ -51,10 +50,8 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             }
     }
 
-    public void Start(int latencyMs = 30)
+    public void Start()
     {
-        _latencyMs = latencyMs;
-
         // 1. WASAPI Shared — 他アプリと音声を共存させる（Windows オーディオミキサー経由）
         // Windows ミックスフォーマットが 48000 Hz など異なる場合はリサンプリングして合わせる
         try
@@ -72,7 +69,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             if (mixRate != _format.SampleRate)
                 provider = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(this, mixRate);
 
-            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, Math.Max(30, latencyMs));
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, 0);
             _wasapiOut.Init(provider);
             _wasapiOut.Play();
             return;
@@ -104,7 +101,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         // 3. WASAPI Exclusive — 最終フォールバック（共有・WaveOut が両方失敗した場合）
         try
         {
-            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, Math.Max(100, latencyMs));
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, 100);
             _wasapiOut.Init(this);
             _wasapiOut.Play();
         }
@@ -241,7 +238,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
         try { oldWaveOut?.Stop();    } catch { }
         try { oldWaveOut?.Dispose(); } catch { }
 
-        Start(_latencyMs);
+        Start();
     }
 
     public void Dispose()

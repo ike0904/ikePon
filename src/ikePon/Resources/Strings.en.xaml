@@ -31,7 +31,6 @@
     <sys:String x:Key="Str_Dlg_Settings_Interlock">Interlock</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_RapidFire">Rapid Fire Prevention</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Audio">Audio Settings</sys:String>
-    <sys:String x:Key="Str_Dlg_Settings_WasapiLatency">WASAPI Latency</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Preload">Preload Limit</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_AudioNote">* Audio setting changes take effect after app restart.</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Language">言語 / Language</sys:String>

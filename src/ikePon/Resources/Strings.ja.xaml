@@ -31,7 +31,6 @@
     <sys:String x:Key="Str_Dlg_Settings_Interlock">インターロック</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_RapidFire">連打防止時間</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Audio">オーディオ設定</sys:String>
-    <sys:String x:Key="Str_Dlg_Settings_WasapiLatency">WASAPIレイテンシ</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Preload">プリロード上限</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_AudioNote">※ オーディオ設定の変更はアプリ再起動後に反映されます。</sys:String>
     <sys:String x:Key="Str_Dlg_Settings_Language">言語 / Language</sys:String>
