@@ -5,45 +5,39 @@
 
 ●今回も特別に配布用ビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
 
-●低遅延ワイヤレスで音がおかしくなる問題、直らなかった。以下、他AIからの指摘。内容の正しさを吟味してから作業して。
+●低遅延ワイヤレスで音がおかしくなる問題、直らないどころか私の環境でもおかしくなった。
+一旦v1.6.2に戻して。そして、以下の他AIからの指摘を、内容の正しさを吟味してから作業して。
 
 
 # 概要
-WASAPI Shared のレイテンシを `0` に変更した後も、一部のゲーミングヘッドセット環境（Logitech G733等の 48kHz 固定デバイス）において「再生終了・ALL CUT・ミュート操作後もブザー音（直前の波形ループ）が鳴り止まない」現象が報告されています。
+WASAPI Shared 環境において、パッドのトリガー（再生開始）直後に「ブザー音（直前の波形データが高サイクルで無限ループする現象）」が発生する不具合を修正します。
 
-原因を解析した結果、`AudioEngine.cs` 内でデバイスの `MixFormat.SampleRate`（48000Hz等）とアプリ内部フォーマット（44100Hz）の差分を吸収するために使用している `WdlResamplingSampleProvider` が原因であることが判明しました。
-リアルタイムストリーミング処理において、`WdlResamplingSampleProvider` が内部バッファの計算差分（余りサンプル）を正しく破棄できず、循環バッファ上で無限ループ（デッドロック/ブザー音化）を起こしています。
+# 原因分析
+1. **トリガー直後の読み取りバッファ未填満**
+   `PadAudioSource.cs` の `Trigger()` 実行直後、オーディオスレッドの `ReadSource()` 呼び出しタイミングとの競合や `_readPos` の境界計算により、実際に読み込めたサンプル数（`written`）が要求数（`count`）を満たせないケースが発生していました。
 
-Bluetooth機器や一般的なオーディオ機器で発生しないのは、OS側のサンプリングレートが 44.1kHz で動作しており、このリサンプラーを通過しないためです。
-
-リアルタイムでの WDL リサンプラー通過を廃止することで、ブザー音の根本解決だけでなく「CPU負荷の軽減」および「音質・レスポンスの向上」を図ります。
-
----
+2. **バッファの残置と返り値の不整合（ブザー音の真因）**
+   `ReadSource()` 内で `written < count`（データ不足）の際、バッファを完全に無音クリア処理しきれずに `count`（要求サンプル数）を返していました。
+   結果として、オーディオカードの出力バッファに未更新（前回再生時などの残留波形）のままデータが残り、それが数ミリ秒周期で繰り返し再生されて「ブザー音」となっていました。
 
 # 改修要件
 
-### 1. `AudioEngine.cs` の修正
+### `PadAudioSource.cs` の修正
 
-- **`WdlResamplingSampleProvider` の完全廃止**
-  `Start()` メソッド内にある `WdlResamplingSampleProvider` によるリアルタイムリサンプリング処理を削除してください。
+1. **`Read` および `ReadSource` メソッドにおける無音埋めの徹底**
+   - `written < count` の場合、未書き込み領域（`offset + written` から `count - written` 分）を確実に `Array.Clear`（または `0f`）でクリアしてください。
+   - トリガー直後で `_preloaded` データが 1 サンプルも読み込めなかった場合やエラー発生時は、呼び出し側バッファ全体を即座に `0f`（完全無音）で敷き詰め、安全に無音を出力するようにガードを強化してください。
 
-- **`AudioEngine` のフォーマットをデバイスの `MixFormat` に合わせる**
-  起動時に `MMDeviceEnumerator` からデフォルト再生デバイスの `MixFormat`（SampleRate）を取得し、`AudioEngine` 自体の再生フォーマット（`_format`）をそのサンプルレート（例: 48000Hz）で生成・初期化するように変更してください。
-  これにより、`WasapiOut` とのフォーマット不一致エラーを回避しつつ、再生時のリアルタイムリサンプリング処理を完全に不要にします。
+2. **スレッド境界（`Trigger` 時の `_readPos` 初期化）の保護**
+   - `Trigger()` 呼び出し時に `_readPos` や各種フラグを更新する際、`Read()` スレッド側で不正なインデックス参照や配列外参照が起きないよう、範囲チェック（`Math.Clamp`）およびアトミック/ロック保護を再点検・強化してください。
 
-- **代替案（リアルタイム変換が必要な場合）**
-  何らかの理由で `AudioEngine` 側のフォーマット変更が困難な場合は、不具合のある `WdlResamplingSampleProvider` ではなく、Windows OS標準で動作が堅牢な `MediaFoundationResampler`（または NAudio の `MediaFoundationResampler` ラッパー）を使用する構成に書き換えてください。
+### `AudioEngine.cs` の確認
 
-### 2. `PadAudioSource.cs` への影響確認・対応
-
-- `AudioEngine` のフォーマット（`_format`）がデバイスに合わせて動的に決まる場合、音源ファイルのロード時（`Load` メソッド内の `ConvertToFormat` 等）にそのサンプルレートへ一括変換（プリロード）されるように連携してください。
-- ロード時の一括リサンプリングであれば処理も安全であり、再生中のリアルタイム負荷やバッファループ不具合は一切発生しません。
-
----
+- `Read()` メソッド冒頭の `Array.Clear(buffer, offset, count)` が確実に実行されていること、および `_tempBuf` が未読み込み時にクリアされているか再確認してください。
 
 # 修正対象ファイル
+- `PadAudioSource.cs`
 - `AudioEngine.cs`
-- `PadAudioSource.cs`（必要に応じて）
 
 
 ---
@@ -97,4 +91,25 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 - `PadAudioSource.ConvertToFormat()` はロード時に一括リサンプリングするため変更不要（`_format.SampleRate` がデバイスレートになることで自動的に正しいレートでプリロードされる）
 
 **バージョン**: v1.6.2 → v1.6.3（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.4 / 2026-07-20)
+
+### v1.6.3 差し戻し＋新AIの指摘を検証（AudioEngine.cs）
+
+**経緯**: v1.6.3 でブザー音が直らないどころかユーザー環境でも音がおかしくなったため、AudioEngine.cs を v1.6.2 状態に差し戻し。
+
+**差し戻し内容（AudioEngine.cs）**:
+- コンストラクタを `_format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2)` に戻す（デバイスレート取得廃止）
+- `Start()` に `WdlResamplingSampleProvider` を使ったリアルタイムリサンプリングを復元（デバイスが 48000 Hz 等の場合にリサンプルして合わせる）
+
+**新AIの指摘に関する検証結果（PadAudioSource.cs / AudioEngine.cs）**:
+- `ReadSource()` の `written < count` 時バッファクリア → **v1.6.1 時点から実装済み**（行 361: `Array.Clear(buffer, offset + written, count - written)`）
+- `_preloaded == null` 時のバッファクリア → **実装済み**（ReadSource 先頭のガード）
+- `Trigger()` の `_readPos` スレッド保護 → **実装済み**（`lock(_lock)` + `Math.Clamp`）
+- `AudioEngine.Read()` 冒頭の `Array.Clear` → **実装済み**（行 157）
+- 新AIが指摘した修正はいずれも既に実装済みのため、PadAudioSource.cs への変更は不要と判断
+
+**バージョン**: v1.6.3 → v1.6.4（Debug / Release publish 済み、警告 0 / エラー 0）
 

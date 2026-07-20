@@ -38,17 +38,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     public AudioEngine()
     {
-        // デバイスの MixFormat に合わせて _format を決定（ロード時リサンプルで統一し、再生時リサンプル不要にする）
-        int sampleRate = 44100;
-        try
-        {
-            using var enumerator = new MMDeviceEnumerator();
-            using var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            sampleRate = device.AudioClient.MixFormat.SampleRate;
-        }
-        catch { }
-
-        _format = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 2);
+        _format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
         _sources = new PadAudioSource[BankCount, PadCount];
         _padCategories = new AudioCategory[BankCount, PadCount];
 
@@ -62,11 +52,25 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     public void Start()
     {
-        // 1. WASAPI Shared — _format はコンストラクタでデバイスの MixFormat に合わせ済み（リサンプラー不要）
+        // 1. WASAPI Shared — 他アプリと音声を共存させる（Windows オーディオミキサー経由）
+        // Windows ミックスフォーマットが 48000 Hz など異なる場合はリサンプリングして合わせる
         try
         {
+            int mixRate = _format.SampleRate;
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                using var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                mixRate = device.AudioClient.MixFormat.SampleRate;
+            }
+            catch { }
+
+            ISampleProvider provider = this;
+            if (mixRate != _format.SampleRate)
+                provider = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(this, mixRate);
+
             _wasapiOut = new WasapiOut(AudioClientShareMode.Shared, 0);
-            _wasapiOut.Init(this);
+            _wasapiOut.Init(provider);
             _wasapiOut.Play();
             return;
         }
