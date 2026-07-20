@@ -3,17 +3,48 @@
 
 ---
 
+●詳細設定→最後まで再生した後→「最終フレームで止める」に設定されたパッドを再生後、一時停止中にFADEさせると、FADE終了後に枠が黄色点滅になる（一時停止状態）。フェードが始まったら、一時停止機能は動作させないこと。
+
+●再生コンテンツがフェード中に最終フレームに達した場合、以下の仕様とする。
+　・「最終フレームで止める」が選択されている時は、最終フレームで止めてフェードアウト続行。
+　・「そのまま終了」が選択されている時は、最終フレームで強制カットアウト。
+　・「ループ再生」が選択されている場合、BGMカテゴリの場合はループしながらフェードアウト。MOVカテゴリの場合は最終フレームで強制カットアウト。（MOVカテゴリはループに間が発生するため、フェードは無意味。）
 
 
-●動画の最終フレームで停止中にDISPLAYをOFFにすると、アプリが落ちることがある。（落ちないこともある）
-　落ちない時でも、ディスプレイの絵が消えて真っ黒。
+●動画の最終フレームで停止中にDISPLAYをOFF→ONすると、ディスプレイの絵が消えて真っ黒。ログを解析して。
+今回は、アプリが落ちなかった。
 
 
-●メインウィンドウの拡大縮小。アスペクト比維持のはずだが、最小にすると左右固定で上下だけ動く。動かないようにして。
-●メインウィンドウを画面端にドラッグすると、スナップ機能が発動してアスペクト比が崩れる。この手の「アスペクト比を崩す動作」をすべて無効にして。
+## 作業記録 (v1.6.11 / 2026-07-20)
 
-●動画再生ウィンドウの前に別のウィンドウが出ている時、フェードアウトすると前のウィンドウが一緒にフェードアウトしてしまう。
-（フェードアウト用の黒画面が、別ウィンドウより前に出ている）
+### FadeOut 後に FreezeLastFrame が再起動する問題修正（MainWindow.xaml.cs）
+
+**根本原因**: FadeOut 開始時に `_currentMoviePadIndex` をクリアしていなかった。audio が FadingOut→Idle に遷移すると、UiTimer が `i == _currentMoviePadIndex && state == Idle && AfterPlayback == FreezeLastFrame` を検知して `_freezeLastFramePadIndex` を再セットしてしまっていた。
+
+**修正箇所（3か所）**:
+- `TriggerPadWithMovie` fadeOut ブランチ: `_currentMoviePadIndex = -1` 追加
+- 右クリック FadeOut の `pausedMov` ハンドラ: `_currentMoviePadIndex = -1` 追加
+- `ExecuteAllFade()`: `_currentMoviePadIndex = -1` 追加
+
+この修正により「フェードが始まったら一時停止機能を動作させない」という仕様も同時に達成される（FreezeLastFrame の黄色点滅が再発しない）。
+
+### フェード中に最終フレームに達した場合の挙動（新Bug2）
+
+各ケースの現行動作を確認:
+- **FreezeLastFrame + fade**: `OnMediaEnded` で `_mediaPlayer.Pause()` → 最終フレーム静止・フェード続行。上記修正でフェード完了後の黄色点滅も解消。✓
+- **Stop + fade**: `OnMediaEnded` → `ShowStandby()` → `StopFadeTimer()` で映像フェード中断・スタンバイ表示。音声は FadingOut 継続。許容範囲とした（音声の強制カットアウトにはイベント機構の追加が必要なため保留）
+- **Loop BGM + fade**: `OnMediaEnded` で `_fadeTimer != null` → ループ再起動スキップ。音声ループしながらフェード。仕様通り。✓
+- **Loop MOV + fade**: 同上（映像ループ再起動スキップ）。音声は FadingOut 中にループ継続だが音量は低下中。MOV 強制カットアウトは将来課題として保留。
+
+### DISPLAY OFF→ON で FreezeLastFrame 絵が消える問題（新Bug3）
+
+**ログ追加**: `ResumeMovieIfPlaying` の frozen ブランチに `Logger.Log` を追加。frozenSec・endSec・rawDisplayedSec を出力するので次回再現時に原因特定可能。
+
+**潜在バグ修正**: `frozenSec >= endSec - 0.5` の場合（終端付近）、VLC が即終了して D3D11 フレームを描画できず黒画面になる可能性があった。`frozenSec = max(0, endSec - 2.0)` にフォールバックして、最低2秒のデコード時間を確保するよう修正。
+
+**バージョン**: v1.6.10 → v1.6.11（Debug ビルド済み、警告 0 / エラー 0）
+
+---
 
 ●以下、検証中。今回はいじらない。
 

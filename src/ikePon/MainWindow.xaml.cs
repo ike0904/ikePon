@@ -1186,6 +1186,7 @@ public partial class MainWindow : Window
                     if (state == PadPlayState.Paused)
                         _engine.GetSource(_playback.ActiveBank, padIndex).Stop(_settings.LongFadeDuration);
                     _freezeLastFramePadIndex = -1;
+                    _currentMoviePadIndex = -1; // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
                     ++_movieLoopSession;
                     _movieCtrl.FadeVideo(_settings.LongFadeDuration);
                     if (duringPauseAll)
@@ -1524,6 +1525,7 @@ public partial class MainWindow : Window
         else if (fadeOut)
         {
             ++_movieLoopSession;
+            _currentMoviePadIndex = -1; // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
             _pendingAudioPadIndex = -1;
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
@@ -2098,8 +2100,14 @@ public partial class MainWindow : Window
                 && !string.IsNullOrEmpty(frozenPad.FilePath))
             {
                 double frozenSec = _freezeLastFrameDisplayedSec > 0 ? (double)_freezeLastFrameDisplayedSec : 0;
+                double endSec    = frozenPad.EndPositionSec;
+                // frozenSec が endSec（終端）と同一か超えている場合、VLC が即終了して黒画面になる。
+                // 2 秒前から再生して確実にフレームをデコードさせる。
+                if (endSec > 0 && frozenSec >= endSec - 0.5)
+                    frozenSec = Math.Max(0, endSec - 2.0);
+                Logger.Log($"[Main] ResumeMovieIfPlaying: frozen pad={_freezeLastFramePadIndex} frozenSec={frozenSec:F1} endSec={endSec:F1} rawDisplayed={_freezeLastFrameDisplayedSec}");
                 ++_movieLoopSession;
-                _movieCtrl.PlayVideo(frozenPad.FilePath, frozenSec, frozenPad.EndPositionSec, AfterPlaybackBehavior.FreezeLastFrame);
+                _movieCtrl.PlayVideo(frozenPad.FilePath, frozenSec, endSec, AfterPlaybackBehavior.FreezeLastFrame);
             }
             return;
         }
@@ -2221,6 +2229,7 @@ public partial class MainWindow : Window
             if (_pauseBd != null) _pauseBd.BorderBrush = new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
         }
         _freezeLastFramePadIndex = -1; // FreezeLastFrame フリーズ状態を解除（映像フェード対象）
+        _currentMoviePadIndex = -1;    // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
 
