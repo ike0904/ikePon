@@ -65,7 +65,8 @@ public partial class MainWindow : Window
     private int _currentMoviePadIndex = -1;
     private int _movieLoopSession;
     private int _videoLoopingPadIndex = -1;    // ループ間の300ms黒画面中、黄色枠を維持するため
-    private int _freezeLastFramePadIndex = -1; // FreezeLastFrame 完了後のフリーズ状態パッドindex
+    private int _freezeLastFramePadIndex = -1;    // FreezeLastFrame 完了後のフリーズ状態パッドindex
+    private int _freezeLastFrameDisplayedSec = 0; // freeze 時の壁時計値（時間表示に使用）
 
     // 映像↔音声同期補正
     private int  _videoSyncMismatchFrames;
@@ -693,7 +694,8 @@ public partial class MainWindow : Window
                 if (pad.AfterPlayback == AfterPlaybackBehavior.FreezeLastFrame)
                 {
                     _freezeLastFramePadIndex = i;
-                    Logger.Log($"[MW] FreezeLastFrame activated: pad={i}");
+                    _freezeLastFrameDisplayedSec = _movieDisplayedSec;
+                    Logger.Log($"[MW] FreezeLastFrame activated: pad={i} at {_movieDisplayedSec}s");
                 }
                 _movieSecTick = -1;
                 _currentMoviePadIndex = -1;
@@ -717,11 +719,13 @@ public partial class MainWindow : Window
             // 動画ループの300ms黒画面中はオーディオ状態がIdleになるが、黄色枠を維持する
             if (state == PadPlayState.Idle && _videoLoopingPadIndex == i)
                 state = PadPlayState.Playing;
-            // FreezeLastFrame 中: 一時停止扱い（黄色点滅）・プログレスバー 100%
+            // FreezeLastFrame 中: 一時停止扱い（黄色点滅）・プログレスバーは freeze 時点の位置
             if (_freezeLastFramePadIndex == i)
             {
                 state = PadPlayState.Paused;
-                pos   = 1.0f;
+                pos = (totalSec > 0 && _freezeLastFrameDisplayedSec > 0)
+                    ? Math.Clamp((float)_freezeLastFrameDisplayedSec / totalSec, 0f, 1f)
+                    : 1.0f;
             }
             _padButtons[i].UpdateState(state, pos, pad, fadeGain, totalSec, imageDisplaying, iGain, isMissing, isPreparingVideo);
         }
@@ -1121,8 +1125,8 @@ public partial class MainWindow : Window
             {
                 if (pausedMov)
                 {
-                    // 音は無音のまま映像だけフェードアウト
-                    if (state == PadPlayState.Paused)
+                    // 音声を停止（一時停止中 or フリーズ中は確実に止める）
+                    if (state == PadPlayState.Paused || isFrozen)
                         _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
                     _freezeLastFramePadIndex = -1;
                     ++_movieLoopSession;
@@ -1146,7 +1150,8 @@ public partial class MainWindow : Window
             {
                 if (isFrozen)
                 {
-                    // FreezeLastFrame フリーズ状態: 映像のみ停止
+                    // FreezeLastFrame フリーズ状態: 音声と映像を停止
+                    _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
                     _freezeLastFramePadIndex = -1;
                     ++_movieLoopSession;
                     _movieCtrl.StopVideo();
@@ -1160,7 +1165,8 @@ public partial class MainWindow : Window
                 }
             };
             // PAUSE ALL中でも一時停止/再開を選択可（個別再開 + PAUSE ALL解除）
-            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE && !isFrozen;
+            // FreezeLastFrame中は「再生」として有効化（クリックで最初から再トリガー）
+            bool pauseEnabled = !isImagePad && pad0?.Category != AudioCategory.SE;
             var pauseResume = new MenuItem { Header = L.S("Str_CM_PauseResume"), IsEnabled = pauseEnabled };
             pauseResume.Click += (_, _) =>
             {
@@ -1171,6 +1177,15 @@ public partial class MainWindow : Window
                     _playback.ForcePauseResumePad(padIndex);
                     if (isMovPad && !isImagePad) { _movieCtrl.ResumeVideo(); ResumeMovieWallClock(); }
                     UpdateActionButtons();
+                }
+                else if (isFrozen)
+                {
+                    // FreezeLastFrame フリーズ中: フリーズを解除して最初から再生
+                    _freezeLastFramePadIndex = -1;
+                    ++_movieLoopSession;
+                    _currentMoviePadIndex = -1;
+                    _pendingAudioPadIndex = -1;
+                    TriggerPadWithMovie(padIndex);
                 }
                 else
                     PausePadWithMovie(padIndex);

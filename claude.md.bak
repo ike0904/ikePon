@@ -5,12 +5,10 @@
 
 ●今回も特別に配布用ビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
 
-・パッド詳細設定で、「再生開始位置＜再生終了位置」「ループ開始位置＜再生終了位置」のルールを破っても、見た目上値が入ってしまう。
-　実際にはOKを押した時点で反映されず元に戻っているようだが、テキストボックス内の値確定時（ENTER押下、もしくはボックス外をクリック）にありえない値だった場合は採用せず、元の値にすぐ戻して。
-
-・MOVカテゴリで最後まで再生した後「最終フレームで止める」設定にしている場合、止めた後に同一パッドをタップした時の仕様。現在は再トリガーになっているが、以下のように変更する。
-　・再生中タップが「フェードアウト」になっている場合：映像をフェードアウト
-　・再生中タップが「カットアウト」「一時停止／再開」になっている場合：映像をカットアウト
+パッド詳細設定「最後まで再生した後」が「最終フレームで止める」になっている時、以下の不具合が起きる。
+・パッド上の現在時間表示が常に最終フレームの値になって動かない。
+・右クリックで「一時停止／再開」がグレーアウトされており、選択できない。
+・右クリックでフェードアウトやカットアウトを選択しても、音だけそのまま続けて鳴ってしまう。
 
 
 
@@ -148,4 +146,44 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 4. WASAPI Exclusive 100ms（最終フォールバック）
 
 **バージョン**: v1.6.4 → v1.6.5（Debug / Release publish 済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.6 / 2026-07-20)
+
+### パッド詳細設定 位置バリデーション強化（PadDetailDialog.xaml.cs）
+
+**問題**: `_savedTexts` がコンストラクタ内の GotFocus イベント登録だけで初期化されており、ダイアログオープン直後に GotFocus が未発火のテキストボックスに対してリバートを試みると `""` に戻っていた。
+
+**修正内容**:
+- `LoadValues()` 呼び出し直後に `_savedTexts[TbPadGain/TbStartPos/TbEndPos/TbLoopStart]` を LoadValues が設定した初期値で事前初期化
+- これにより Enter/ブラー時の `CommitPosBox` がクロスフィールド検証で確実に正しい元値へリバートするようになる
+
+### MOV FreezeLastFrame タップ挙動変更（MainWindow.xaml.cs）
+
+**変更前**: フリーズ中に同一パッドをタップすると `wasActive=false` → `isNewMoviePlay=true` となり再トリガーされていた
+
+**変更後**: `TriggerPadWithMovie()` の `isNewMoviePlay` 判定前に `_freezeLastFramePadIndex == padIndex` チェックを追加
+- TapBehavior.FadeOut → 映像をフェードアウト（`_movieCtrl.FadeVideo`）
+- TapBehavior.CutOut / PauseResume → 映像をカットアウト（`_movieCtrl.StopVideo`）
+
+**バージョン**: v1.6.5 → v1.6.6（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.7 / 2026-07-20)
+
+### パッド詳細設定 ボックス外クリック時のバリデーション修正（PadDetailDialog.xaml / .cs）
+
+**問題**: ENTERでは元に戻るが、テキストボックス外をクリックしたときには無効値がそのまま残っていた。
+
+**根本原因**: `LostFocus` は ComboBox 内の ToggleButton など内部で `e.Handled=true` するコントロールをクリックすると `Window_MouseDown` に到達せず、`Keyboard.ClearFocus()` が呼ばれないケースがある。その場合 `PosBox_LostFocus` も呼ばれず、`CommitPosBox` によるリバートが実行されない。
+
+**修正内容**:
+- Window の `PreviewMouseDown` ハンドラ (`Window_PreviewMouseDown`) を追加
+- PreviewMouseDown はトンネリング（Window から先に発火）のため、どこをクリックしても必ず最初に実行される
+- ハンドラ内で `Keyboard.FocusedElement` が位置テキストボックスなら即座に `CommitPosBox` を呼ぶ
+- `LostFocus` / `Window_MouseDown` の既存ロジックはそのまま維持（タブキー移動等のフォローアップ用）
+
+**バージョン**: v1.6.6 → v1.6.7（Debug / Release publish 済み、警告 0 / エラー 0）
 

@@ -5,12 +5,7 @@
 
 ●今回も特別に配布用ビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
 
-・パッド詳細設定で、「再生開始位置＜再生終了位置」「ループ開始位置＜再生終了位置」のルールを破っても、見た目上値が入ってしまう。
-　実際にはOKを押した時点で反映されず元に戻っているようだが、テキストボックス内の値確定時（ENTER押下、もしくはボックス外をクリック）にありえない値だった場合は採用せず、元の値にすぐ戻して。
-
-・MOVカテゴリで最後まで再生した後「最終フレームで止める」設定にしている場合、止めた後に同一パッドをタップした時の仕様。現在は再トリガーになっているが、以下のように変更する。
-　・再生中タップが「フェードアウト」になっている場合：映像をフェードアウト
-　・再生中タップが「カットアウト」「一時停止／再開」になっている場合：映像をカットアウト
+・（v1.6.8で修正済み）FreezeLastFrame の不具合3件。
 
 
 
@@ -170,4 +165,43 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 - TapBehavior.CutOut / PauseResume → 映像をカットアウト（`_movieCtrl.StopVideo`）
 
 **バージョン**: v1.6.5 → v1.6.6（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.8 / 2026-07-20)
+
+### FreezeLastFrame 不具合3件修正（MainWindow.xaml.cs）
+
+**Bug 1: 現在時間表示が常に最終フレームの値**
+- freeze 検出時に `_freezeLastFrameDisplayedSec = _movieDisplayedSec` を保存
+- 表示 override を `pos = 1.0f` から `pos = _freezeLastFrameDisplayedSec / totalSec` に変更（フォールバックは 1.0f）
+- wall clock が停止した実際の秒数を使うことで正確な位置表示
+
+**Bug 2: 右クリック「一時停止／再開」がグレーアウト**
+- `pauseEnabled` から `!isFrozen` を削除
+- PauseResume クリック時に `isFrozen` ならフリーズ解除 + `TriggerPadWithMovie` で最初から再生
+
+**Bug 3: 右クリック FadeOut/CutOut で音が止まらない**
+- FadeOut ハンドラ: `if (state == PadPlayState.Paused)` → `if (state == PadPlayState.Paused || isFrozen)` に変更
+- CutOut ハンドラ: `isFrozen` ブランチに `StopImmediate` 呼び出しを追加
+
+**バージョン**: v1.6.7 → v1.6.8（Debug / Release publish 済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.7 / 2026-07-20)
+
+### パッド詳細設定 ボックス外クリック時のバリデーション修正（PadDetailDialog.xaml / .cs）
+
+**問題**: ENTERでは元に戻るが、テキストボックス外をクリックしたときには無効値がそのまま残っていた。
+
+**根本原因**: `LostFocus` は ComboBox 内の ToggleButton など内部で `e.Handled=true` するコントロールをクリックすると `Window_MouseDown` に到達せず、`Keyboard.ClearFocus()` が呼ばれないケースがある。その場合 `PosBox_LostFocus` も呼ばれず、`CommitPosBox` によるリバートが実行されない。
+
+**修正内容**:
+- Window の `PreviewMouseDown` ハンドラ (`Window_PreviewMouseDown`) を追加
+- PreviewMouseDown はトンネリング（Window から先に発火）のため、どこをクリックしても必ず最初に実行される
+- ハンドラ内で `Keyboard.FocusedElement` が位置テキストボックスなら即座に `CommitPosBox` を呼ぶ
+- `LostFocus` / `Window_MouseDown` の既存ロジックはそのまま維持（タブキー移動等のフォローアップ用）
+
+**バージョン**: v1.6.6 → v1.6.7（Debug / Release publish 済み、警告 0 / エラー 0）
 
