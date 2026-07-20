@@ -1384,6 +1384,21 @@ public partial class MainWindow : Window
         // パッドの現在時間表示値を再生開始位置として使用（詳細設定の StartPositionSec とは独立）
         float startSecOverride = _padButtons[padIndex].CurrentStartSec;
 
+        // FreezeLastFrame フリーズ中の同パッドタップ → 再トリガーせず TapBehavior に従って停止
+        if (_freezeLastFramePadIndex == padIndex && !fadeOut && !stopImmediate)
+        {
+            _freezeLastFramePadIndex = -1;
+            ++_movieLoopSession;
+            _currentMoviePadIndex = -1;
+            _pendingAudioPadIndex = -1;
+            if (pad?.TapBehavior == TapBehavior.FadeOut)
+                _movieCtrl.FadeVideo(_settings.LongFadeDuration);
+            else
+                _movieCtrl.StopVideo();
+            Logger.Log($"[MW] FreezeLastFrame tap: TapBehavior={pad?.TapBehavior}");
+            return;
+        }
+
         // 新規動画再生（初回・wasActive=false）: 映像の初回フレームまで音声を保留する
         bool isNewMoviePlay = isMoviePad && !isImagePad && !fadeOut && !stopImmediate
                               && !wasActive && !string.IsNullOrEmpty(pad?.FilePath);

@@ -64,6 +64,12 @@ public partial class PadDetailDialog : Window
         SetResetMenu(TbEndPos,    "");
         SetResetMenu(TbLoopStart, "");
 
+        // LoadValues() で設定した初期値を _savedTexts に反映（GotFocus 前でもリバートできるように）
+        _savedTexts[TbPadGain]   = TbPadGain.Text;
+        _savedTexts[TbStartPos]  = TbStartPos.Text;
+        _savedTexts[TbEndPos]    = TbEndPos.Text;
+        _savedTexts[TbLoopStart] = TbLoopStart.Text;
+
         foreach (var tb in new[] { TbPadGain, TbStartPos, TbEndPos, TbLoopStart })
         {
             var captured = tb;
