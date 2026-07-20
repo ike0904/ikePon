@@ -3,16 +3,42 @@
 
 ---
 
-●詳細設定→最後まで再生した後→「最終フレームで止める」に設定されたパッドを再生後、一時停止中にFADEさせると、FADE終了後に枠が黄色点滅になる（一時停止状態）。フェードが始まったら、一時停止機能は動作させないこと。
+## 作業記録 (v1.6.12 / 2026-07-20)
+
+### 黄色点滅（一時停止状態が続行）バグ修正（PadAudioSource.cs・MainWindow.xaml.cs）
+
+**根本原因**: `PadAudioSource.Stop(fadeDuration)` が `Paused` 状態のパッドを処理していなかった。
+`Playing | FadingOut` のみ `FadingOut` に遷移し、`Paused` はそのままにしていたため、
+右クリック FadeOut や ALL FADE で `Stop()` を呼んでも一時停止中パッドが `Paused` のまま残り、
+フェード後も UiTimer が state=Paused を検知して黄色点滅が継続していた。
+
+**修正内容**:
+- `PadAudioSource.Stop()` に `Paused → Idle`（即時）の処理を追加。一時停止中は出力が無音なのでフェードせず即停止。
+- フェード開始時に `_movieSecPaused = false; _movieSecTick = -1;` を全フェードパスに追加（右クリック fadeOut/cutOut/pauseResume の frozen ブランチ、TriggerPadWithMovie fadeOut、ExecuteAllFade、ExecutePanic）。
+- これにより「ALL CUT/ALL FADE後に一時停止状態が強制OFFになる」安全機構も同時に実現。
+
+### FreezeLastFrame 最終フレームで音声カットアウト（Bug2）
+
+**仕様対応**: "★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。"
+
+**実装内容（MovieWindow.xaml.cs / MovieController.cs / MainWindow.xaml.cs）**:
+- `MovieWindow` に `VideoFreezeAtEnd` イベントを追加。`OnMediaEnded` の FreezeLastFrame ケースで発火。
+- `MovieController` でイベントをフォワード（購読/解除も CloseDisplay/OpenDisplay に組み込み）。
+- `MainWindow` で `OnVideoFreezeAtEnd()` を実装: `_currentMoviePadIndex >= 0` なら `StopImmediate()` で即音声カットアウト。
+
+**バージョン**: v1.6.11 → v1.6.12（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+●直ってない（v1.6.11 時点）→ v1.6.12 で修正済み
+パッド詳細設定→最後まで再生した後→「最終フレームで止める」に設定されたパッドを再生後、一時停止中にFADEさせると、FADE終了後に枠が黄色点滅になる（一時停止状態）。フェードが始まったら、一時停止機能は解除すること。
+内部的に一時停止状態が続行しているのが遠因で、別の不具合も起きているようだ。（現在時間がカウントアップしない等）まずはこれを直して。
+「ALL CUTやALL FADE後に、一時停止状態が続行していないか確認・強制的にOFFにする」という機能を（念のため）入れた方が良いかもしれない。
 
 ●再生コンテンツがフェード中に最終フレームに達した場合、以下の仕様とする。
-　・「最終フレームで止める」が選択されている時は、最終フレームで止めてフェードアウト続行。
-　・「そのまま終了」が選択されている時は、最終フレームで強制カットアウト。
-　・「ループ再生」が選択されている場合、BGMカテゴリの場合はループしながらフェードアウト。MOVカテゴリの場合は最終フレームで強制カットアウト。（MOVカテゴリはループに間が発生するため、フェードは無意味。）
+　・「最終フレームで止める」が選択されている時は、★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。
 
 
-●動画の最終フレームで停止中にDISPLAYをOFF→ONすると、ディスプレイの絵が消えて真っ黒。ログを解析して。
-今回は、アプリが落ちなかった。
 
 
 ## 作業記録 (v1.6.11 / 2026-07-20)

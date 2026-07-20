@@ -30,6 +30,7 @@ public sealed class MovieController : IDisposable
     public event Action<string>? StatusMessage;
     public event Action? VideoLoopEndReached;
     public event Action<long>? VideoShown;
+    public event Action? VideoFreezeAtEnd;
 
     public MovieController(AppSettings settings)
     {
@@ -80,6 +81,7 @@ public sealed class MovieController : IDisposable
             _window.FullScreenChanged += OnWindowFullScreenChanged;
             _window.LoopEndReached    += OnWindowLoopEndReached;
             _window.VideoShown        += OnWindowVideoShown;
+            _window.VideoFreezeAtEnd  += OnWindowVideoFreezeAtEnd;
             _window.Closed += OnWindowClosed;
             _window.Show();
             _window.ShowStandby(immediate: true); // 初期スタンバイを即時表示（フェードインさせるとVLC初期化中の白が透けて見える）
@@ -104,6 +106,7 @@ public sealed class MovieController : IDisposable
             w.FullScreenChanged -= OnWindowFullScreenChanged;
             w.LoopEndReached    -= OnWindowLoopEndReached;
             w.VideoShown        -= OnWindowVideoShown;
+            w.VideoFreezeAtEnd  -= OnWindowVideoFreezeAtEnd;
             w.Closed -= OnWindowClosed;
             w.StopVideo(); // VLC を非同期停止 + スタンバイ表示
             Logger.Log("[MC] CloseDisplay: scheduling window.Close() in 150ms");
@@ -205,6 +208,7 @@ public sealed class MovieController : IDisposable
 
     private void OnWindowLoopEndReached() => VideoLoopEndReached?.Invoke();
     private void OnWindowVideoShown(long ms) => VideoShown?.Invoke(ms);
+    private void OnWindowVideoFreezeAtEnd() => VideoFreezeAtEnd?.Invoke();
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {

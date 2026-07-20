@@ -135,6 +135,8 @@ public partial class MovieWindow : Window
     public event Action? LoopEndReached;
     // 映像が画面に表示された瞬間に発火。パラメータは VLC の現在再生位置（ms）。音声同期補正用。
     public event Action<long>? VideoShown;
+    // 動画が最終フレームで静止したとき（AfterPlayback=FreezeLastFrame + EndReached）に発火。
+    public event Action? VideoFreezeAtEnd;
 
     // VLC の現在再生位置をミリ秒で返す。再生中でなければ -1。
     public long GetCurrentTimeMs() =>
@@ -632,7 +634,8 @@ public partial class MovieWindow : Window
         switch (_afterPlayback)
         {
             case AfterPlaybackBehavior.FreezeLastFrame:
-                _mediaPlayer.Pause();
+                _mediaPlayer.Pause(); // 最終フレームで映像を静止
+                VideoFreezeAtEnd?.Invoke(); // 音声カットアウト通知
                 break;
             case AfterPlaybackBehavior.Loop:
                 // FireLoopEnd が先に処理済みの場合はスキップ。フェードアウト中も無視。

@@ -158,6 +158,14 @@ public sealed class PadAudioSource : ISampleProvider, IDisposable
                 _fade.StartFadeOut(fadeDuration, _format.SampleRate * _format.Channels);
                 _stateInt = (int)PadPlayState.FadingOut;
             }
+            else if (st == PadPlayState.Paused)
+            {
+                // 一時停止中は出力が既に無音なので即時 Idle へ遷移
+                _stateInt    = (int)PadPlayState.Idle;
+                _fade.Reset();
+                PlaybackPosition = 0f;
+                _inCrossfade = false;
+            }
         }
     }
 

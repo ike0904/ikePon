@@ -212,6 +212,7 @@ public partial class MainWindow : Window
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
         _movieCtrl.VideoLoopEndReached  += OnVideoLoopEndReached;
         _movieCtrl.VideoShown           += OnMovieVideoShown;
+        _movieCtrl.VideoFreezeAtEnd     += OnVideoFreezeAtEnd;
 
         WireMidi();
         _midi.SetDevice(_settings.SelectedMidiDeviceName);
@@ -1187,6 +1188,8 @@ public partial class MainWindow : Window
                         _engine.GetSource(_playback.ActiveBank, padIndex).Stop(_settings.LongFadeDuration);
                     _freezeLastFramePadIndex = -1;
                     _currentMoviePadIndex = -1; // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
+                    _movieSecPaused = false;    // 一時停止状態を強制解除（フェード後に黄色点滅が残らないようにする）
+                    _movieSecTick = -1;
                     ++_movieLoopSession;
                     _movieCtrl.FadeVideo(_settings.LongFadeDuration);
                     if (duringPauseAll)
@@ -1211,6 +1214,8 @@ public partial class MainWindow : Window
                     // FreezeLastFrame フリーズ状態: 音声と映像を停止
                     _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
                     _freezeLastFramePadIndex = -1;
+                    _movieSecPaused = false;
+                    _movieSecTick = -1;
                     ++_movieLoopSession;
                     _movieCtrl.StopVideo();
                 }
@@ -1240,6 +1245,8 @@ public partial class MainWindow : Window
                 {
                     // FreezeLastFrame フリーズ中: フリーズを解除して停止（Idle へ戻す）
                     _freezeLastFramePadIndex = -1;
+                    _movieSecPaused = false;
+                    _movieSecTick = -1;
                     ++_movieLoopSession;
                     _currentMoviePadIndex = -1;
                     _pendingAudioPadIndex = -1;
@@ -1306,6 +1313,16 @@ public partial class MainWindow : Window
             return;
         }
         Logger.Log($"[Main] VideoShown: no pending audio (vlc={vlcMs}ms)");
+    }
+
+    // 動画最終フレーム静止ハンドラ（FreezeLastFrame）: 音声を即カットアウト。
+    // 映像が最終フレームで止まると同時に音声も停止させる（Bug2仕様）。
+    private void OnVideoFreezeAtEnd()
+    {
+        int padIdx = _currentMoviePadIndex;
+        if (padIdx < 0) return;
+        Logger.Log($"[Main] VideoFreezeAtEnd: StopImmediate pad={padIdx}");
+        _engine.GetSource(_playback.ActiveBank, padIdx).StopImmediate();
     }
 
     // ------------------------------------------------------------------
@@ -1527,6 +1544,8 @@ public partial class MainWindow : Window
             ++_movieLoopSession;
             _currentMoviePadIndex = -1; // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
             _pendingAudioPadIndex = -1;
+            _movieSecPaused = false;    // 一時停止状態を強制解除
+            _movieSecTick = -1;
             _movieCtrl.FadeVideo(_settings.LongFadeDuration);
             _imageDisplayingPadIndex = -1;
         }
@@ -2230,6 +2249,8 @@ public partial class MainWindow : Window
         }
         _freezeLastFramePadIndex = -1; // FreezeLastFrame フリーズ状態を解除（映像フェード対象）
         _currentMoviePadIndex = -1;    // フェード開始時にクリア: FreezeLastFrame が再起動しないよう防止
+        _movieSecPaused = false;       // 一時停止状態を強制解除（ALL FADE後に続行しないよう）
+        _movieSecTick = -1;
         _movieCtrl.PanicFade(_settings.LongFadeDuration);
     }
 
@@ -2273,6 +2294,8 @@ public partial class MainWindow : Window
         _imageFadingPadIndex = -1;
         _freezeLastFramePadIndex = -1; // FreezeLastFrame フリーズ状態を解除
         ++_movieLoopSession; _currentMoviePadIndex = -1; // ループ再起動キャンセル
+        _movieSecPaused = false;       // 一時停止状態を強制解除（ALL CUT後に続行しないよう）
+        _movieSecTick = -1;
         _playback.PanicStopAll();
         _playback.FlushOutput();
         if (wasPaused)
