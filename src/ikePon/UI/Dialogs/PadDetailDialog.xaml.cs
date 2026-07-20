@@ -311,6 +311,17 @@ public partial class PadDetailDialog : Window
         TbLoopStart.Opacity   = isLoop ? 1.0 : 0.4;
     }
 
+    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // フォーカス移動前（トンネリング）に位置テキストボックスをコミット
+        // LostFocus が届かないコントロール（ComboBox内ToggleButton等）をクリックした場合も確実に実行される
+        if (Keyboard.FocusedElement is TextBox focused &&
+            (focused == TbStartPos || focused == TbEndPos || focused == TbLoopStart))
+        {
+            CommitPosBox(focused);
+        }
+    }
+
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
         // TextBox のマウスキャプチャのみ解放（ComboBox等のキャプチャは触らない）

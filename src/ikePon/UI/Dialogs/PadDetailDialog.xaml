@@ -5,6 +5,7 @@
         WindowStyle="ToolWindow" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#212121" Foreground="White"
+        PreviewMouseDown="Window_PreviewMouseDown"
         MouseDown="Window_MouseDown">
 
     <Window.Resources>
