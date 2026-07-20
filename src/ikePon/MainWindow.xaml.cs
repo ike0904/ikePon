@@ -554,8 +554,17 @@ public partial class MainWindow : Window
         HwndSource.FromHwnd(hwnd)?.AddHook(AspectRatioWndProc);
     }
 
-    private const int WM_SIZING        = 0x0214;
-    private const int WM_GETMINMAXINFO = 0x0024;
+    private const int  WM_SIZING             = 0x0214;
+    private const int  WM_GETMINMAXINFO      = 0x0024;
+    private const int  WM_WINDOWPOSCHANGING  = 0x0046;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPOS
+    {
+        public IntPtr hwnd, hwndInsertAfter;
+        public int    x, y, cx, cy;
+        public uint   flags;
+    }
 
     private IntPtr AspectRatioWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -605,24 +614,50 @@ public partial class MainWindow : Window
             int cw   = rc.Right  - rc.Left - _mainNcW;
             int ch   = rc.Bottom - rc.Top  - _mainNcH;
 
+            double scale = GetDpiForWindow(hwnd) / 96.0;
+            int minCW = (int)Math.Ceiling(MinWidth  * scale);
+            int minCH = (int)Math.Ceiling(MinHeight * scale);
+
             switch (edge)
             {
                 case 1: // WMSZ_LEFT
+                    cw = Math.Max(cw, minCW);
+                    rc.Left   = rc.Right  - cw - _mainNcW;
+                    rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                    break;
                 case 2: // WMSZ_RIGHT
+                    cw = Math.Max(cw, minCW);
+                    rc.Right  = rc.Left   + cw + _mainNcW;
                     rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
                     break;
                 case 3: // WMSZ_TOP
+                    ch = Math.Max(ch, minCH);
+                    rc.Top    = rc.Bottom - ch - _mainNcH;
                     rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
                     break;
                 case 6: // WMSZ_BOTTOM
+                    ch = Math.Max(ch, minCH);
+                    rc.Bottom = rc.Top    + ch + _mainNcH;
                     rc.Right  = rc.Left   + (int)Math.Round(ch * _mainAspectRatio) + _mainNcW;
                     break;
                 case 4: // WMSZ_TOPLEFT
+                    cw = Math.Max(cw, minCW);
+                    rc.Left   = rc.Right  - cw - _mainNcW;
+                    rc.Top    = rc.Bottom - (int)Math.Round(cw / _mainAspectRatio) - _mainNcH;
+                    break;
                 case 5: // WMSZ_TOPRIGHT
+                    cw = Math.Max(cw, minCW);
+                    rc.Right  = rc.Left   + cw + _mainNcW;
                     rc.Top    = rc.Bottom - (int)Math.Round(cw / _mainAspectRatio) - _mainNcH;
                     break;
                 case 7: // WMSZ_BOTTOMLEFT
+                    cw = Math.Max(cw, minCW);
+                    rc.Left   = rc.Right  - cw - _mainNcW;
+                    rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                    break;
                 case 8: // WMSZ_BOTTOMRIGHT
+                    cw = Math.Max(cw, minCW);
+                    rc.Right  = rc.Left   + cw + _mainNcW;
                     rc.Bottom = rc.Top    + (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
                     break;
             }
@@ -630,6 +665,27 @@ public partial class MainWindow : Window
             Marshal.StructureToPtr(rc, lParam, false);
             handled = true;
             return new IntPtr(1);
+        }
+
+        // WM_WINDOWPOSCHANGING: スナップ等による非 WM_SIZING なサイズ変更もアスペクト比を強制
+        if (msg == WM_WINDOWPOSCHANGING && _mainAspectRatio > 0)
+        {
+            var wp = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+            if ((wp.flags & 0x0001u /*SWP_NOSIZE*/) == 0 && wp.cx > 0 && wp.cy > 0)
+            {
+                double scale  = GetDpiForWindow(hwnd) / 96.0;
+                int minCW     = (int)Math.Ceiling(MinWidth * scale);
+                int cw        = Math.Max(wp.cx - _mainNcW, minCW);
+                int targetCy  = (int)Math.Round(cw / _mainAspectRatio) + _mainNcH;
+                // WM_SIZING の丸め誤差（±2px）は許容。それ以上ならスナップ等と判断してアスペクト比を強制
+                if (Math.Abs(wp.cy - targetCy) > 2)
+                {
+                    wp.cx = cw + _mainNcW;
+                    wp.cy = targetCy;
+                    Marshal.StructureToPtr(wp, lParam, false);
+                }
+            }
+            return IntPtr.Zero; // DefWindowProc に通す（handled = false のまま）
         }
 
         return IntPtr.Zero;

@@ -23,11 +23,10 @@ public partial class MovieWindow : Window
     private readonly LibVLC _libVLC;
     private readonly LibVLCSharp.Shared.MediaPlayer _mediaPlayer;
 
-    // 映像フェードアウトタイマー（黒オーバーレイWindow を Opacity 0→1 でフェードイン）
+    // 映像フェードアウトタイマー（_fgStandbyLayer を Opacity 0→1 でフェードイン）
     private DispatcherTimer? _fadeTimer;
     private long   _fadeStartTick;
     private double _fadeDurationSec;
-    private Window? _fadeOverlay;
 
     // スタンバイ画像フェードインタイマー
     private DispatcherTimer? _standbyFadeInTimer;
@@ -92,10 +91,6 @@ public partial class MovieWindow : Window
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
     [DllImport("user32.dll")] private static extern int  GetDoubleClickTime();
     [DllImport("user32.dll")] private static extern int  GetSystemMetrics(int nIndex);
-    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOSIZE = 0x0001;
-    private static readonly IntPtr HWND_TOPMOST = new(-1);
 
     private const int WM_SIZING       = 0x0214;
     private const int WMSZ_LEFT       = 1;
@@ -410,7 +405,8 @@ public partial class MovieWindow : Window
         ShowStandby(immediate: true); // カットアウト：即時表示でVLC白地フラッシュを防ぐ
     }
 
-    // フェードアウト：黒いオーバーレイWindowをOpacity 0→1でフェードインして映像を覆う。
+    // フェードアウト：_fgStandbyLayer を Opacity 0→1 でフェードインして映像を覆う。
+    // 旧実装（別 Topmost Window）は VLC ForegroundWindow より前に出て他 Window を隠す問題があったため廃止。
     public void FadeVideo(double durationSec)
     {
         if (!_videoVisible)
@@ -426,55 +422,9 @@ public partial class MovieWindow : Window
         _fadeDurationSec = Math.Max(durationSec, 0.01);
         _fadeStartTick   = Environment.TickCount64;
 
-        // 全画面時は WPF の Left/Top がリストア位置を返すため GetWindowRect で実座標を取得
-        double overlayLeft, overlayTop, overlayWidth, overlayHeight;
-        var myHwnd = new WindowInteropHelper(this).Handle;
-        if (_isFullScreen && myHwnd != IntPtr.Zero && GetWindowRect(myHwnd, out var rc))
-        {
-            var pSrc  = PresentationSource.FromVisual(this);
-            double dpiX = pSrc?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-            double dpiY = pSrc?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
-            overlayLeft   = rc.left   / dpiX;
-            overlayTop    = rc.top    / dpiY;
-            overlayWidth  = (rc.right  - rc.left) / dpiX;
-            overlayHeight = (rc.bottom - rc.top)  / dpiY;
-        }
-        else if (Content is FrameworkElement contentEl)
-        {
-            var pSrc  = PresentationSource.FromVisual(this);
-            double dpiX = pSrc?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-            double dpiY = pSrc?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
-            var pt = contentEl.PointToScreen(new System.Windows.Point(0, 0));
-            overlayLeft   = pt.X / dpiX;
-            overlayTop    = pt.Y / dpiY;
-            overlayWidth  = contentEl.ActualWidth;
-            overlayHeight = contentEl.ActualHeight;
-        }
-        else
-        {
-            overlayLeft   = Left;
-            overlayTop    = Top;
-            overlayWidth  = ActualWidth > 0 ? ActualWidth : Width;
-            overlayHeight = ActualHeight > 0 ? ActualHeight : Height;
-        }
-        _fadeOverlay = new Window
-        {
-            WindowStyle   = WindowStyle.None,
-            AllowsTransparency = true,
-            Background    = System.Windows.Media.Brushes.Black,
-            Opacity       = 0.0,
-            Topmost       = true,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            Left   = overlayLeft,
-            Top    = overlayTop,
-            Width  = overlayWidth,
-            Height = overlayHeight
-        };
-        _fadeOverlay.Show();
-        // オーバーレイを最前面（VLC ForegroundWindow の上）に強制配置
-        var hwnd = new WindowInteropHelper(_fadeOverlay).Handle;
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        // _fgStandbyLayer を黒のみ（画像なし）で Opacity=0 から表示してフェードイン
+        if (_fgStandbyImage != null) _fgStandbyImage.Source = null;
+        ShowFgStandby(0.0);
 
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _fadeTimer.Tick += FadeTimer_Tick;
@@ -485,8 +435,7 @@ public partial class MovieWindow : Window
     {
         double elapsed  = (Environment.TickCount64 - _fadeStartTick) / 1000.0;
         double progress = elapsed / _fadeDurationSec;
-        if (_fadeOverlay != null)
-            _fadeOverlay.Opacity = Math.Clamp(progress, 0.0, 1.0);
+        SetFgStandbyOpacity(Math.Clamp(progress, 0.0, 1.0));
 
         if (progress < 1.0) return;
 
@@ -495,25 +444,16 @@ public partial class MovieWindow : Window
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
 
-        // VideoView は常に Visible（スワップチェーン維持）
         _videoVisible = false;
 
-        // オーバーレイが覆っている間にスタンバイを opacity=1 で用意する。
-        // 0 → フェードインにすると、オーバーレイが閉じた瞬間にVLC白地が透けるため即時表示。
+        // スタンバイ画像をセット（_fgStandbyLayer は opacity=1 のまま即座に見える）
         LoadStandbyImage(_settings.MovieStandbyImagePath);
         ShowFgStandby(1.0);
 
         // VLC停止（非同期）
         Task.Run(() => { try { _mediaPlayer.Stop(); } catch (Exception ex) { Debug.WriteLine($"[MW] Stop error: {ex.Message}"); } });
 
-        // オーバーレイをBackground優先度で閉じる（スタンバイは既に opacity=1 なので即座に見える）
-        var overlay = _fadeOverlay;
-        _fadeOverlay = null;
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-        {
-            overlay?.Close();
-            Logger.Log("[MW] FadeOut complete");
-        }));
+        Logger.Log("[MW] FadeOut complete");
     }
 
     private void StopFadeTimer()
@@ -522,7 +462,6 @@ public partial class MovieWindow : Window
         _fadeTimer.Stop();
         _fadeTimer.Tick -= FadeTimer_Tick;
         _fadeTimer = null;
-        if (_fadeOverlay != null) { _fadeOverlay.Close(); _fadeOverlay = null; }
         SetFgStandbyOpacity(1.0);
         Debug.WriteLine("[MW] StopFadeTimer: interrupted");
     }

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using ikePon.Model;
 using ikePon.UI.Windows;
+using ikePon;
 using LibVLCSharp.Shared;
 
 namespace ikePon.Controller;
@@ -98,14 +99,21 @@ public sealed class MovieController : IDisposable
 
         if (_window != null)
         {
-            // フェードアウト中でもオーバーレイ（別 Topmost Window）を確実に閉じる
-            _window.StopVideo();
-            _window.FullScreenChanged -= OnWindowFullScreenChanged;
-            _window.LoopEndReached    -= OnWindowLoopEndReached;
-            _window.VideoShown        -= OnWindowVideoShown;
-            _window.Closed -= OnWindowClosed;
-            _window.Close();
-            _window = null;
+            var w = _window;
+            _window = null; // 先に null 化して二重クローズを防ぐ
+            w.FullScreenChanged -= OnWindowFullScreenChanged;
+            w.LoopEndReached    -= OnWindowLoopEndReached;
+            w.VideoShown        -= OnWindowVideoShown;
+            w.Closed -= OnWindowClosed;
+            w.StopVideo(); // VLC を非同期停止 + スタンバイ表示
+            Logger.Log("[MC] CloseDisplay: scheduling window.Close() in 150ms");
+            // VLC 描画スレッド（D3D11）が停止するまで待ってから Window を Close
+            // 即時 Close すると VLC render thread が解放済み D3D11 surface にアクセスしクラッシュする
+            Task.Delay(150).ContinueWith(_ => w.Dispatcher.InvokeAsync(() =>
+            {
+                try { w.Close(); } catch { }
+                Logger.Log("[MC] CloseDisplay: window closed");
+            }));
         }
 
         DisplayActiveChanged?.Invoke(false);

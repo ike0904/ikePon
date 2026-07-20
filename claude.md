@@ -3,22 +3,17 @@
 
 ---
 
-●今回も特別にリリースビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
-
-●パッド詳細設定「最後まで再生した後」が「最終フレームで止める」になっている時、以下の不具合が起きる。
-・右クリックでフェードアウト→音がカットアウトされてしまう。映像は正常。
-・右クリックで一時停止→フェードアウトしてしまう。次回以降の再生時、一時停止の枠点滅が出っぱなしになる。
 
 
-●動画の一時停止中にDISPLAYをOFF→ONにすると、以下の不具合が起きる。
-・最終フレーム：絵が消える
-・最終フレーム以外：映像のみ再生が再開されてしまう
-・１回だけだが、アプリが落ちた。
+●動画の最終フレームで停止中にDISPLAYをOFFにすると、アプリが落ちることがある。（落ちないこともある）
+　落ちない時でも、ディスプレイの絵が消えて真っ黒。
 
 
+●メインウィンドウの拡大縮小。アスペクト比維持のはずだが、最小にすると左右固定で上下だけ動く。動かないようにして。
+●メインウィンドウを画面端にドラッグすると、スナップ機能が発動してアスペクト比が崩れる。この手の「アスペクト比を崩す動作」をすべて無効にして。
 
-
-
+●動画再生ウィンドウの前に別のウィンドウが出ている時、フェードアウトすると前のウィンドウが一緒にフェードアウトしてしまう。
+（フェードアウト用の黒画面が、別ウィンドウより前に出ている）
 
 ●以下、検証中。今回はいじらない。
 
@@ -223,6 +218,53 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 - `OnMovieVideoShown` で `_pendingPauseAfterVideoShown == true` なら `_movieCtrl.PauseVideo()` を呼び、VLC を最初フレーム後に即座に一時停止
 
 **バージョン**: v1.6.8 → v1.6.9（Debug / Release publish 済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.10 / 2026-07-20)
+
+### DISPLAY OFF クラッシュ修正（MovieController.cs）
+
+**根本原因**: `CloseDisplay()` が `_window.StopVideo()`（内部で `Task.Run(Stop)` の非同期 VLC 停止を開始）した直後に `_window.Close()` を呼んでいた。VLC 描画スレッドが D3D11 サーフェスにアクセス中に Window が破棄されるためクラッシュ。
+
+**修正内容**:
+- `_window = null` を先行させて二重クローズを防止
+- `Task.Delay(150).ContinueWith(_ => w.Dispatcher.InvokeAsync(() => w.Close()))` で 150ms 後に Close
+- `using ikePon;` を追加して `Logger.Log` を使用可能に
+
+### WM_SIZING 最小サイズ修正（MainWindow.xaml.cs）
+
+**問題**: 最小サイズ付近でリサイズすると左右固定で上下だけ動くことがあった。
+
+**根本原因**: WM_SIZING ハンドラが `cw`/`ch` を最小値でクランプしておらず、各辺の anchor edge も未修正だった。
+
+**修正内容**:
+- `GetDpiForWindow(hwnd) / 96.0` で DPI スケールを取得し `minCW` / `minCH` を算出
+- 全 8 方向（WMSZ_*）で `cw = Math.Max(cw, minCW)` をクランプ
+- 各方向に応じて anchor edge を `rc.Left`/`rc.Right`/`rc.Top`/`rc.Bottom` で正しく補正
+
+### WM_WINDOWPOSCHANGING スナップ対策（MainWindow.xaml.cs）
+
+**問題**: 画面端スナップなど WM_SIZING を経由しないサイズ変更でアスペクト比が崩れていた。
+
+**修正内容**:
+- `WINDOWPOS` 構造体と `WM_WINDOWPOSCHANGING (0x0046)` 定数を追加
+- `SWP_NOSIZE` フラグが立っていない（サイズ変更を伴う）場合に `cw / _mainAspectRatio` でターゲット `cy` を算出
+- WM_SIZING の丸め誤差（±2px）は許容、それ以上の差異でアスペクト比を強制適用
+
+### フェードアウトオーバーレイ修正（MovieWindow.xaml.cs）
+
+**問題**: フェードアウト時に作成した TOPMOST Window が他のウィンドウも覆ってしまっていた。
+
+**根本原因**: `FadeVideo()` が新規 `Window { Topmost=true }` を生成し `SetWindowPos(HWND_TOPMOST)` でさらに最前面に強制していた。
+
+**修正内容**:
+- `_fadeOverlay` フィールド・`SetWindowPos` P/Invoke・`HWND_TOPMOST`/`SWP_NOMOVE`/`SWP_NOSIZE` 定数をすべて削除
+- `FadeVideo()`: `_fgStandbyImage.Source = null`（黒のみ）+ `ShowFgStandby(0.0)` でフェード開始
+- `FadeTimer_Tick()`: `SetFgStandbyOpacity(progress)` で透明度をアニメーション。完了後 `LoadStandbyImage` + `ShowFgStandby(1.0)`
+- `StopFadeTimer()`: オーバーレイ Close 処理を削除（不要になったため）
+
+**バージョン**: v1.6.9 → v1.6.10（Debug ビルド済み、警告 0 / エラー 0）
 
 ---
 

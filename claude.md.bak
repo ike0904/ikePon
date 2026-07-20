@@ -3,22 +3,17 @@
 
 ---
 
-●今回も特別にリリースビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
-
-●パッド詳細設定「最後まで再生した後」が「最終フレームで止める」になっている時、以下の不具合が起きる。
-・右クリックでフェードアウト→音がカットアウトされてしまう。映像は正常。
-・右クリックで一時停止→フェードアウトしてしまう。次回以降の再生時、一時停止の枠点滅が出っぱなしになる。
 
 
-●動画の一時停止中にDISPLAYをOFF→ONにすると、以下の不具合が起きる。
-・最終フレーム：絵が消える
-・最終フレーム以外：映像のみ再生が再開されてしまう
-・１回だけだが、アプリが落ちた。
+●動画の最終フレームで停止中にDISPLAYをOFFにすると、アプリが落ちることがある。（落ちないこともある）
+　落ちない時でも、ディスプレイの絵が消えて真っ黒。
 
 
+●メインウィンドウの拡大縮小。アスペクト比維持のはずだが、最小にすると左右固定で上下だけ動く。動かないようにして。
+●メインウィンドウを画面端にドラッグすると、スナップ機能が発動してアスペクト比が崩れる。この手の「アスペクト比を崩す動作」をすべて無効にして。
 
-
-
+●動画再生ウィンドウの前に別のウィンドウが出ている時、フェードアウトすると前のウィンドウが一緒にフェードアウトしてしまう。
+（フェードアウト用の黒画面が、別ウィンドウより前に出ている）
 
 ●以下、検証中。今回はいじらない。
 
@@ -194,6 +189,35 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 - CutOut ハンドラ: `isFrozen` ブランチに `StopImmediate` 呼び出しを追加
 
 **バージョン**: v1.6.7 → v1.6.8（Debug / Release publish 済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.9 / 2026-07-20)
+
+### FreezeLastFrame 右クリック不具合修正 + DISPLAY OFF→ON 不具合修正（MainWindow.xaml.cs）
+
+**Bug A: 右クリックフェードアウト→音がカットアウトされる（一時停止中 Movie パッド）**
+- FadeOut ハンドラ `pausedMov` ブランチで `state == PadPlayState.Paused` 時に `StopImmediate()` を呼んでいた
+- `Stop(_settings.LongFadeDuration)` に変更してフェードアウトに修正
+- フリーズ中（`isFrozen`）は音声 Idle のため操作不要（削除）
+
+**Bug B: 右クリック一時停止→フェードアウト・枠点滅残存**
+- `isFrozen` 時の PauseResume ハンドラが `TriggerPadWithMovie` を呼び、`PrepareForPlay()` の黒画面がフェードアウトに見えていた
+- `TriggerPadWithMovie` → `StopVideo()` に変更。フリーズ解除して Idle に戻すのみ。
+- ユーザーが再生したい場合はパッドをタップで最初から再生できる
+
+**Bug C: DISPLAY OFF→ON で FreezeLastFrame の絵が消える**
+- `ResumeMovieIfPlaying` がループ先頭で Idle パッドをスキップするため、フリーズパッド（音声 Idle）が無視されていた
+- ループの前に `_freezeLastFramePadIndex >= 0` チェックを追加
+- 凍結位置（`_freezeLastFrameDisplayedSec`）から `PlayVideo(AfterPlayback=FreezeLastFrame)` を呼び、VLC が終端に達して最終フレームで静止するよう対処
+
+**Bug D: DISPLAY OFF→ON で一時停止中の動画が映像のみ再生再開される**
+- `ResumeMovieIfPlaying` が `StartMovieWallClock` を呼ぶと `_movieSecPaused=false` になり、その後 `PlayVideo` で映像が再生されるが音声は Paused のまま → 非同期
+- `state == PadPlayState.Paused` 時は `StartMovieWallClock` 後に `_movieSecPaused = true` へ上書き
+- フィールド `_pendingPauseAfterVideoShown` を追加（`bool`）
+- `OnMovieVideoShown` で `_pendingPauseAfterVideoShown == true` なら `_movieCtrl.PauseVideo()` を呼び、VLC を最初フレーム後に即座に一時停止
+
+**バージョン**: v1.6.8 → v1.6.9（Debug / Release publish 済み、警告 0 / エラー 0）
 
 ---
 
