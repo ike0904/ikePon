@@ -3,12 +3,17 @@
 
 ---
 
-●今回も特別に配布用ビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
+●今回も特別にリリースビルドにして。dllなどを極力まとめて、不必要なファイルは出力しない。
 
-パッド詳細設定「最後まで再生した後」が「最終フレームで止める」になっている時、以下の不具合が起きる。
-・パッド上の現在時間表示が常に最終フレームの値になって動かない。
-・右クリックで「一時停止／再開」がグレーアウトされており、選択できない。
-・右クリックでフェードアウトやカットアウトを選択しても、音だけそのまま続けて鳴ってしまう。
+●パッド詳細設定「最後まで再生した後」が「最終フレームで止める」になっている時、以下の不具合が起きる。
+・右クリックでフェードアウト→音がカットアウトされてしまう。映像は正常。
+・右クリックで一時停止→フェードアウトしてしまう。次回以降の再生時、一時停止の枠点滅が出っぱなしになる。
+
+
+●動画の一時停止中にDISPLAYをOFF→ONにすると、以下の不具合が起きる。
+・最終フレーム：絵が消える
+・最終フレーム以外：映像のみ再生が再開されてしまう
+・１回だけだが、アプリが落ちた。
 
 
 
@@ -168,6 +173,27 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 - TapBehavior.CutOut / PauseResume → 映像をカットアウト（`_movieCtrl.StopVideo`）
 
 **バージョン**: v1.6.5 → v1.6.6（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.8 / 2026-07-20)
+
+### FreezeLastFrame 不具合3件修正（MainWindow.xaml.cs）
+
+**Bug 1: 現在時間表示が常に最終フレームの値**
+- freeze 検出時に `_freezeLastFrameDisplayedSec = _movieDisplayedSec` を保存
+- 表示 override を `pos = 1.0f` から `pos = _freezeLastFrameDisplayedSec / totalSec` に変更（フォールバックは 1.0f）
+- wall clock が停止した実際の秒数を使うことで正確な位置表示
+
+**Bug 2: 右クリック「一時停止／再開」がグレーアウト**
+- `pauseEnabled` から `!isFrozen` を削除
+- PauseResume クリック時に `isFrozen` ならフリーズ解除 + `TriggerPadWithMovie` で最初から再生
+
+**Bug 3: 右クリック FadeOut/CutOut で音が止まらない**
+- FadeOut ハンドラ: `if (state == PadPlayState.Paused)` → `if (state == PadPlayState.Paused || isFrozen)` に変更
+- CutOut ハンドラ: `isFrozen` ブランチに `StopImmediate` 呼び出しを追加
+
+**バージョン**: v1.6.7 → v1.6.8（Debug / Release publish 済み、警告 0 / エラー 0）
 
 ---
 

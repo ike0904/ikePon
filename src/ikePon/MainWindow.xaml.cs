@@ -65,8 +65,9 @@ public partial class MainWindow : Window
     private int _currentMoviePadIndex = -1;
     private int _movieLoopSession;
     private int _videoLoopingPadIndex = -1;    // ループ間の300ms黒画面中、黄色枠を維持するため
-    private int _freezeLastFramePadIndex = -1;    // FreezeLastFrame 完了後のフリーズ状態パッドindex
-    private int _freezeLastFrameDisplayedSec = 0; // freeze 時の壁時計値（時間表示に使用）
+    private int  _freezeLastFramePadIndex = -1;    // FreezeLastFrame 完了後のフリーズ状態パッドindex
+    private int  _freezeLastFrameDisplayedSec = 0; // freeze 時の壁時計値（時間表示に使用）
+    private bool _pendingPauseAfterVideoShown = false; // DISPLAY ON 復元時: VideoShown 後に PauseVideo() を呼ぶ
 
     // 映像↔音声同期補正
     private int  _videoSyncMismatchFrames;
@@ -1125,9 +1126,9 @@ public partial class MainWindow : Window
             {
                 if (pausedMov)
                 {
-                    // 音声を停止（一時停止中 or フリーズ中は確実に止める）
-                    if (state == PadPlayState.Paused || isFrozen)
-                        _engine.GetSource(_playback.ActiveBank, padIndex).StopImmediate();
+                    // 一時停止中パッドは音声もフェードアウト。フリーズ中は音声 Idle 済みのため不要。
+                    if (state == PadPlayState.Paused)
+                        _engine.GetSource(_playback.ActiveBank, padIndex).Stop(_settings.LongFadeDuration);
                     _freezeLastFramePadIndex = -1;
                     ++_movieLoopSession;
                     _movieCtrl.FadeVideo(_settings.LongFadeDuration);
@@ -1180,12 +1181,12 @@ public partial class MainWindow : Window
                 }
                 else if (isFrozen)
                 {
-                    // FreezeLastFrame フリーズ中: フリーズを解除して最初から再生
+                    // FreezeLastFrame フリーズ中: フリーズを解除して停止（Idle へ戻す）
                     _freezeLastFramePadIndex = -1;
                     ++_movieLoopSession;
                     _currentMoviePadIndex = -1;
                     _pendingAudioPadIndex = -1;
-                    TriggerPadWithMovie(padIndex);
+                    _movieCtrl.StopVideo();
                 }
                 else
                     PausePadWithMovie(padIndex);
@@ -1238,6 +1239,13 @@ public partial class MainWindow : Window
                 .Trigger(vlcSec, _pendingAudioEndSec, 0f, _pendingAudioShouldLoop, _pendingAudioLoopStartSec);
             StartMovieWallClock(vlcSec);
             Logger.Log($"[Main] VideoShown: audio triggered at vlc={vlcSec:F3}s loop={_pendingAudioShouldLoop}");
+            return;
+        }
+        if (_pendingPauseAfterVideoShown)
+        {
+            _pendingPauseAfterVideoShown = false;
+            _movieCtrl.PauseVideo();
+            Logger.Log($"[Main] VideoShown: paused after display restore (vlc={vlcMs}ms)");
             return;
         }
         Logger.Log($"[Main] VideoShown: no pending audio (vlc={vlcMs}ms)");
@@ -2026,6 +2034,20 @@ public partial class MainWindow : Window
             }
         }
 
+        // Bug C: FreezeLastFrame フリーズ中は最終フレームを再表示して静止
+        if (_freezeLastFramePadIndex >= 0)
+        {
+            var frozenPad = _playback.GetPadSettings(_freezeLastFramePadIndex);
+            if (frozenPad?.Category == AudioCategory.Movie && !IsImageFile(frozenPad.FilePath)
+                && !string.IsNullOrEmpty(frozenPad.FilePath))
+            {
+                double frozenSec = _freezeLastFrameDisplayedSec > 0 ? (double)_freezeLastFrameDisplayedSec : 0;
+                ++_movieLoopSession;
+                _movieCtrl.PlayVideo(frozenPad.FilePath, frozenSec, frozenPad.EndPositionSec, AfterPlaybackBehavior.FreezeLastFrame);
+            }
+            return;
+        }
+
         // 音声付き Movie パッドが再生中なら映像を再開（壁掛け時計・パッドIndexも復元）
         for (int i = 0; i < BankData.PadCount; i++)
         {
@@ -2040,6 +2062,12 @@ public partial class MainWindow : Window
             ++_movieLoopSession;
             _currentMoviePadIndex = i;
             StartMovieWallClock(startSec);
+            if (state == PadPlayState.Paused)
+            {
+                // Bug D: 一時停止中は映像を再開してすぐ一時停止状態を復元
+                _movieSecPaused = true;
+                _pendingPauseAfterVideoShown = true;
+            }
             _movieCtrl.PlayVideo(pad.FilePath, startSec, pad.EndPositionSec, pad.AfterPlayback);
             break;
         }
