@@ -52,8 +52,23 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
 
     public void Start()
     {
-        // 1. WASAPI Shared — 他アプリと音声を共存させる（Windows オーディオミキサー経由）
-        // Windows ミックスフォーマットが 48000 Hz など異なる場合はリサンプリングして合わせる
+        // 1. WASAPI Exclusive 44100Hz — デバイスを 44100Hz に固定し 48kHz バッファ問題を回避
+        // 48kHz Shared で発生する「発音時ブザー音」を根本的に防ぐ
+        try
+        {
+            _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, 30);
+            _wasapiOut.Init(this);
+            _wasapiOut.Play();
+            return;
+        }
+        catch
+        {
+            try { _wasapiOut?.Stop(); } catch { }
+            try { _wasapiOut?.Dispose(); } catch { }
+            _wasapiOut = null;
+        }
+
+        // 2. WASAPI Shared — 他アプリと音声を共存させる（デバイスが 48kHz の場合はリサンプラー経由）
         try
         {
             int mixRate = _format.SampleRate;
@@ -81,7 +96,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             _wasapiOut = null;
         }
 
-        // 2. WaveOutEvent — 大きめバッファで安定動作
+        // 3. WaveOutEvent — 大きめバッファで安定動作
         try
         {
             var provider = new NAudio.Wave.SampleProviders.SampleToWaveProvider(this);
@@ -98,7 +113,7 @@ public sealed class AudioEngine : ISampleProvider, IDisposable
             _waveOutFallback = null;
         }
 
-        // 3. WASAPI Exclusive — 最終フォールバック（共有・WaveOut が両方失敗した場合）
+        // 4. WASAPI Exclusive 100ms — 最終フォールバック
         try
         {
             _wasapiOut = new WasapiOut(AudioClientShareMode.Exclusive, 100);

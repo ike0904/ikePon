@@ -113,3 +113,25 @@ v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
 
 **バージョン**: v1.6.3 → v1.6.4（Debug / Release publish 済み、警告 0 / エラー 0）
 
+---
+
+## 作業記録 (v1.6.5 / 2026-07-20)
+
+### ブザー音の根本原因特定と修正（AudioEngine.cs）
+
+**新たな知見**:
+- v1.6.3（WDL リアルタイム除去）でもユーザーの有線環境で同じブザーが出た
+- これにより WdlResamplingSampleProvider はブザーの原因ではないことが確定
+- 共通因子は「48kHz WASAPI Shared mode での動作」
+- 48kHz デバイスを WASAPI Shared で動かすと、発音トリガー直後に WASAPI バッファが正しく更新されず直前バッファがループ → ブザー
+
+**修正方針**: WASAPI Exclusive 44100Hz をファースト・チョイスにして 48kHz 問題を根本回避
+
+**Start() の優先順変更（AudioEngine.cs）**:
+1. **WASAPI Exclusive 44100Hz（新設・最優先）** → デバイスを 44100Hz に強制、48kHz バッファ問題を回避
+2. WASAPI Shared（デバイスが 48kHz なら WDL リサンプラー経由、既存フォールバック）
+3. WaveOutEvent（既存フォールバック）
+4. WASAPI Exclusive 100ms（最終フォールバック）
+
+**バージョン**: v1.6.4 → v1.6.5（Debug / Release publish 済み、警告 0 / エラー 0）
+
