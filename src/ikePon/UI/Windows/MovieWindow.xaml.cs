@@ -137,6 +137,8 @@ public partial class MovieWindow : Window
     public event Action<long>? VideoShown;
     // 動画が最終フレームで静止したとき（AfterPlayback=FreezeLastFrame + EndReached）に発火。
     public event Action? VideoFreezeAtEnd;
+    // フェード中に動画が終端に達したとき（AfterPlayback=Stop/Loop + EndReached + _fadeTimer!=null）に発火。
+    public event Action? VideoEndedWhileFading;
 
     // VLC の現在再生位置をミリ秒で返す。再生中でなければ -1。
     public long GetCurrentTimeMs() =>
@@ -660,6 +662,7 @@ public partial class MovieWindow : Window
                 }
                 break;
             default:
+                if (_fadeTimer != null) VideoEndedWhileFading?.Invoke(); // フェード中終端: 音声カットアウト通知
                 ShowStandby();
                 break;
         }

@@ -210,9 +210,10 @@ public partial class MainWindow : Window
             else Dispatcher.Invoke(() => UpdateFullButton(on));
         };
         _movieCtrl.StatusMessage        += msg => Dispatcher.Invoke(() => SetInfo2(msg));
-        _movieCtrl.VideoLoopEndReached  += OnVideoLoopEndReached;
-        _movieCtrl.VideoShown           += OnMovieVideoShown;
-        _movieCtrl.VideoFreezeAtEnd     += OnVideoFreezeAtEnd;
+        _movieCtrl.VideoLoopEndReached   += OnVideoLoopEndReached;
+        _movieCtrl.VideoShown            += OnMovieVideoShown;
+        _movieCtrl.VideoFreezeAtEnd      += OnVideoFreezeAtEnd;
+        _movieCtrl.VideoEndedWhileFading += OnVideoEndedWhileFading;
 
         WireMidi();
         _midi.SetDevice(_settings.SelectedMidiDeviceName);
@@ -1317,12 +1318,34 @@ public partial class MainWindow : Window
 
     // 動画最終フレーム静止ハンドラ（FreezeLastFrame）: 音声を即カットアウト。
     // 映像が最終フレームで止まると同時に音声も停止させる（Bug2仕様）。
+    // フェード中（_currentMoviePadIndex=-1）の場合はFadingOut中のMovieパッドを検索して停止。
     private void OnVideoFreezeAtEnd()
     {
         int padIdx = _currentMoviePadIndex;
+        if (padIdx < 0) padIdx = FindFadingMoviePad();
         if (padIdx < 0) return;
         Logger.Log($"[Main] VideoFreezeAtEnd: StopImmediate pad={padIdx}");
         _engine.GetSource(_playback.ActiveBank, padIdx).StopImmediate();
+    }
+
+    // フェード中に動画が終端に達したハンドラ（Stop/Loop AfterPlayback）: 音声を即カットアウト。
+    private void OnVideoEndedWhileFading()
+    {
+        int padIdx = FindFadingMoviePad();
+        if (padIdx < 0) return;
+        Logger.Log($"[Main] VideoEndedWhileFading: StopImmediate pad={padIdx}");
+        _engine.GetSource(_playback.ActiveBank, padIdx).StopImmediate();
+    }
+
+    // FadingOut 状態の Movie カテゴリパッドを検索して返す（見つからなければ -1）。
+    private int FindFadingMoviePad()
+    {
+        for (int i = 0; i < BankData.PadCount; i++)
+        {
+            if (_playback.GetPadState(i) != PadPlayState.FadingOut) continue;
+            if (_playback.GetPadSettings(i)?.Category == AudioCategory.Movie) return i;
+        }
+        return -1;
     }
 
     // ------------------------------------------------------------------
@@ -2261,7 +2284,7 @@ public partial class MainWindow : Window
 
     private void ExecutePanic()
     {
-        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0 && _freezeLastFramePadIndex < 0) return;
+        if (!_playback.HasAnyPlaying() && _imageDisplayingPadIndex < 0 && _freezeLastFramePadIndex < 0 && !_movieCtrl.IsFading) return;
 
         _panicBd ??= PanicButton.Template.FindName("Bd", PanicButton) as System.Windows.Controls.Border;
         if (_panicBd != null)
