@@ -1,15 +1,67 @@
 ・C:\Users\ike09\.claude\claude.md 初回起動時と更新あり時は必ず読むこと。
 
 
+・このclaude.md内の作業記録は、mdファイルの一番後ろにつけること。
+作業記録は、上に行くほど新しく、下に行くほど古くすること。（目視しやすさを重視）
+また、作業記録は、バージョンの中間値インクリメントもしくは左値インクリメントで消去すること。これは全プロジェクト共通なので、共通claude.mdにメモすること。
+
+
+OKです。v1.7.0でリリースバージョンを作成し、マニュアルも更新して。
+
 ---
 
-●直ってない。
-パッド詳細設定→最後まで再生した後→「最終フレームで止める」に設定されたパッドを再生後、一時停止中にFADEさせると、FADE終了後に枠が黄色点滅になる（一時停止状態）。フェードが始まったら、一時停止機能は解除すること。
-内部的に一時停止状態が続行しているのが遠因で、別の不具合も起きているようだ。（現在時間がカウントアップしない等）まずはこれを直して。
-「ALL CUTやALL FADE後に、一時停止状態が続行していないか確認・強制的にOFFにする」という機能を（念のため）入れた方が良いかもしれない。
+## 作業記録 (v1.6.12 / 2026-07-20)
 
-●再生コンテンツがフェード中に最終フレームに達した場合、以下の仕様とする。
-　・「最終フレームで止める」が選択されている時は、★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。
+### 黄色点滅（一時停止状態が続行）バグ修正（PadAudioSource.cs・MainWindow.xaml.cs）
+
+**根本原因**: `PadAudioSource.Stop(fadeDuration)` が `Paused` 状態のパッドを処理していなかった。
+`Playing | FadingOut` のみ `FadingOut` に遷移し、`Paused` はそのままにしていたため、
+右クリック FadeOut や ALL FADE で `Stop()` を呼んでも一時停止中パッドが `Paused` のまま残り、
+フェード後も UiTimer が state=Paused を検知して黄色点滅が継続していた。
+
+**修正内容**:
+- `PadAudioSource.Stop()` に `Paused → Idle`（即時）の処理を追加。一時停止中は出力が無音なのでフェードせず即停止。
+- フェード開始時に `_movieSecPaused = false; _movieSecTick = -1;` を全フェードパスに追加（右クリック fadeOut/cutOut/pauseResume の frozen ブランチ、TriggerPadWithMovie fadeOut、ExecuteAllFade、ExecutePanic）。
+- これにより「ALL CUT/ALL FADE後に一時停止状態が強制OFFになる」安全機構も同時に実現。
+
+### FreezeLastFrame 最終フレームで音声カットアウト（Bug2）
+
+**仕様対応**: "★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。"
+
+**実装内容（MovieWindow.xaml.cs / MovieController.cs / MainWindow.xaml.cs）**:
+- `MovieWindow` に `VideoFreezeAtEnd` イベントを追加。`OnMediaEnded` の FreezeLastFrame ケースで発火。
+- `MovieController` でイベントをフォワード（購読/解除も CloseDisplay/OpenDisplay に組み込み）。
+- `MainWindow` で `OnVideoFreezeAtEnd()` を実装: `_currentMoviePadIndex >= 0` なら `StopImmediate()` で即音声カットアウト。
+
+**バージョン**: v1.6.11 → v1.6.12（Debug ビルド済み、警告 0 / エラー 0）
+
+---
+
+## 作業記録 (v1.6.13 / 2026-07-24)
+
+### ALL CUT が映像フェードを止めない不具合修正（MainWindow.xaml.cs）
+
+**根本原因**: `ExecutePanic()` の早期リターン条件に `!_movieCtrl.IsFading` が含まれていなかった。
+一時停止中 MOV パッドへの右クリック FadeOut → 音声は v1.6.12 修正で `Paused→Idle` 即移行、`_freezeLastFramePadIndex = -1` もクリアされるため、`HasAnyPlaying()=false` かつ各インデックスが -1 となり ALL CUT を押しても早期リターンしてしまっていた。
+
+**修正内容**:
+- `ExecutePanic()` 早期リターン条件に `&& !_movieCtrl.IsFading` を追加（MainWindow.xaml.cs）
+
+### フェード中に最終フレーム到達時の音声継続修正（MovieWindow.xaml.cs / MovieController.cs / MainWindow.xaml.cs）
+
+**Bug 2a – FreezeLastFrame 中**: フェード開始時に `_currentMoviePadIndex = -1` がセットされるため、`OnVideoFreezeAtEnd()` が早期リターンし音声がカットされなかった。
+**Bug 2b – Stop/Loop 中**: `OnMediaEnded()` default case（Stop/Loop）にフェード終端イベントが存在せず音声継続した。
+
+**修正内容**:
+- `MovieWindow` に `VideoEndedWhileFading` イベントを追加。`OnMediaEnded` default case で `_fadeTimer != null` の場合に発火。
+- `MovieController` でイベントをフォワード（購読/解除も OpenDisplay/CloseDisplay に組み込み）。
+- `MainWindow` で `OnVideoFreezeAtEnd()` を修正: `_currentMoviePadIndex < 0` のとき `FindFadingMoviePad()` でフォールバック検索。
+- `MainWindow` に `OnVideoEndedWhileFading()` ハンドラを追加: FadingOut の Movie パッドを検索して `StopImmediate()`。
+- `FindFadingMoviePad()` ヘルパーを追加: FadingOut かつ Movie カテゴリのパッドを返す。
+
+**バージョン**: v1.6.12 → v1.6.13（Debug ビルド済み、警告 0 / エラー 0）
+
+---
 
 
 

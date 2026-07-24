@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.6.13</Version>
+    <Version>1.7.0</Version>
     <AssemblyName>ikePon</AssemblyName>
     <ApplicationIcon>Assets\ikepon_icon.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>

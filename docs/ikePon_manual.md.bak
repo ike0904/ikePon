@@ -24,7 +24,7 @@
 | 項目 | 仕様 |
 |:---|:------|
 | 対応 OS | Windows 10/11 x64 |
-| 動作要件 | .NET 9 デスクトップランタイム（[ダウンロード](https://dotnet.microsoft.com/ja-jp/download/dotnet/9.0)） |
+| 動作要件 | .NET 9 デスクトップランタイム（[ダウンロード](https://dotnet.microsoft.com/ja-jp/download/dotnet/9.0)）<br>※ 未インストールの場合、初回起動時に自動でダウンロード＆インストールの確認が表示されます |
 | 開発環境 | C# / WPF / .NET 9 |
 | オーディオエンジン | NAudio（WASAPI Shared モード） |
 | 映像エンジン | LibVLCSharp |
@@ -597,7 +597,7 @@ CC の値（0〜127）がそのままフェーダー値に反映されます（C
 | Item | Specification |
 |:---|:------|
 | OS | Windows 10/11 x64 |
-| Requirements | .NET 9 Desktop Runtime ([Download](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)) |
+| Requirements | .NET 9 Desktop Runtime ([Download](https://dotnet.microsoft.com/en-us/download/dotnet/9.0))<br>※ If not installed, a download & install confirmation dialog appears automatically on first launch |
 | Framework | C# / WPF / .NET 9 |
 | Audio Engine | NAudio (WASAPI Shared mode) |
 | Video Engine | LibVLCSharp |

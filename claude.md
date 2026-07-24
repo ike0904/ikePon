@@ -1,74 +1,9 @@
 ・C:\Users\ike09\.claude\claude.md 初回起動時と更新あり時は必ず読むこと。
 
 
----
-
-## 作業記録 (v1.6.12 / 2026-07-20)
-
-### 黄色点滅（一時停止状態が続行）バグ修正（PadAudioSource.cs・MainWindow.xaml.cs）
-
-**根本原因**: `PadAudioSource.Stop(fadeDuration)` が `Paused` 状態のパッドを処理していなかった。
-`Playing | FadingOut` のみ `FadingOut` に遷移し、`Paused` はそのままにしていたため、
-右クリック FadeOut や ALL FADE で `Stop()` を呼んでも一時停止中パッドが `Paused` のまま残り、
-フェード後も UiTimer が state=Paused を検知して黄色点滅が継続していた。
-
-**修正内容**:
-- `PadAudioSource.Stop()` に `Paused → Idle`（即時）の処理を追加。一時停止中は出力が無音なのでフェードせず即停止。
-- フェード開始時に `_movieSecPaused = false; _movieSecTick = -1;` を全フェードパスに追加（右クリック fadeOut/cutOut/pauseResume の frozen ブランチ、TriggerPadWithMovie fadeOut、ExecuteAllFade、ExecutePanic）。
-- これにより「ALL CUT/ALL FADE後に一時停止状態が強制OFFになる」安全機構も同時に実現。
-
-### FreezeLastFrame 最終フレームで音声カットアウト（Bug2）
-
-**仕様対応**: "★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。"
-
-**実装内容（MovieWindow.xaml.cs / MovieController.cs / MainWindow.xaml.cs）**:
-- `MovieWindow` に `VideoFreezeAtEnd` イベントを追加。`OnMediaEnded` の FreezeLastFrame ケースで発火。
-- `MovieController` でイベントをフォワード（購読/解除も CloseDisplay/OpenDisplay に組み込み）。
-- `MainWindow` で `OnVideoFreezeAtEnd()` を実装: `_currentMoviePadIndex >= 0` なら `StopImmediate()` で即音声カットアウト。
-
-**バージョン**: v1.6.11 → v1.6.12（Debug ビルド済み、警告 0 / エラー 0）
-
----
-
-●直ってない（v1.6.11 時点）→ v1.6.12 で修正済み
-パッド詳細設定→最後まで再生した後→「最終フレームで止める」に設定されたパッドを再生後、一時停止中にFADEさせると、FADE終了後に枠が黄色点滅になる（一時停止状態）。フェードが始まったら、一時停止機能は解除すること。
-内部的に一時停止状態が続行しているのが遠因で、別の不具合も起きているようだ。（現在時間がカウントアップしない等）まずはこれを直して。
-「ALL CUTやALL FADE後に、一時停止状態が続行していないか確認・強制的にOFFにする」という機能を（念のため）入れた方が良いかもしれない。
-
-●再生コンテンツがフェード中に最終フレームに達した場合、以下の仕様とする。
-　・「最終フレームで止める」が選択されている時は、★映像のみ最終フレームで止めてフェードアウト続行。★音声は最終フレームでカットアウト。
-
-
-
-
-## 作業記録 (v1.6.11 / 2026-07-20)
-
-### FadeOut 後に FreezeLastFrame が再起動する問題修正（MainWindow.xaml.cs）
-
-**根本原因**: FadeOut 開始時に `_currentMoviePadIndex` をクリアしていなかった。audio が FadingOut→Idle に遷移すると、UiTimer が `i == _currentMoviePadIndex && state == Idle && AfterPlayback == FreezeLastFrame` を検知して `_freezeLastFramePadIndex` を再セットしてしまっていた。
-
-**修正箇所（3か所）**:
-- `TriggerPadWithMovie` fadeOut ブランチ: `_currentMoviePadIndex = -1` 追加
-- 右クリック FadeOut の `pausedMov` ハンドラ: `_currentMoviePadIndex = -1` 追加
-- `ExecuteAllFade()`: `_currentMoviePadIndex = -1` 追加
-
-この修正により「フェードが始まったら一時停止機能を動作させない」という仕様も同時に達成される（FreezeLastFrame の黄色点滅が再発しない）。
-
-### フェード中に最終フレームに達した場合の挙動（新Bug2）
-
-各ケースの現行動作を確認:
-- **FreezeLastFrame + fade**: `OnMediaEnded` で `_mediaPlayer.Pause()` → 最終フレーム静止・フェード続行。上記修正でフェード完了後の黄色点滅も解消。✓
-- **Stop + fade**: `OnMediaEnded` → `ShowStandby()` → `StopFadeTimer()` で映像フェード中断・スタンバイ表示。音声は FadingOut 継続。許容範囲とした（音声の強制カットアウトにはイベント機構の追加が必要なため保留）
-- **Loop BGM + fade**: `OnMediaEnded` で `_fadeTimer != null` → ループ再起動スキップ。音声ループしながらフェード。仕様通り。✓
-- **Loop MOV + fade**: 同上（映像ループ再起動スキップ）。音声は FadingOut 中にループ継続だが音量は低下中。MOV 強制カットアウトは将来課題として保留。
-
-### DISPLAY OFF→ON で FreezeLastFrame 絵が消える問題（新Bug3）
-
-**ログ追加**: `ResumeMovieIfPlaying` の frozen ブランチに `Logger.Log` を追加。frozenSec・endSec・rawDisplayedSec を出力するので次回再現時に原因特定可能。
-
-**潜在バグ修正**: `frozenSec >= endSec - 0.5` の場合（終端付近）、VLC が即終了して D3D11 フレームを描画できず黒画面になる可能性があった。`frozenSec = max(0, endSec - 2.0)` にフォールバックして、最低2秒のデコード時間を確保するよう修正。
-
-**バージョン**: v1.6.10 → v1.6.11（Debug ビルド済み、警告 0 / エラー 0）
+・このclaude.md内の作業記録は、mdファイルの一番後ろにつけること。
+作業記録は、上に行くほど新しく、下に行くほど古くすること。（目視しやすさを重視）
+また、作業記録は、バージョンの中間値インクリメントもしくは左値インクリメントで消去すること。これは全プロジェクト共通なので、共通claude.mdにメモすること。
 
 ---
 
@@ -111,233 +46,37 @@ WASAPI Shared 環境において、パッドのトリガー（再生開始）直
 
 ---
 
-## 作業記録 (v1.6.1 / 2026-07-19)
+## 作業記録 (v1.7.0 / 2026-07-24)
 
-### 映像ウィンドウ 16:9 固定（MovieWindow.xaml.cs）
-- `WM_SIZING` メッセージを `OnSourceInitialized` で HwndSource フックとして登録
-- ドラッグ方向（WMSZ_*）に応じて幅 or 高さを 16:9 比率に補正
-- 非クライアント領域サイズ（タイトルバー＋枠）を `Loaded` イベントでピクセル計算しキャッシュ
-- 全画面時（`_isFullScreen == true`）はフックをスキップ
-- 保存済みウィンドウ幅から高さも 16:9 で再計算（旧設定が非 16:9 でも起動時に修正）
+### ALL CUT が映像フェードを止めない不具合修正（MainWindow.xaml.cs）
 
-### WASAPIレイテンシ固定化（AudioEngine.cs）
-- `Start()` 引数廃止、`WasapiOut(Shared, 0)` に一本化（OS/ドライバデフォルト周期に委任）
-- `_latencyMs` フィールド削除、Exclusiveフォールバックは 100ms 固定
-- `FlushOutput()` の `Start(_latencyMs)` 呼び出しも `Start()` に変更
-
-### WASAPIレイテンシ設定削除（AppSettings / SettingsDialog / Strings）
-- `AppSettings.WasapiLatencyMs` プロパティ削除
-- SettingsDialog の TbLatency UI・バリデーション・保存ロジック一式削除
-- Strings.ja/en.xaml の `Str_Dlg_Settings_WasapiLatency` 削除
-
-### MainWindow.xaml.cs
-- `_engine.Start()` の引数削除
-- 設定変更後の再起動判定からレイテンシ変更チェックを除去
-
-### バージョン
-v1.6.0 → v1.6.1（Debug ビルド済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.2 / 2026-07-19)
-
-### インターロックのデフォルト値変更
-- `AppSettings.InterLockMs` のデフォルトを 500 → 100 に変更
-- `SettingsDialog` のリセット値も "500" → "100" に変更
-- Release publish 済み（警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.3 / 2026-07-20)
-
-### 低遅延ワイヤレスデバイスでのブザー音修正（AudioEngine.cs）
-
-**根本原因**: `Start()` 内の `WdlResamplingSampleProvider` がリアルタイムオーディオスレッドに乗っており、Stop/AllCut 後も resampler の内部バッファが WASAPI から pull され続けブザー音化していた。
+**根本原因**: `ExecutePanic()` の早期リターン条件に `!_movieCtrl.IsFading` が含まれていなかった。
+一時停止中 MOV パッドへの右クリック FadeOut → 音声は v1.6.12 修正で `Paused→Idle` 即移行、各インデックスも -1 となり ALL CUT を押しても早期リターンしてしまっていた。
 
 **修正内容**:
-- コンストラクタで `MMDeviceEnumerator` からデフォルトデバイスの `MixFormat.SampleRate` を取得し、`_format` をデバイスレートで初期化するよう変更
-- `Start()` から `WdlResamplingSampleProvider` のリアルタイムリサンプリング処理を完全削除（`this` を直接 `WasapiOut.Init()` に渡す）
-- `PadAudioSource.ConvertToFormat()` はロード時に一括リサンプリングするため変更不要（`_format.SampleRate` がデバイスレートになることで自動的に正しいレートでプリロードされる）
+- `ExecutePanic()` 早期リターン条件に `&& !_movieCtrl.IsFading` を追加（MainWindow.xaml.cs）
 
-**バージョン**: v1.6.2 → v1.6.3（Debug ビルド済み、警告 0 / エラー 0）
+### フェード中に最終フレーム到達時の音声継続修正（MovieWindow.xaml.cs / MovieController.cs / MainWindow.xaml.cs）
 
----
-
-## 作業記録 (v1.6.4 / 2026-07-20)
-
-### v1.6.3 差し戻し＋新AIの指摘を検証（AudioEngine.cs）
-
-**経緯**: v1.6.3 でブザー音が直らないどころかユーザー環境でも音がおかしくなったため、AudioEngine.cs を v1.6.2 状態に差し戻し。
-
-**差し戻し内容（AudioEngine.cs）**:
-- コンストラクタを `_format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2)` に戻す（デバイスレート取得廃止）
-- `Start()` に `WdlResamplingSampleProvider` を使ったリアルタイムリサンプリングを復元（デバイスが 48000 Hz 等の場合にリサンプルして合わせる）
-
-**新AIの指摘に関する検証結果（PadAudioSource.cs / AudioEngine.cs）**:
-- `ReadSource()` の `written < count` 時バッファクリア → **v1.6.1 時点から実装済み**（行 361: `Array.Clear(buffer, offset + written, count - written)`）
-- `_preloaded == null` 時のバッファクリア → **実装済み**（ReadSource 先頭のガード）
-- `Trigger()` の `_readPos` スレッド保護 → **実装済み**（`lock(_lock)` + `Math.Clamp`）
-- `AudioEngine.Read()` 冒頭の `Array.Clear` → **実装済み**（行 157）
-- 新AIが指摘した修正はいずれも既に実装済みのため、PadAudioSource.cs への変更は不要と判断
-
-**バージョン**: v1.6.3 → v1.6.4（Debug / Release publish 済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.5 / 2026-07-20)
-
-### ブザー音の根本原因特定と修正（AudioEngine.cs）
-
-**新たな知見**:
-- v1.6.3（WDL リアルタイム除去）でもユーザーの有線環境で同じブザーが出た
-- これにより WdlResamplingSampleProvider はブザーの原因ではないことが確定
-- 共通因子は「48kHz WASAPI Shared mode での動作」
-- 48kHz デバイスを WASAPI Shared で動かすと、発音トリガー直後に WASAPI バッファが正しく更新されず直前バッファがループ → ブザー
-
-**修正方針**: WASAPI Exclusive 44100Hz をファースト・チョイスにして 48kHz 問題を根本回避
-
-**Start() の優先順変更（AudioEngine.cs）**:
-1. **WASAPI Exclusive 44100Hz（新設・最優先）** → デバイスを 44100Hz に強制、48kHz バッファ問題を回避
-2. WASAPI Shared（デバイスが 48kHz なら WDL リサンプラー経由、既存フォールバック）
-3. WaveOutEvent（既存フォールバック）
-4. WASAPI Exclusive 100ms（最終フォールバック）
-
-**バージョン**: v1.6.4 → v1.6.5（Debug / Release publish 済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.6 / 2026-07-20)
-
-### パッド詳細設定 位置バリデーション強化（PadDetailDialog.xaml.cs）
-
-**問題**: `_savedTexts` がコンストラクタ内の GotFocus イベント登録だけで初期化されており、ダイアログオープン直後に GotFocus が未発火のテキストボックスに対してリバートを試みると `""` に戻っていた。
+**Bug 2a – FreezeLastFrame 中**: フェード開始時に `_currentMoviePadIndex = -1` がセットされるため、`OnVideoFreezeAtEnd()` が早期リターンし音声がカットされなかった。
+**Bug 2b – Stop/Loop 中**: `OnMediaEnded()` default case にフェード終端イベントが存在せず音声継続した。
 
 **修正内容**:
-- `LoadValues()` 呼び出し直後に `_savedTexts[TbPadGain/TbStartPos/TbEndPos/TbLoopStart]` を LoadValues が設定した初期値で事前初期化
-- これにより Enter/ブラー時の `CommitPosBox` がクロスフィールド検証で確実に正しい元値へリバートするようになる
+- `MovieWindow` に `VideoEndedWhileFading` イベントを追加。`OnMediaEnded` default case で `_fadeTimer != null` の場合に発火。
+- `MovieController` でイベントをフォワード（購読/解除も OpenDisplay/CloseDisplay に組み込み）。
+- `MainWindow` で `OnVideoFreezeAtEnd()` を修正: `_currentMoviePadIndex < 0` のとき `FindFadingMoviePad()` でフォールバック検索。
+- `MainWindow` に `OnVideoEndedWhileFading()` ハンドラを追加: FadingOut の Movie パッドを `StopImmediate()`。
+- `FindFadingMoviePad()` ヘルパーを追加。
 
-### MOV FreezeLastFrame タップ挙動変更（MainWindow.xaml.cs）
+### マニュアル更新（v1.6.0→v1.7.0 差分）・PDF 生成・Release publish
 
-**変更前**: フリーズ中に同一パッドをタップすると `wasActive=false` → `isNewMoviePlay=true` となり再トリガーされていた
+- 表紙・各セクションのバージョン表記を v1.7.0 に更新
+- 映像ウィンドウ 16:9 自動維持の記述を追加（JA/EN）
+- 連打防止時間デフォルトを 500ms → 100ms に更新
+- WASAPI レイテンシ設定行を削除（設定画面テーブル）
+- FreezeLastFrame の一時停止/再開挙動をマニュアルに反映（右クリックメニュー）
+- v1.7.0 更新履歴を追記（JA/EN）
+- `python gen_pdf.py` で PDF 生成 → dist/ に自動コピー
+- `dotnet publish -c Release` でシングルファイル Release 済み（警告 0 / エラー 0）
 
-**変更後**: `TriggerPadWithMovie()` の `isNewMoviePlay` 判定前に `_freezeLastFramePadIndex == padIndex` チェックを追加
-- TapBehavior.FadeOut → 映像をフェードアウト（`_movieCtrl.FadeVideo`）
-- TapBehavior.CutOut / PauseResume → 映像をカットアウト（`_movieCtrl.StopVideo`）
-
-**バージョン**: v1.6.5 → v1.6.6（Debug ビルド済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.8 / 2026-07-20)
-
-### FreezeLastFrame 不具合3件修正（MainWindow.xaml.cs）
-
-**Bug 1: 現在時間表示が常に最終フレームの値**
-- freeze 検出時に `_freezeLastFrameDisplayedSec = _movieDisplayedSec` を保存
-- 表示 override を `pos = 1.0f` から `pos = _freezeLastFrameDisplayedSec / totalSec` に変更（フォールバックは 1.0f）
-- wall clock が停止した実際の秒数を使うことで正確な位置表示
-
-**Bug 2: 右クリック「一時停止／再開」がグレーアウト**
-- `pauseEnabled` から `!isFrozen` を削除
-- PauseResume クリック時に `isFrozen` ならフリーズ解除 + `TriggerPadWithMovie` で最初から再生
-
-**Bug 3: 右クリック FadeOut/CutOut で音が止まらない**
-- FadeOut ハンドラ: `if (state == PadPlayState.Paused)` → `if (state == PadPlayState.Paused || isFrozen)` に変更
-- CutOut ハンドラ: `isFrozen` ブランチに `StopImmediate` 呼び出しを追加
-
-**バージョン**: v1.6.7 → v1.6.8（Debug / Release publish 済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.9 / 2026-07-20)
-
-### FreezeLastFrame 右クリック不具合修正 + DISPLAY OFF→ON 不具合修正（MainWindow.xaml.cs）
-
-**Bug A: 右クリックフェードアウト→音がカットアウトされる（一時停止中 Movie パッド）**
-- FadeOut ハンドラ `pausedMov` ブランチで `state == PadPlayState.Paused` 時に `StopImmediate()` を呼んでいた
-- `Stop(_settings.LongFadeDuration)` に変更してフェードアウトに修正
-- フリーズ中（`isFrozen`）は音声 Idle のため操作不要（削除）
-
-**Bug B: 右クリック一時停止→フェードアウト・枠点滅残存**
-- `isFrozen` 時の PauseResume ハンドラが `TriggerPadWithMovie` を呼び、`PrepareForPlay()` の黒画面がフェードアウトに見えていた
-- `TriggerPadWithMovie` → `StopVideo()` に変更。フリーズ解除して Idle に戻すのみ。
-- ユーザーが再生したい場合はパッドをタップで最初から再生できる
-
-**Bug C: DISPLAY OFF→ON で FreezeLastFrame の絵が消える**
-- `ResumeMovieIfPlaying` がループ先頭で Idle パッドをスキップするため、フリーズパッド（音声 Idle）が無視されていた
-- ループの前に `_freezeLastFramePadIndex >= 0` チェックを追加
-- 凍結位置（`_freezeLastFrameDisplayedSec`）から `PlayVideo(AfterPlayback=FreezeLastFrame)` を呼び、VLC が終端に達して最終フレームで静止するよう対処
-
-**Bug D: DISPLAY OFF→ON で一時停止中の動画が映像のみ再生再開される**
-- `ResumeMovieIfPlaying` が `StartMovieWallClock` を呼ぶと `_movieSecPaused=false` になり、その後 `PlayVideo` で映像が再生されるが音声は Paused のまま → 非同期
-- `state == PadPlayState.Paused` 時は `StartMovieWallClock` 後に `_movieSecPaused = true` へ上書き
-- フィールド `_pendingPauseAfterVideoShown` を追加（`bool`）
-- `OnMovieVideoShown` で `_pendingPauseAfterVideoShown == true` なら `_movieCtrl.PauseVideo()` を呼び、VLC を最初フレーム後に即座に一時停止
-
-**バージョン**: v1.6.8 → v1.6.9（Debug / Release publish 済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.10 / 2026-07-20)
-
-### DISPLAY OFF クラッシュ修正（MovieController.cs）
-
-**根本原因**: `CloseDisplay()` が `_window.StopVideo()`（内部で `Task.Run(Stop)` の非同期 VLC 停止を開始）した直後に `_window.Close()` を呼んでいた。VLC 描画スレッドが D3D11 サーフェスにアクセス中に Window が破棄されるためクラッシュ。
-
-**修正内容**:
-- `_window = null` を先行させて二重クローズを防止
-- `Task.Delay(150).ContinueWith(_ => w.Dispatcher.InvokeAsync(() => w.Close()))` で 150ms 後に Close
-- `using ikePon;` を追加して `Logger.Log` を使用可能に
-
-### WM_SIZING 最小サイズ修正（MainWindow.xaml.cs）
-
-**問題**: 最小サイズ付近でリサイズすると左右固定で上下だけ動くことがあった。
-
-**根本原因**: WM_SIZING ハンドラが `cw`/`ch` を最小値でクランプしておらず、各辺の anchor edge も未修正だった。
-
-**修正内容**:
-- `GetDpiForWindow(hwnd) / 96.0` で DPI スケールを取得し `minCW` / `minCH` を算出
-- 全 8 方向（WMSZ_*）で `cw = Math.Max(cw, minCW)` をクランプ
-- 各方向に応じて anchor edge を `rc.Left`/`rc.Right`/`rc.Top`/`rc.Bottom` で正しく補正
-
-### WM_WINDOWPOSCHANGING スナップ対策（MainWindow.xaml.cs）
-
-**問題**: 画面端スナップなど WM_SIZING を経由しないサイズ変更でアスペクト比が崩れていた。
-
-**修正内容**:
-- `WINDOWPOS` 構造体と `WM_WINDOWPOSCHANGING (0x0046)` 定数を追加
-- `SWP_NOSIZE` フラグが立っていない（サイズ変更を伴う）場合に `cw / _mainAspectRatio` でターゲット `cy` を算出
-- WM_SIZING の丸め誤差（±2px）は許容、それ以上の差異でアスペクト比を強制適用
-
-### フェードアウトオーバーレイ修正（MovieWindow.xaml.cs）
-
-**問題**: フェードアウト時に作成した TOPMOST Window が他のウィンドウも覆ってしまっていた。
-
-**根本原因**: `FadeVideo()` が新規 `Window { Topmost=true }` を生成し `SetWindowPos(HWND_TOPMOST)` でさらに最前面に強制していた。
-
-**修正内容**:
-- `_fadeOverlay` フィールド・`SetWindowPos` P/Invoke・`HWND_TOPMOST`/`SWP_NOMOVE`/`SWP_NOSIZE` 定数をすべて削除
-- `FadeVideo()`: `_fgStandbyImage.Source = null`（黒のみ）+ `ShowFgStandby(0.0)` でフェード開始
-- `FadeTimer_Tick()`: `SetFgStandbyOpacity(progress)` で透明度をアニメーション。完了後 `LoadStandbyImage` + `ShowFgStandby(1.0)`
-- `StopFadeTimer()`: オーバーレイ Close 処理を削除（不要になったため）
-
-**バージョン**: v1.6.9 → v1.6.10（Debug ビルド済み、警告 0 / エラー 0）
-
----
-
-## 作業記録 (v1.6.7 / 2026-07-20)
-
-### パッド詳細設定 ボックス外クリック時のバリデーション修正（PadDetailDialog.xaml / .cs）
-
-**問題**: ENTERでは元に戻るが、テキストボックス外をクリックしたときには無効値がそのまま残っていた。
-
-**根本原因**: `LostFocus` は ComboBox 内の ToggleButton など内部で `e.Handled=true` するコントロールをクリックすると `Window_MouseDown` に到達せず、`Keyboard.ClearFocus()` が呼ばれないケースがある。その場合 `PosBox_LostFocus` も呼ばれず、`CommitPosBox` によるリバートが実行されない。
-
-**修正内容**:
-- Window の `PreviewMouseDown` ハンドラ (`Window_PreviewMouseDown`) を追加
-- PreviewMouseDown はトンネリング（Window から先に発火）のため、どこをクリックしても必ず最初に実行される
-- ハンドラ内で `Keyboard.FocusedElement` が位置テキストボックスなら即座に `CommitPosBox` を呼ぶ
-- `LostFocus` / `Window_MouseDown` の既存ロジックはそのまま維持（タブキー移動等のフォローアップ用）
-
-**バージョン**: v1.6.6 → v1.6.7（Debug / Release publish 済み、警告 0 / エラー 0）
-
+**バージョン**: v1.6.13 → v1.7.0（Release publish 済み）
